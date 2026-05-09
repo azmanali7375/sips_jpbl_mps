@@ -28,10 +28,9 @@ export function SubmissionForm() {
     projectType: "",
     location: "",
     lotNumber: "",
-    proposedUse: "",
+    landUseZone: "",
     plotArea: "",
     buildingHeight: "",
-    description: ""
   });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: UploadedFile['type']) => {
@@ -93,10 +92,9 @@ export function SubmissionForm() {
         project_type: formData.projectType as any,
         location: formData.location,
         lot_number: formData.lotNumber,
-        proposed_use: formData.proposedUse,
+        land_use_zone: formData.landUseZone,
         plot_area: formData.plotArea ? parseFloat(formData.plotArea) : undefined,
         building_height: formData.buildingHeight ? parseFloat(formData.buildingHeight) : undefined,
-        description: formData.description || undefined,
       });
 
       if (!application) {
@@ -181,12 +179,12 @@ export function SubmissionForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="proposedUse">Proposed Use</Label>
+              <Label htmlFor="landUseZone">Land Use Zone</Label>
               <Input
-                id="proposedUse"
-                placeholder="e.g., Retail and residential"
-                value={formData.proposedUse}
-                onChange={(e) => setFormData({ ...formData, proposedUse: e.target.value })}
+                id="landUseZone"
+                placeholder="e.g., Commercial, Residential"
+                value={formData.landUseZone}
+                onChange={(e) => setFormData({ ...formData, landUseZone: e.target.value })}
               />
             </div>
 
@@ -213,17 +211,6 @@ export function SubmissionForm() {
                 onChange={(e) => setFormData({ ...formData, buildingHeight: e.target.value })}
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Project Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Provide additional details about your project..."
-              rows={4}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
           </div>
         </CardContent>
       </Card>
