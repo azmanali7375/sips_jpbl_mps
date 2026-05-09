@@ -142,7 +142,7 @@ export const complianceService = {
         officer_id: user.id,
         comment: "Automated compliance check completed",
         decision: "pending",
-        compliance_results: results,
+        compliance_results: results as any,
       });
 
     if (error) {

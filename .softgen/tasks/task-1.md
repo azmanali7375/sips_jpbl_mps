@@ -1,6 +1,6 @@
 ---
 title: Database Schema & Authentication Setup
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: [database, authentication, backend]
