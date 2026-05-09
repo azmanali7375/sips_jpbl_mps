@@ -52,7 +52,7 @@ export const authService = {
   },
 
   // Sign up with email and password
-  async signUp(email: string, password: string, fullName: string, role: "applicant" | "officer" | "admin" = "applicant") {
+  async signUp(email: string, password: string, fullName: string, role: "applicant" | "admin_assistant" | "unit_head" | "assistant_planner_j5" | "department_head" | "ydp" = "applicant") {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
