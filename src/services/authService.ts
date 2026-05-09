@@ -52,34 +52,35 @@ export const authService = {
   },
 
   // Sign up with email and password
-  async signUp(email: string, password: string): Promise<{ user: AuthUser | null; error: AuthError | null }> {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${getURL()}auth/confirm-email`
+  async signUp(email: string, password: string, fullName: string, role: "applicant" | "officer" | "admin" = "applicant") {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          role: role
         }
-      });
-
-      if (error) {
-        return { user: null, error: { message: error.message, code: error.status?.toString() } };
       }
+    });
 
-      const authUser = data.user ? {
-        id: data.user.id,
-        email: data.user.email || "",
-        user_metadata: data.user.user_metadata,
-        created_at: data.user.created_at
-      } : null;
+    if (error) throw error;
 
-      return { user: authUser, error: null };
-    } catch (error) {
-      return { 
-        user: null, 
-        error: { message: "An unexpected error occurred during sign up" } 
-      };
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ 
+          full_name: fullName,
+          role: role 
+        })
+        .eq("id", data.user.id);
+
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
+      }
     }
+
+    return data;
   },
 
   // Sign in with email and password
