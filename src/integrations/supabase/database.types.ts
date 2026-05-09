@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -18,71 +18,95 @@ export type Database = {
       applications: {
         Row: {
           applicant_id: string
+          assigned_at: string | null
           assigned_officer_id: string | null
           building_height: number | null
           created_at: string | null
           decision_date: string | null
+          department_head_id: string | null
+          head_review_completed_at: string | null
           id: string
           land_use_zone: string | null
           location: string
           lot_number: string | null
+          osc_meeting_date: string | null
           plot_area: number | null
           plot_ratio: number | null
           project_name: string
           project_type: string | null
+          registered_by: string | null
           reviewed_at: string | null
           setback_front: number | null
           setback_rear: number | null
           setback_side: number | null
+          site_visit_completed_at: string | null
           status: string | null
           submitted_at: string | null
+          technical_report_completed_at: string | null
           tracking_number: string
+          unit_head_id: string | null
           updated_at: string | null
         }
         Insert: {
           applicant_id: string
+          assigned_at?: string | null
           assigned_officer_id?: string | null
           building_height?: number | null
           created_at?: string | null
           decision_date?: string | null
+          department_head_id?: string | null
+          head_review_completed_at?: string | null
           id?: string
           land_use_zone?: string | null
           location: string
           lot_number?: string | null
+          osc_meeting_date?: string | null
           plot_area?: number | null
           plot_ratio?: number | null
           project_name: string
           project_type?: string | null
+          registered_by?: string | null
           reviewed_at?: string | null
           setback_front?: number | null
           setback_rear?: number | null
           setback_side?: number | null
+          site_visit_completed_at?: string | null
           status?: string | null
           submitted_at?: string | null
+          technical_report_completed_at?: string | null
           tracking_number?: string
+          unit_head_id?: string | null
           updated_at?: string | null
         }
         Update: {
           applicant_id?: string
+          assigned_at?: string | null
           assigned_officer_id?: string | null
           building_height?: number | null
           created_at?: string | null
           decision_date?: string | null
+          department_head_id?: string | null
+          head_review_completed_at?: string | null
           id?: string
           land_use_zone?: string | null
           location?: string
           lot_number?: string | null
+          osc_meeting_date?: string | null
           plot_area?: number | null
           plot_ratio?: number | null
           project_name?: string
           project_type?: string | null
+          registered_by?: string | null
           reviewed_at?: string | null
           setback_front?: number | null
           setback_rear?: number | null
           setback_side?: number | null
+          site_visit_completed_at?: string | null
           status?: string | null
           submitted_at?: string | null
+          technical_report_completed_at?: string | null
           tracking_number?: string
+          unit_head_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -96,6 +120,84 @@ export type Database = {
           {
             foreignKeyName: "applications_assigned_officer_id_fkey"
             columns: ["assigned_officer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_department_head_id_fkey"
+            columns: ["department_head_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_unit_head_id_fkey"
+            columns: ["unit_head_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approved_plans: {
+        Row: {
+          application_id: string
+          created_at: string | null
+          endorsed_by: string | null
+          endorsed_date: string
+          endorsement_stamp_path: string | null
+          id: string
+          notes: string | null
+          plan_file_path: string | null
+          plan_registration_number: string
+          registered_by: string
+          registration_date: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string | null
+          endorsed_by?: string | null
+          endorsed_date: string
+          endorsement_stamp_path?: string | null
+          id?: string
+          notes?: string | null
+          plan_file_path?: string | null
+          plan_registration_number: string
+          registered_by: string
+          registration_date?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string | null
+          endorsed_by?: string | null
+          endorsed_date?: string
+          endorsement_stamp_path?: string | null
+          id?: string
+          notes?: string | null
+          plan_file_path?: string | null
+          plan_registration_number?: string
+          registered_by?: string
+          registration_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approved_plans_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approved_plans_registered_by_fkey"
+            columns: ["registered_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -192,6 +294,57 @@ export type Database = {
           },
         ]
       }
+      generated_reports: {
+        Row: {
+          application_id: string
+          created_at: string | null
+          file_path: string | null
+          generated_by: string
+          id: string
+          is_finalized: boolean | null
+          report_content: string
+          report_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string | null
+          file_path?: string | null
+          generated_by: string
+          id?: string
+          is_finalized?: boolean | null
+          report_content: string
+          report_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string | null
+          file_path?: string | null
+          generated_by?: string
+          id?: string
+          is_finalized?: boolean | null
+          report_content?: string
+          report_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_reports_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_reports_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           application_id: string | null
@@ -240,6 +393,63 @@ export type Database = {
           },
         ]
       }
+      osc_decisions: {
+        Row: {
+          amendment_requirements: string | null
+          application_id: string
+          approval_conditions: string | null
+          created_at: string | null
+          decision_type: string
+          id: string
+          meeting_date: string
+          meeting_number: string | null
+          recorded_by: string
+          rejection_reasons: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amendment_requirements?: string | null
+          application_id: string
+          approval_conditions?: string | null
+          created_at?: string | null
+          decision_type: string
+          id?: string
+          meeting_date: string
+          meeting_number?: string | null
+          recorded_by: string
+          rejection_reasons?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amendment_requirements?: string | null
+          application_id?: string
+          approval_conditions?: string | null
+          created_at?: string | null
+          decision_type?: string
+          id?: string
+          meeting_date?: string
+          meeting_number?: string | null
+          recorded_by?: string
+          rejection_reasons?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "osc_decisions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "osc_decisions_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -272,6 +482,36 @@ export type Database = {
           id?: string
           phone?: string | null
           role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      report_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          template_content: string
+          template_name: string
+          template_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          template_content: string
+          template_name: string
+          template_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          template_content?: string
+          template_name?: string
+          template_type?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -315,6 +555,226 @@ export type Database = {
           {
             foreignKeyName: "reviews_officer_id_fkey"
             columns: ["officer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_photos: {
+        Row: {
+          caption: string | null
+          id: string
+          location_description: string | null
+          photo_type: string | null
+          photo_url: string
+          site_visit_id: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          caption?: string | null
+          id?: string
+          location_description?: string | null
+          photo_type?: string | null
+          photo_url: string
+          site_visit_id: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          caption?: string | null
+          id?: string
+          location_description?: string | null
+          photo_type?: string | null
+          photo_url?: string
+          site_visit_id?: string
+          uploaded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_photos_site_visit_id_fkey"
+            columns: ["site_visit_id"]
+            isOneToOne: false
+            referencedRelation: "site_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_visits: {
+        Row: {
+          access_notes: string | null
+          application_id: string
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          observations: string | null
+          officer_id: string
+          site_condition: string | null
+          surrounding_development: string | null
+          technical_notes: string | null
+          updated_at: string | null
+          visit_date: string
+        }
+        Insert: {
+          access_notes?: string | null
+          application_id: string
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          observations?: string | null
+          officer_id: string
+          site_condition?: string | null
+          surrounding_development?: string | null
+          technical_notes?: string | null
+          updated_at?: string | null
+          visit_date: string
+        }
+        Update: {
+          access_notes?: string | null
+          application_id?: string
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          observations?: string | null
+          officer_id?: string
+          site_condition?: string | null
+          surrounding_development?: string | null
+          technical_notes?: string | null
+          updated_at?: string | null
+          visit_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_visits_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_officer_id_fkey"
+            columns: ["officer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_history: {
+        Row: {
+          application_id: string
+          changed_by: string
+          comment: string | null
+          created_at: string | null
+          from_status: string | null
+          id: string
+          to_status: string
+        }
+        Insert: {
+          application_id: string
+          changed_by: string
+          comment?: string | null
+          created_at?: string | null
+          from_status?: string | null
+          id?: string
+          to_status: string
+        }
+        Update: {
+          application_id?: string
+          changed_by?: string
+          comment?: string | null
+          created_at?: string | null
+          from_status?: string | null
+          id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_history_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      written_directives: {
+        Row: {
+          application_id: string
+          created_at: string | null
+          directive_content: string
+          directive_number: string | null
+          id: string
+          prepared_by: string
+          prepared_date: string | null
+          reviewed_by: string | null
+          sent_date: string | null
+          signed_by: string | null
+          signed_date: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string | null
+          directive_content: string
+          directive_number?: string | null
+          id?: string
+          prepared_by: string
+          prepared_date?: string | null
+          reviewed_by?: string | null
+          sent_date?: string | null
+          signed_by?: string | null
+          signed_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string | null
+          directive_content?: string
+          directive_number?: string | null
+          id?: string
+          prepared_by?: string
+          prepared_date?: string | null
+          reviewed_by?: string | null
+          sent_date?: string | null
+          signed_by?: string | null
+          signed_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "written_directives_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "written_directives_prepared_by_fkey"
+            columns: ["prepared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "written_directives_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "written_directives_signed_by_fkey"
+            columns: ["signed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

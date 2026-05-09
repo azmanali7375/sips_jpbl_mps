@@ -1,6 +1,6 @@
 ---
 title: OSC Meeting Decisions & Plan Registration
-status: todo
+status: in_progress
 priority: medium
 type: feature
 tags: [osc, meeting, approval]
@@ -13,8 +13,8 @@ position: 9
 Record OSC meeting decisions (Approve/Reject/Approve with Amendments), auto-generate appropriate forms (C1/C2), manage Written Directives for amendments requiring YDP signature, and register endorsed approved plans.
 
 ## Checklist
-- [ ] Create osc_decisions table with application_id FK, meeting_date, decision_type, reasons
-- [ ] Create written_directives table for plan amendments requiring YDP signature
+- [x] Create osc_decisions table with application_id FK, meeting_date, decision_type, reasons
+- [x] Create written_directives table for plan amendments requiring YDP signature
 - [ ] OSC decision recording form with 3 options: Lulus/Tolak/Lulus Dengan Pindaan
 - [ ] Auto-generate Form C1 for approvals
 - [ ] Auto-generate Form C2 for rejections

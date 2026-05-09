@@ -1,6 +1,6 @@
 ---
 title: Automatic Report Generation System
-status: todo
+status: in_progress
 priority: high
 type: feature
 tags: [reports, automation, ai]
@@ -13,7 +13,7 @@ position: 8
 System auto-generates professional reports based on application data, policy documents (RFN, RSN, RTD, Climate Action Plans, Smart City Plans, SDG Roadmap), guidelines, and site visit observations. Reports follow standardized MPS Segamat format.
 
 ## Checklist
-- [ ] Create report_templates table for different report types
+- [x] Create report_templates table for different report types
 - [ ] Technical Report generation with policy document references
 - [ ] Recommendation Report (Laporan Syor) based on Department Head input
 - [ ] Written Directive (Arahan Bertulis) for plan amendments

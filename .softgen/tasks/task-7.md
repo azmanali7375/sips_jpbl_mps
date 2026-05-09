@@ -1,6 +1,6 @@
 ---
 title: Site Visit Module with Photo Upload
-status: todo
+status: in_progress
 priority: high
 type: feature
 tags: [site-visit, photos, field-work]
@@ -13,8 +13,8 @@ position: 7
 Assistant Planners conduct site visits to observe and verify site conditions. During visits, they capture photos, upload to system, record observations and technical information. System uses this data for automatic technical report generation.
 
 ## Checklist
-- [ ] Create site_visits table with application_id FK, officer_id FK, visit_date, observations
-- [ ] Create site_photos table with site_visit_id FK, photo_url, caption, location
+- [x] Create site_visits table with application_id FK, officer_id FK, visit_date, observations
+- [x] Create site_photos table with site_visit_id FK, photo_url, caption, location
 - [ ] Site visit form - date, observations, technical notes
 - [ ] Multi-photo upload with drag-drop support
 - [ ] Photo gallery view with captions and locations
