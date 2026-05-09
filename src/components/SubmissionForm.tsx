@@ -13,7 +13,7 @@ import { Upload, FileText, CheckCircle, X, Loader2 } from "lucide-react";
 
 interface UploadedFile {
   file: File;
-  type: 'site_plan' | 'floor_plan' | 'elevation' | 'cad_drawing' | 'supporting_document';
+  type: 'site_plan' | 'floor_plan' | 'elevation' | 'cad_drawing' | 'other';
   preview?: string;
 }
 
@@ -28,7 +28,6 @@ export function SubmissionForm() {
     projectType: "",
     location: "",
     lotNumber: "",
-    district: "",
     proposedUse: "",
     plotArea: "",
     buildingHeight: "",
@@ -65,7 +64,7 @@ export function SubmissionForm() {
       floor_plan: "Floor Plan",
       elevation: "Elevation Drawing",
       cad_drawing: "CAD Drawing",
-      supporting_document: "Supporting Document"
+      other: "Supporting Document"
     };
     return labels[type];
   };
@@ -94,7 +93,6 @@ export function SubmissionForm() {
         project_type: formData.projectType as any,
         location: formData.location,
         lot_number: formData.lotNumber,
-        district: formData.district,
         proposed_use: formData.proposedUse,
         plot_area: formData.plotArea ? parseFloat(formData.plotArea) : undefined,
         building_height: formData.buildingHeight ? parseFloat(formData.buildingHeight) : undefined,
@@ -179,16 +177,6 @@ export function SubmissionForm() {
                 placeholder="e.g., PT 12345"
                 value={formData.lotNumber}
                 onChange={(e) => setFormData({ ...formData, lotNumber: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="district">District</Label>
-              <Input
-                id="district"
-                placeholder="e.g., Segamat"
-                value={formData.district}
-                onChange={(e) => setFormData({ ...formData, district: e.target.value })}
               />
             </div>
 
@@ -314,7 +302,7 @@ export function SubmissionForm() {
                   type="file"
                   accept=".pdf,.doc,.docx,.xls,.xlsx"
                   multiple
-                  onChange={(e) => handleFileUpload(e, 'supporting_document')}
+                  onChange={(e) => handleFileUpload(e, 'other')}
                   className="cursor-pointer"
                 />
                 <Upload className="h-4 w-4 text-muted-foreground" />
