@@ -4,18 +4,15 @@ import { LoginForm } from "@/components/auth/LoginForm";
 export default function LoginPage() {
   return (
     <>
-      <SEO 
-        title="Sign In - DC Management System"
-        description="Sign in to access the Development Control Management System for Segamat Municipal Council"
-      />
-      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+      <SEO title="Log Masuk - Sistem SPC MPS" />
+      <div className="min-h-screen flex items-center justify-center bg-muted/20 p-4">
         <div className="w-full max-w-md space-y-6">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-serif font-bold text-primary">
-              DC Management System
+          <div className="text-center">
+            <h1 className="text-3xl font-serif font-bold text-primary mb-2">
+              Sistem SPC MPS
             </h1>
             <p className="text-muted-foreground">
-              Majlis Perbandaran Segamat
+              Log masuk ke akaun anda
             </p>
           </div>
           <LoginForm />
