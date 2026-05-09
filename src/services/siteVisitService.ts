@@ -57,7 +57,7 @@ export const siteVisitService = {
         site_visit_id: siteVisitId,
         photo_url: urlData.publicUrl,
         caption: caption || undefined,
-        location: location || undefined,
+        location_description: location || undefined,
       });
 
       if (dbError) throw dbError;
@@ -105,7 +105,7 @@ export const siteVisitService = {
   async completeSiteVisit(siteVisitId: string): Promise<boolean> {
     const { error } = await supabase
       .from("site_visits")
-      .update({ completed: true })
+      .update({ is_completed: true })
       .eq("id", siteVisitId);
 
     if (error) {

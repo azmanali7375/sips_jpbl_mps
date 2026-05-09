@@ -80,7 +80,6 @@ export const workflowService = {
       .update({
         status: "registered",
         registered_by: user.id,
-        registered_at: new Date().toISOString(),
       })
       .eq("id", applicationId);
 
@@ -106,7 +105,7 @@ export const workflowService = {
       .from("applications")
       .update({
         status: "assigned",
-        assigned_to: plannerId,
+        assigned_officer_id: plannerId,
         unit_head_id: user.id,
         assigned_at: new Date().toISOString(),
       })
@@ -124,7 +123,8 @@ export const workflowService = {
       user_id: plannerId,
       application_id: applicationId,
       type: "assignment",
-      message: `You have been assigned a new application`,
+      title: "Tugasan Baru",
+      message: `Anda telah diberikan tugasan baru untuk menyemak permohonan`,
     });
 
     return true;
@@ -148,7 +148,7 @@ export const workflowService = {
       .from("applications")
       .update({
         status: "technical_report",
-        technical_report_submitted_at: new Date().toISOString(),
+        technical_report_completed_at: new Date().toISOString(),
       })
       .eq("id", applicationId);
 
@@ -171,7 +171,8 @@ export const workflowService = {
         user_id: app.department_head_id,
         application_id: applicationId,
         type: "status_change",
-        message: "Technical report ready for review",
+        title: "Laporan Teknikal Sedia",
+        message: "Laporan teknikal sedia untuk disemak oleh Ketua Jabatan",
       });
     }
 
@@ -216,15 +217,20 @@ export const workflowService = {
     meetingDate: string,
     reasons?: string
   ): Promise<boolean> {
+    const decisionPayload: any = {
+      application_id: applicationId,
+      meeting_date: meetingDate,
+      decision_type: decision,
+    };
+    
+    if (decision === "rejected") decisionPayload.rejection_reasons = reasons;
+    else if (decision === "approved_with_amendments") decisionPayload.amendment_requirements = reasons;
+    else if (decision === "approved") decisionPayload.approval_conditions = reasons;
+
     // Record decision in osc_decisions table
     const { error: decisionError } = await supabase
       .from("osc_decisions")
-      .insert({
-        application_id: applicationId,
-        meeting_date: meetingDate,
-        decision_type: decision,
-        reasons: reasons || undefined,
-      });
+      .insert(decisionPayload);
 
     if (decisionError) {
       console.error("Error recording OSC decision:", decisionError);
@@ -272,7 +278,7 @@ export const workflowService = {
         break;
       case "assistant_planner_j5":
         // See assigned to me
-        query = query.eq("assigned_to", profile.id);
+        query = query.eq("assigned_officer_id", profile.id);
         break;
       case "department_head":
         // See technical_report status
