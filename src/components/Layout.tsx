@@ -70,6 +70,9 @@ export function Layout({ children }: LayoutProps) {
       ],
       unit_head: [
         { href: "/dashboard/assign", icon: Users, label: "Agih Permohonan" },
+        { href: "/dashboard/my-assignments", icon: ClipboardList, label: "Tugasan Saya" },
+        { href: "/dashboard/site-visits", icon: Camera, label: "Lawatan Tapak" },
+        { href: "/dashboard/reports", icon: FileCheck, label: "Laporan Teknikal" },
         { href: "/dashboard/applications", icon: FileText, label: "Senarai Permohonan" },
       ],
       assistant_planner_j5: [
