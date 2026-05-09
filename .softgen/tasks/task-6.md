@@ -15,8 +15,8 @@ Enhanced workflow to match Malaysian government SPC MPS system. Applications com
 ## Checklist
 - [x] Update user roles: admin_assistant, unit_head, assistant_planner_j5, department_head, ydp
 - [x] Create workflow stages table: osc_received → registered → assigned → site_visit → technical_report → head_review → recommendation → osc_meeting → approved/rejected
-- [ ] Admin Assistant dashboard - register applications from OSC
-- [ ] Unit Head dashboard - view pending assignments, assign to Assistant Planners
+- [x] Admin Assistant dashboard - register applications from OSC
+- [x] Unit Head dashboard - view pending assignments, assign to Assistant Planners
 - [ ] Assistant Planner dashboard - receive assignments with notifications
 - [ ] Department Head dashboard - review technical reports, provide recommendations
 - [ ] Automatic notification system for each workflow stage
