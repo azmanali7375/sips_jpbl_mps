@@ -1,27 +1,30 @@
 ---
 title: Application Submission Portal
-status: todo
+status: in_progress
 priority: high
 type: feature
-tags: [frontend, forms, upload]
+tags: [frontend, submission, forms]
 created_by: agent
 created_at: 2026-05-09T14:32:57Z
 position: 2
 ---
 
 ## Notes
-Applicant-facing portal for submitting new DC applications. Multi-step form with project details, location information, file uploads (PDF plans, DWG drawings, images), and pre-submission checklist validation. Uses Supabase Storage for file management.
+User-facing portal for submitting development control applications with document uploads, form validation, and applicant tracking. Includes authentication pages, landing page, and submission form with file upload capabilities for PDFs, DWG files, and images.
 
 ## Checklist
-- [ ] Create submission form component with project details fields (name, type, location, plot_ratio, setback)
-- [ ] Add file upload interface supporting PDF, DWG, PNG, JPG with drag-and-drop
-- [ ] Build checklist validation component (required documents, completeness check)
-- [ ] Create applicationService for CRUD operations
-- [ ] Create documentService for file upload/download with Supabase Storage
-- [ ] Add submission success page with application tracking number
-- [ ] Build "My Applications" list view for applicants to track status
+- [x] Create landing page with feature highlights and CTAs
+- [x] Build login form with error handling
+- [x] Build registration form with role selection
+- [ ] Create application submission form with project details fields
+- [ ] Add multi-file upload component (PDF, DWG, images)
+- [ ] Implement checklist validation before submission
+- [ ] Create applicant dashboard to view submission status
+- [ ] Add application tracking number generation
 
 ## Acceptance
-- Applicants can submit complete applications with all required documents
-- Files upload successfully to Supabase Storage
+- Applicants can register and login
+- Landing page clearly presents the system's value proposition
+- Application form captures all required fields
+- Documents upload successfully to Supabase Storage
 - Applicants receive tracking number and can view submission status
