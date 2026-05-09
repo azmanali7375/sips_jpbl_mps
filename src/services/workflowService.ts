@@ -59,7 +59,7 @@ export const workflowService = {
         from_status: newStatus,
         to_status: newStatus,
         changed_by: user.id,
-        notes: notes || undefined,
+        comment: notes || undefined,
       });
 
     if (historyError) {
