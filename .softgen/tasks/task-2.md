@@ -1,6 +1,6 @@
 ---
 title: Application Submission Portal
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [frontend, submission, forms]
