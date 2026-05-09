@@ -1,7 +1,7 @@
-# DC Management System - Segamat Municipal Council
+# DC Management System - Segamat Municipal Council (Sistem SPC MPS)
 
 ## Vision
-A comprehensive Development Control (DC) application management system for the Town Planning & Landscape Department at Segamat Municipal Council. Streamlines the submission, review, and approval process for development applications with automated compliance checking, document management, and workflow automation.
+Sistem pintar dan bersepadu bagi Jabatan Perancang Bandar & Landskap, Majlis Perbandaran Segamat untuk mengurus, menyelaras dan mempercepatkan proses kawalan pembangunan (Development Control - DC) secara sistematik, telus dan efisien. Mengintegrasikan penerimaan permohonan dari OSC, semakan teknikal, lawatan tapak, penjanaan laporan automatik, pengurusan syor dan pemantauan keputusan mesyuarat OSC.
 
 ## Design
 **Palette:**
@@ -19,14 +19,17 @@ A comprehensive Development Control (DC) application management system for the T
 - Body: Inter (sans clarity)
 - Data/metrics: JetBrains Mono (tabular-nums)
 
-**Style Direction:** Government-official modern — structured grids, clear status indicators, tabular data presentation, workflow progression visualization
+**Style Direction:** Malaysian government-official modern — structured grids, clear status indicators, bilingual support (BM/EN), workflow progression visualization
 
 ## Features
-1. **Multi-role Authentication** - Applicants, Planning Officers, Administrators with role-based access control
-2. **Application Submission Portal** - Upload plans (PDF, DWG, images), applicant details capture, checklist validation
-3. **Automated Compliance Checking** - Plot ratio, setbacks, building height, land use zoning rules encoded
-4. **Officer Review Dashboard** - View submissions, annotate plans, add comments, request revisions, approve/reject
-5. **Workflow Automation** - Status tracking (Submitted → Under Review → Approved/Rejected), case assignment, notifications
-6. **Document Management** - Organized file storage, version control, download capabilities
-7. **GIS Integration** - Zoning map overlay, proximity checking, violation flagging
-8. **Report Generation** - Approval letters, compliance summaries, decision logs
+1. **Penerimaan Permohonan dari OSC** - Admin Assistant registers applications with document upload (PDF, DWG, images)
+2. **Agihan Permohonan** - Unit Head assigns to Assistant Planner J5 with automatic notifications
+3. **Lawatan Tapak** - Site visit with photo upload and technical observations
+4. **Penjanaan Laporan Teknikal** - Auto-generate technical reports based on policy documents (RFN, RSN, RTD, Climate Action Plan, Smart City Plan, SDG Roadmap)
+5. **Semakan Ketua Jabatan** - Department Head reviews and provides recommendations
+6. **Arahan Bertulis** - Generate written directives for plan amendments requiring YDP signature
+7. **Keputusan Mesyuarat OSC** - Record meeting decisions (Lulus/Tolak/Lulus Dengan Pindaan) and auto-generate Forms C1/C2
+8. **Pendaftaran Pelan Lulus** - Register endorsed approved plans with tracking
+9. **Automated Compliance Checking** - Plot ratio, setbacks, building height, zoning rules
+10. **Workflow Automation** - Multi-stage approval with role-based notifications
+11. **GIS Integration** - Zoning map overlay, proximity checking
