@@ -57,7 +57,7 @@ export default function RegisterApplication() {
         plot_area: formData.plotArea ? parseFloat(formData.plotArea) : undefined,
         building_height: formData.buildingHeight ? parseFloat(formData.buildingHeight) : undefined,
         status: "osc_received",
-      });
+      } as any);
 
       if (!application) {
         throw new Error("Gagal mencipta permohonan");
