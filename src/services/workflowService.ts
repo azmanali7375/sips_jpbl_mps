@@ -80,7 +80,7 @@ export const workflowService = {
       .update({
         status: "registered",
         registered_by: user.id,
-      })
+      } as any)
       .eq("id", applicationId);
 
     if (error) {
@@ -108,7 +108,7 @@ export const workflowService = {
         assigned_officer_id: plannerId,
         unit_head_id: user.id,
         assigned_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", applicationId);
 
     if (error) {
@@ -149,7 +149,7 @@ export const workflowService = {
       .update({
         status: "technical_report",
         technical_report_completed_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", applicationId);
 
     if (error) {
@@ -193,7 +193,7 @@ export const workflowService = {
         status: "recommendation",
         department_head_id: user.id,
         head_review_completed_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", applicationId);
 
     if (error) {
