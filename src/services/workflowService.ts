@@ -299,12 +299,31 @@ export const workflowService = {
     return data || [];
   },
 
+  // Get applications assigned to current user
+  async getAssignedToMe(): Promise<Tables<"applications">[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from("applications")
+      .select("*, profiles!applications_applicant_id_fkey(full_name, email)")
+      .eq("assigned_officer_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching assigned applications:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
   // Get available assistant planners for assignment
   async getAvailablePlanners(): Promise<Tables<"profiles">[]> {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("role", "assistant_planner_j5")
+      .in("role", ["assistant_planner_j5", "unit_head"])
       .order("full_name");
 
     if (error) {

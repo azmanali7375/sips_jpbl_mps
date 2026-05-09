@@ -22,7 +22,7 @@ export default function MyAssignments() {
 
   const loadAssignments = async () => {
     try {
-      const data = await workflowService.getApplicationsByRole();
+      const data = await workflowService.getAssignedToMe();
       setAssignments(data);
     } catch (error) {
       console.error("Error loading assignments:", error);
