@@ -1,6 +1,6 @@
 ---
 title: Enhanced Workflow - OSC Integration & Multi-Role Assignment
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: [workflow, roles, notifications]
@@ -17,10 +17,10 @@ Enhanced workflow to match Malaysian government SPC MPS system. Applications com
 - [x] Create workflow stages table: osc_received → registered → assigned → site_visit → technical_report → head_review → recommendation → osc_meeting → approved/rejected
 - [x] Admin Assistant dashboard - register applications from OSC
 - [x] Unit Head dashboard - view pending assignments, assign to Assistant Planners
-- [ ] Assistant Planner dashboard - receive assignments with notifications
-- [ ] Department Head dashboard - review technical reports, provide recommendations
-- [ ] Automatic notification system for each workflow stage
-- [ ] Track workflow history with timestamps and officer actions
+- [x] Assistant Planner dashboard - receive assignments with notifications
+- [x] Department Head dashboard - review technical reports, provide recommendations
+- [x] Automatic notification system for each workflow stage
+- [x] Track workflow history with timestamps and officer actions
 
 ## Acceptance
 - Applications flow through correct stages with role-based access
