@@ -4,12 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { applicationService } from "@/services/applicationService";
 import { documentService } from "@/services/documentService";
-import { Upload, FileText, CheckCircle, X, Loader2 } from "lucide-react";
+import { AlertCircle, Upload, FileText, X } from "lucide-react";
 
 interface UploadedFile {
   file: File;
@@ -19,10 +25,6 @@ interface UploadedFile {
 
 export function SubmissionForm() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  
   const [formData, setFormData] = useState({
     projectName: "",
     projectType: "",
@@ -33,37 +35,35 @@ export function SubmissionForm() {
     buildingHeight: "",
   });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: UploadedFile['type']) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    const newFiles: UploadedFile[] = Array.from(files).map(file => ({
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: UploadedFile['type']) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+
+    const newFiles: UploadedFile[] = Array.from(selectedFiles).map(file => ({
       file,
       type,
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
     }));
 
-    setUploadedFiles(prev => [...prev, ...newFiles]);
+    setFiles(prev => [...prev, ...newFiles]);
   };
 
   const removeFile = (index: number) => {
-    setUploadedFiles(prev => {
-      const updated = [...prev];
-      if (updated[index].preview) {
-        URL.revokeObjectURL(updated[index].preview!);
-      }
-      updated.splice(index, 1);
-      return updated;
-    });
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const getFileTypeLabel = (type: UploadedFile['type']) => {
     const labels = {
-      site_plan: "Site Plan",
-      floor_plan: "Floor Plan",
-      elevation: "Elevation Drawing",
-      cad_drawing: "CAD Drawing",
-      other: "Supporting Document"
+      site_plan: "Pelan Tapak",
+      floor_plan: "Pelan Lantai",
+      elevation: "Pelan Ketinggian",
+      cad_drawing: "Lukisan CAD",
+      other: "Dokumen Sokongan"
     };
     return labels[type];
   };
@@ -71,18 +71,7 @@ export function SubmissionForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-
-    // Validation
-    if (!formData.projectName || !formData.projectType || !formData.location) {
-      setError("Please fill in all required fields");
-      return;
-    }
-
-    if (uploadedFiles.length === 0) {
-      setError("Please upload at least one document");
-      return;
-    }
-
+    setSuccess("");
     setLoading(true);
 
     try {
@@ -98,18 +87,41 @@ export function SubmissionForm() {
       });
 
       if (!application) {
-        throw new Error("Failed to create application");
+        throw new Error("Gagal mencipta permohonan");
       }
 
-      // Upload documents
-      for (const { file, type } of uploadedFiles) {
-        await documentService.uploadDocument(application.id, file, type);
+      // Upload all files
+      for (const uploadedFile of files) {
+        await documentService.uploadDocument(
+          application.id,
+          uploadedFile.file,
+          uploadedFile.type
+        );
       }
 
-      router.push(`/dashboard/applications/${application.id}`);
-    } catch (err) {
-      console.error("Submission error:", err);
-      setError(err instanceof Error ? err.message : "Failed to submit application");
+      setSuccess(
+        `Permohonan berjaya dihantar! No. Rujukan: ${application.tracking_number}`
+      );
+      
+      // Reset form
+      setFormData({
+        projectName: "",
+        projectType: "",
+        location: "",
+        lotNumber: "",
+        landUseZone: "",
+        plotArea: "",
+        buildingHeight: "",
+      });
+      setFiles([]);
+
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || "Ralat berlaku semasa menghantar permohonan");
+    } finally {
       setLoading(false);
     }
   };
@@ -118,22 +130,28 @@ export function SubmissionForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
         <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="border-success bg-success/10">
+          <AlertDescription className="text-success">{success}</AlertDescription>
         </Alert>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Project Information</CardTitle>
-          <CardDescription>Basic details about your development project</CardDescription>
+          <CardTitle>Butiran Projek</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="projectName">Project Name *</Label>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="projectName">Nama Projek *</Label>
               <Input
                 id="projectName"
-                placeholder="e.g., Mixed Development at Jalan Segamat"
+                placeholder="cth: Pembinaan Rumah Kediaman"
                 value={formData.projectName}
                 onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
                 required
@@ -141,27 +159,30 @@ export function SubmissionForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="projectType">Project Type *</Label>
-              <Select value={formData.projectType} onValueChange={(value) => setFormData({ ...formData, projectType: value })}>
+              <Label htmlFor="projectType">Jenis Projek *</Label>
+              <Select
+                value={formData.projectType}
+                onValueChange={(value) => setFormData({ ...formData, projectType: value })}
+                required
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project type" />
+                  <SelectValue placeholder="Pilih jenis projek" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="residential">Residential</SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="industrial">Industrial</SelectItem>
-                  <SelectItem value="mixed_use">Mixed Use</SelectItem>
-                  <SelectItem value="institutional">Institutional</SelectItem>
-                  <SelectItem value="infrastructure">Infrastructure</SelectItem>
+                  <SelectItem value="residential">Kediaman</SelectItem>
+                  <SelectItem value="commercial">Komersial</SelectItem>
+                  <SelectItem value="industrial">Perindustrian</SelectItem>
+                  <SelectItem value="mixed">Campuran</SelectItem>
+                  <SelectItem value="other">Lain-lain</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">Location *</Label>
+              <Label htmlFor="location">Lokasi *</Label>
               <Input
                 id="location"
-                placeholder="Full address"
+                placeholder="cth: Jalan Muar, Segamat"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 required
@@ -169,44 +190,44 @@ export function SubmissionForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lotNumber">Lot Number</Label>
+              <Label htmlFor="lotNumber">No. Lot</Label>
               <Input
                 id="lotNumber"
-                placeholder="e.g., PT 12345"
+                placeholder="cth: PT 12345"
                 value={formData.lotNumber}
                 onChange={(e) => setFormData({ ...formData, lotNumber: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="landUseZone">Land Use Zone</Label>
+              <Label htmlFor="landUseZone">Zon Kegunaan Tanah</Label>
               <Input
                 id="landUseZone"
-                placeholder="e.g., Commercial, Residential"
+                placeholder="cth: Komersial, Kediaman"
                 value={formData.landUseZone}
                 onChange={(e) => setFormData({ ...formData, landUseZone: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="plotArea">Plot Area (sq m)</Label>
+              <Label htmlFor="plotArea">Keluasan Tanah (m²)</Label>
               <Input
                 id="plotArea"
                 type="number"
                 step="0.01"
-                placeholder="e.g., 1500.50"
+                placeholder="cth: 1500.50"
                 value={formData.plotArea}
                 onChange={(e) => setFormData({ ...formData, plotArea: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="buildingHeight">Building Height (m)</Label>
+              <Label htmlFor="buildingHeight">Ketinggian Bangunan (m)</Label>
               <Input
                 id="buildingHeight"
                 type="number"
                 step="0.1"
-                placeholder="e.g., 15.5"
+                placeholder="cth: 15.5"
                 value={formData.buildingHeight}
                 onChange={(e) => setFormData({ ...formData, buildingHeight: e.target.value })}
               />
@@ -217,18 +238,18 @@ export function SubmissionForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Document Upload</CardTitle>
-          <CardDescription>Upload all required plans and supporting documents (PDF, DWG, Images)</CardDescription>
+          <CardTitle>Dokumen Permohonan</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="sitePlan">Site Plan *</Label>
+              <Label htmlFor="sitePlan">Pelan Tapak</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="sitePlan"
                   type="file"
                   accept=".pdf,.dwg,.png,.jpg,.jpeg"
+                  multiple
                   onChange={(e) => handleFileUpload(e, 'site_plan')}
                   className="cursor-pointer"
                 />
@@ -237,7 +258,7 @@ export function SubmissionForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="floorPlan">Floor Plan</Label>
+              <Label htmlFor="floorPlan">Pelan Lantai</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="floorPlan"
@@ -252,7 +273,7 @@ export function SubmissionForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="elevation">Elevation Drawing</Label>
+              <Label htmlFor="elevation">Pelan Ketinggian</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="elevation"
@@ -267,10 +288,10 @@ export function SubmissionForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cadDrawing">CAD Drawing (DWG)</Label>
+              <Label htmlFor="cad">Lukisan CAD</Label>
               <div className="flex items-center gap-2">
                 <Input
-                  id="cadDrawing"
+                  id="cad"
                   type="file"
                   accept=".dwg,.dxf"
                   multiple
@@ -282,7 +303,7 @@ export function SubmissionForm() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="supporting">Supporting Documents</Label>
+              <Label htmlFor="supporting">Dokumen Sokongan</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="supporting"
@@ -297,18 +318,21 @@ export function SubmissionForm() {
             </div>
           </div>
 
-          {uploadedFiles.length > 0 && (
-            <div className="space-y-2">
-              <Label>Uploaded Files ({uploadedFiles.length})</Label>
+          {files.length > 0 && (
+            <div className="mt-6">
+              <h4 className="font-medium mb-3">Fail Dimuat Naik ({files.length})</h4>
               <div className="space-y-2">
-                {uploadedFiles.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                {files.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-muted rounded-md"
+                  >
                     <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-primary" />
+                      <FileText className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium">{item.file.name}</p>
+                        <p className="text-sm font-medium">{file.file.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {getFileTypeLabel(item.type)} • {(item.file.size / 1024 / 1024).toFixed(2)} MB
+                          {getFileTypeLabel(file.type)} • {(file.file.size / 1024 / 1024).toFixed(2)} MB
                         </p>
                       </div>
                     </div>
@@ -317,7 +341,6 @@ export function SubmissionForm() {
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(index)}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -329,42 +352,15 @@ export function SubmissionForm() {
         </CardContent>
       </Card>
 
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <CheckCircle className="h-5 w-5 text-primary mt-0.5" />
-            <div className="space-y-2">
-              <h4 className="font-semibold">Submission Checklist</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li className={formData.projectName && formData.projectType && formData.location ? "text-green-600" : ""}>
-                  ✓ All required project information provided
-                </li>
-                <li className={uploadedFiles.some(f => f.type === 'site_plan') ? "text-green-600" : ""}>
-                  ✓ Site plan uploaded
-                </li>
-                <li className={uploadedFiles.length >= 2 ? "text-green-600" : ""}>
-                  ✓ Additional supporting documents uploaded
-                </li>
-                <li>ℹ️ You will receive a tracking number after submission</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex gap-4">
-        <Button type="submit" disabled={loading} className="flex-1">
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Submitting...
-            </>
-          ) : (
-            "Submit Application"
-          )}
+      <div className="flex gap-3 justify-end">
+        <Button
+          type="submit"
+          disabled={loading || !formData.projectName || !formData.projectType || !formData.location}
+        >
+          {loading ? "Menghantar..." : "Hantar Permohonan"}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
+          Batal
         </Button>
       </div>
     </form>
