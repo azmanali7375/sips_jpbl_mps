@@ -47,7 +47,12 @@ export default function Dashboard() {
       setApplications(appsData);
 
       const statsData = await applicationService.getApplicationStats();
-      setStats(statsData);
+      setStats({
+        total: statsData.total,
+        pending: (statsData as any).pending ?? ((statsData as any).submitted + (statsData as any).under_review),
+        approved: statsData.approved,
+        rejected: statsData.rejected,
+      });
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {
