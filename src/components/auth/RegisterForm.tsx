@@ -5,32 +5,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authService } from "@/services/authService";
-import { AlertCircle } from "lucide-react";
-import type { UserRole } from "@/types";
+import { AlertCircle, UserPlus } from "lucide-react";
 
 export function RegisterForm() {
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("applicant");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "applicant" as "applicant" | "admin_assistant" | "unit_head" | "assistant_planner_j5" | "department_head"
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    if (password.length < 6) {
+    if (formData.password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
@@ -38,10 +39,15 @@ export function RegisterForm() {
     setLoading(true);
 
     try {
-      await authService.signUp(email, password, fullName, role);
+      await authService.signUp(
+        formData.email,
+        formData.password,
+        formData.fullName,
+        formData.role
+      );
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Failed to create account");
+      setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -49,13 +55,17 @@ export function RegisterForm() {
 
   return (
     <Card className="w-full max-w-md">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-serif">Create Account</CardTitle>
-        <CardDescription>
-          Register for the DC Management System
-        </CardDescription>
-      </CardHeader>
       <form onSubmit={handleSubmit}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Daftar Akaun Baru
+          </CardTitle>
+          <CardDescription>
+            Cipta akaun untuk mengakses Sistem SPC MPS
+          </CardDescription>
+        </CardHeader>
+
         <CardContent className="space-y-4">
           {error && (
             <Alert variant="destructive">
@@ -63,70 +73,84 @@ export function RegisterForm() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
+            <Label htmlFor="fullName">Nama Penuh</Label>
             <Input
               id="fullName"
               type="text"
-              placeholder="Ahmad bin Abdullah"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
               required
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              placeholder="Nama penuh anda"
             />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Emel</Label>
             <Input
               id="email"
               type="email"
-              placeholder="ahmad@mps.gov.my"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="nama@example.com"
             />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="role">Account Type</Label>
-            <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+            <Label htmlFor="role">Peranan</Label>
+            <Select
+              value={formData.role}
+              onValueChange={(value: any) => setFormData({ ...formData, role: value })}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="applicant">Applicant</SelectItem>
-                <SelectItem value="officer">Planning Officer</SelectItem>
-                <SelectItem value="admin">Administrator</SelectItem>
+                <SelectItem value="applicant">Pemohon</SelectItem>
+                <SelectItem value="admin_assistant">Pembantu Tadbir</SelectItem>
+                <SelectItem value="unit_head">Ketua Unit Kawalan Perancangan</SelectItem>
+                <SelectItem value="assistant_planner_j5">Penolong Pegawai Perancang Bandar J5</SelectItem>
+                <SelectItem value="department_head">Ketua Jabatan Perancang Bandar</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Kata Laluan</Label>
             <Input
               id="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="Minimum 6 aksara"
             />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Label htmlFor="confirmPassword">Sahkan Kata Laluan</Label>
             <Input
               id="confirmPassword"
               type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              placeholder="Masukkan semula kata laluan"
             />
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
+
+        <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating account..." : "Create Account"}
+            {loading ? "Mendaftar..." : "Daftar"}
           </Button>
+          
           <p className="text-sm text-muted-foreground text-center">
-            Already have an account?{" "}
+            Sudah mempunyai akaun?{" "}
             <Link href="/auth/login" className="text-primary hover:underline">
-              Sign in here
+              Log masuk di sini
             </Link>
           </p>
         </CardFooter>
