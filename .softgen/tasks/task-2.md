@@ -16,11 +16,11 @@ User-facing portal for submitting development control applications with document
 - [x] Create landing page with feature highlights and CTAs
 - [x] Build login form with error handling
 - [x] Build registration form with role selection
-- [ ] Create application submission form with project details fields
-- [ ] Add multi-file upload component (PDF, DWG, images)
-- [ ] Implement checklist validation before submission
-- [ ] Create applicant dashboard to view submission status
-- [ ] Add application tracking number generation
+- [x] Create application submission form with project details fields
+- [x] Add multi-file upload component (PDF, DWG, images)
+- [x] Implement checklist validation before submission
+- [x] Create applicant dashboard to view submission status
+- [x] Add application tracking number generation
 
 ## Acceptance
 - Applicants can register and login
