@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { applicationService } from "@/services/applicationService";
 import { documentService } from "@/services/documentService";
+import { complianceService } from "@/services/complianceService";
 import { AlertCircle, Upload, FileText, X } from "lucide-react";
 
 interface UploadedFile {
@@ -98,6 +99,10 @@ export function SubmissionForm() {
           uploadedFile.type
         );
       }
+
+      // Perform automated compliance check
+      const checkResult = await complianceService.performComplianceCheck(application);
+      await complianceService.saveComplianceCheck(application.id, checkResult);
 
       setSuccess(
         `Permohonan berjaya dihantar! No. Rujukan: ${application.tracking_number}`

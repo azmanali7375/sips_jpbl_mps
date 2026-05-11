@@ -1,6 +1,6 @@
 ---
 title: Automated Compliance Checking Engine
-status: todo
+status: done
 priority: medium
 type: feature
 tags:
@@ -16,13 +16,13 @@ position: 4
 Rule-based compliance checking system that automatically validates applications against configurable planning guidelines. Checks plot ratio, setback requirements, building height limits, and land use zoning. Results display as pass/fail with violation details.
 
 ## Checklist
-- [ ] Create compliance checking service with rule evaluation logic
-- [ ] Build rules configuration interface for admins to set thresholds
-- [ ] Add automatic check execution on application submission
-- [ ] Create compliance results display component with violation highlighting
-- [ ] Add manual re-check trigger for officers
-- [ ] Store compliance results in database for audit trail
-- [ ] Build compliance report generation
+- [x] Create compliance checking service with rule evaluation logic
+- [x] Build rules configuration interface for admins to set thresholds
+- [x] Add automatic check execution on application submission
+- [x] Create compliance results display component with violation highlighting
+- [x] Add manual re-check trigger for officers
+- [x] Store compliance results in database for audit trail
+- [x] Build compliance report generation
 
 ## Acceptance
 - Applications automatically checked against all active rules on submission

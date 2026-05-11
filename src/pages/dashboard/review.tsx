@@ -17,6 +17,7 @@ import { workflowService } from "@/services/workflowService";
 import { reviewService } from "@/services/reviewService";
 import { documentService } from "@/services/documentService";
 import { complianceService } from "@/services/complianceService";
+import { ComplianceResults } from "@/components/ComplianceResults";
 import type { Tables } from "@/integrations/supabase/types";
 import type { ComplianceResult } from "@/services/complianceService";
 import { 
@@ -59,7 +60,8 @@ export default function ReviewDashboard() {
   const [selectedApp, setSelectedApp] = useState<ApplicationWithProfile | null>(null);
   const [appDocuments, setAppDocuments] = useState<any[]>([]);
   const [appReviews, setAppReviews] = useState<any[]>([]);
-  const [complianceResults, setComplianceResults] = useState<ComplianceResult[]>([]);
+  const [complianceCheckResult, setComplianceCheckResult] = useState<any>(null);
+  const [rechecking, setRechecking] = useState(false);
   
   // Review form
   const [comment, setComment] = useState("");
@@ -115,15 +117,43 @@ export default function ReviewDashboard() {
     setDecision("pending");
 
     // Load application details
-    const [docs, reviews, compliance] = await Promise.all([
+    const [docs, reviews, complianceCheck] = await Promise.all([
       documentService.getApplicationDocuments(app.id),
       reviewService.getApplicationReviews(app.id),
-      complianceService.checkCompliance(app),
+      complianceService.getLatestComplianceCheck(app.id),
     ]);
 
     setAppDocuments(docs);
     setAppReviews(reviews);
-    setComplianceResults(compliance);
+    setComplianceCheckResult(complianceCheck);
+  };
+
+  const handleRecheckCompliance = async () => {
+    if (!selectedApp) return;
+    setRechecking(true);
+    try {
+      const result = await complianceService.performComplianceCheck(selectedApp);
+      await complianceService.saveComplianceCheck(selectedApp.id, result);
+      setComplianceCheckResult(result);
+    } catch (error) {
+      console.error("Error rechecking compliance:", error);
+    } finally {
+      setRechecking(false);
+    }
+  };
+
+  const handleDownloadReport = () => {
+    if (!selectedApp || !complianceCheckResult) return;
+    const report = complianceService.generateComplianceReport(selectedApp, complianceCheckResult);
+    const blob = new Blob([report], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Laporan_Pematuhan_${selectedApp.tracking_number}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleSubmitReview = async () => {
@@ -422,54 +452,12 @@ export default function ReviewDashboard() {
               </TabsContent>
 
               <TabsContent value="compliance" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Keputusan Semakan Pematuhan</CardTitle>
-                    <CardDescription>
-                      Semakan automatik berdasarkan peraturan pembangunan
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {complianceResults.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">
-                        Tiada semakan pematuhan dilakukan
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {complianceResults.map((result, idx) => (
-                          <div 
-                            key={idx}
-                            className={`p-4 rounded-lg border ${
-                              result.passed 
-                                ? "bg-green-50 border-green-200" 
-                                : "bg-red-50 border-red-200"
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              {result.passed ? (
-                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                              ) : (
-                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm">{result.rule_name}</p>
-                                <p className="text-sm text-muted-foreground mt-1">{result.message}</p>
-                                <div className="flex gap-4 mt-2 text-xs">
-                                  <span>
-                                    <span className="text-muted-foreground">Diperlukan:</span> {result.expected_value}
-                                  </span>
-                                  <span>
-                                    <span className="text-muted-foreground">Sebenar:</span> {result.actual_value}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <ComplianceResults
+                  checkResult={complianceCheckResult}
+                  onRecheck={handleRecheckCompliance}
+                  onDownloadReport={handleDownloadReport}
+                  loading={rechecking}
+                />
               </TabsContent>
 
               <TabsContent value="reviews" className="space-y-4">
