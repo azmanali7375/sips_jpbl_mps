@@ -40,3 +40,22 @@ export type NotificationType =
   | "assignment" 
   | "comment" 
   | "submission";
+
+export type OSCDecisionType = 
+  | "lulus" 
+  | "tolak" 
+  | "lulus_dengan_pindaan";
+
+export type DirectiveStatus = 
+  | "draft" 
+  | "pending_review" 
+  | "pending_signature" 
+  | "signed" 
+  | "sent_to_applicant";
+
+export type ReportType = 
+  | "technical_report" 
+  | "recommendation_report" 
+  | "written_directive" 
+  | "form_c1" 
+  | "form_c2";
