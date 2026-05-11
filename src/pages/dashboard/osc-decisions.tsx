@@ -88,9 +88,9 @@ export default function OSCDecisionsPage() {
         newStatus = "approved_with_amendments";
       }
 
-      await workflowService.updateApplicationWorkflow(
+      await workflowService.updateStatus(
         selectedApp.id,
-        newStatus,
+        newStatus as any,
         `OSC Decision: ${formData.decision_type}`
       );
 
