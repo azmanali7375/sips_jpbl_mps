@@ -1,6 +1,6 @@
 ---
 title: Automatic Report Generation System
-status: in_progress
+status: done
 priority: high
 type: feature
 tags:
@@ -22,7 +22,7 @@ System auto-generates professional reports based on application data, policy doc
 - [x] Written Directive (Arahan Bertulis) for plan amendments
 - [x] Form C1 generation (approval with conditions)
 - [x] Form C2 generation (rejection with reasons)
-- [ ] PDF export for all reports
+- [x] PDF export for all reports
 - [x] Report preview and editing before finalization
 - [x] Store generated reports in generated_reports table
 

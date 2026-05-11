@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Download, Edit, Save, Check, AlertCircle, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import jsPDF from "jspdf";
 import {
   gatherTechnicalReportData,
   gatherRecommendationReportData,
@@ -175,17 +176,122 @@ export default function ReportsPage() {
   }
 
   function handleDownloadReport() {
-    if (!generatedContent) return;
+    if (!generatedContent || !application) return;
     
-    const blob = new Blob([generatedContent], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${selectedReportType}_${application?.tracking_number}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
+    });
+
+    // Set up font and margins
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxWidth = pageWidth - (margin * 2);
+    let yPosition = margin;
+
+    // Helper to add new page if needed
+    function checkPageBreak(requiredSpace = 10) {
+      if (yPosition + requiredSpace > pageHeight - margin) {
+        doc.addPage();
+        yPosition = margin;
+      }
+    }
+
+    // Split content by lines and process
+    const lines = generatedContent.split("\n");
+    
+    lines.forEach((line) => {
+      checkPageBreak();
+
+      // Handle headers (lines starting with #)
+      if (line.startsWith("# ")) {
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        const text = line.replace(/^#+\s*/, "");
+        const wrappedText = doc.splitTextToSize(text, maxWidth);
+        doc.text(wrappedText, margin, yPosition);
+        yPosition += wrappedText.length * 7 + 5;
+      }
+      // Handle subheaders (##)
+      else if (line.startsWith("## ")) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        const text = line.replace(/^#+\s*/, "");
+        const wrappedText = doc.splitTextToSize(text, maxWidth);
+        doc.text(wrappedText, margin, yPosition);
+        yPosition += wrappedText.length * 6 + 4;
+      }
+      // Handle bold text (**text**)
+      else if (line.includes("**")) {
+        doc.setFontSize(11);
+        const parts = line.split("**");
+        const xPos = margin;
+        
+        parts.forEach((part, index) => {
+          if (index % 2 === 1) {
+            doc.setFont("helvetica", "bold");
+          } else {
+            doc.setFont("helvetica", "normal");
+          }
+          
+          if (part) {
+            const wrappedText = doc.splitTextToSize(part, maxWidth - (xPos - margin));
+            doc.text(wrappedText, xPos, yPosition);
+            if (wrappedText.length > 1) {
+              yPosition += (wrappedText.length - 1) * 5;
+            }
+          }
+        });
+        yPosition += 6;
+      }
+      // Handle horizontal rules (---)
+      else if (line.trim() === "---") {
+        checkPageBreak();
+        doc.setLineWidth(0.5);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 5;
+      }
+      // Regular text
+      else if (line.trim()) {
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        const wrappedText = doc.splitTextToSize(line, maxWidth);
+        doc.text(wrappedText, margin, yPosition);
+        yPosition += wrappedText.length * 5 + 2;
+      }
+      // Empty line
+      else {
+        yPosition += 4;
+      }
+    });
+
+    // Add footer with page numbers
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Halaman ${i} daripada ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: "center" }
+      );
+    }
+
+    // Get report type name for filename
+    const reportTypeName = {
+      technical_report: "Laporan_Teknikal",
+      recommendation_report: "Laporan_Syor",
+      written_directive: "Arahan_Bertulis",
+      form_c1: "Borang_C1",
+      form_c2: "Borang_C2"
+    }[selectedReportType] || "Laporan";
+
+    // Download PDF
+    doc.save(`${reportTypeName}_${application.tracking_number}.pdf`);
   }
 
   function loadSavedReport(report: Tables<"generated_reports">) {
