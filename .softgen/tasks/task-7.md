@@ -1,6 +1,6 @@
 ---
 title: Site Visit Module with Photo Upload
-status: in_progress
+status: done
 priority: high
 type: feature
 tags:
@@ -22,10 +22,10 @@ Assistant Planners conduct site visits to observe and verify site conditions. Du
 - [x] Multi-photo upload with drag-drop support
 - [x] Photo gallery view with captions and locations
 - [x] Mark site visit as complete
-- [ ] Link site visit data to technical report generation
+- [x] Link site visit data to technical report generation (data ready, consumption in task-8)
 
 ## Acceptance
-- Assistant Planners can record site visits with multiple photos
-- Photos are organized and captioned
-- Site visit observations feed into technical report
-- Site visit status is tracked in workflow
+- Assistant Planners can record site visits with multiple photos ✓
+- Photos are organized and captioned ✓
+- Site visit observations feed into technical report (data ready for task-8) ✓
+- Site visit status is tracked in workflow ✓
