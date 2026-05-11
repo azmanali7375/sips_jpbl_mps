@@ -50,7 +50,7 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const loadUser = async () => {
-    const { data: { user: authUser } } = await authService.getSession();
+    const authUser = await authService.getCurrentUser();
     setUser(authUser);
   };
 
