@@ -3,9 +3,12 @@ title: Automatic Report Generation System
 status: in_progress
 priority: high
 type: feature
-tags: [reports, automation, ai]
+tags:
+- reports
+- automation
+- ai
 created_by: agent
-created_at: 2026-05-09T15:32:10Z
+created_at: 2026-05-09 15:32:10+00:00
 position: 8
 ---
 
