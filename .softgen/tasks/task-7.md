@@ -3,9 +3,12 @@ title: Site Visit Module with Photo Upload
 status: in_progress
 priority: high
 type: feature
-tags: [site-visit, photos, field-work]
+tags:
+- site-visit
+- photos
+- field-work
 created_by: agent
-created_at: 2026-05-09T15:32:10Z
+created_at: 2026-05-09 15:32:10+00:00
 position: 7
 ---
 
@@ -15,10 +18,10 @@ Assistant Planners conduct site visits to observe and verify site conditions. Du
 ## Checklist
 - [x] Create site_visits table with application_id FK, officer_id FK, visit_date, observations
 - [x] Create site_photos table with site_visit_id FK, photo_url, caption, location
-- [ ] Site visit form - date, observations, technical notes
-- [ ] Multi-photo upload with drag-drop support
-- [ ] Photo gallery view with captions and locations
-- [ ] Mark site visit as complete
+- [x] Site visit form - date, observations, technical notes
+- [x] Multi-photo upload with drag-drop support
+- [x] Photo gallery view with captions and locations
+- [x] Mark site visit as complete
 - [ ] Link site visit data to technical report generation
 
 ## Acceptance
