@@ -19,11 +19,11 @@ Record OSC meeting decisions (Approve/Reject/Approve with Amendments), auto-gene
 - [x] Create osc_decisions table with application_id FK, meeting_date, decision_type, reasons
 - [x] Create written_directives table for plan amendments requiring YDP signature
 - [x] OSC decision recording form with 3 options: Lulus/Tolak/Lulus Dengan Pindaan
-- [ ] Auto-generate Form C1 for approvals
-- [ ] Auto-generate Form C2 for rejections
-- [ ] Written Directive workflow for YDP signature
-- [ ] Approved plan registration module
-- [ ] Track plan endorsement dates and reference numbers
+- [x] Auto-generate Form C1 for approvals
+- [x] Auto-generate Form C2 for rejections
+- [x] Written Directive workflow for YDP signature
+- [x] Approved plan registration module
+- [x] Track plan endorsement dates and reference numbers
 
 ## Acceptance
 - OSC decisions are recorded with appropriate documentation

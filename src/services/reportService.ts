@@ -564,3 +564,73 @@ export async function updateGeneratedReport(
 
   return data;
 }
+
+export const reportService = {
+  /**
+   * Generate and save Form C1 (Approval)
+   */
+  async generateFormC1(application_id: string): Promise<Tables<"generated_reports"> | null> {
+    const { data: application, error: appError } = await supabase
+      .from("applications")
+      .select("*, profiles!applications_applicant_id_fkey(full_name)")
+      .eq("id", application_id)
+      .single();
+
+    if (appError) {
+      console.error("Error fetching application:", appError);
+      return null;
+    }
+
+    // Get OSC decision for conditions
+    const { data: decision } = await supabase
+      .from("osc_decisions")
+      .select("*")
+      .eq("application_id", application_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const conditions = decision?.approval_conditions 
+      ? decision.approval_conditions.split("\n").filter((c: string) => c.trim())
+      : [
+          "Pembangunan hendaklah mematuhi pelan yang diluluskan",
+          "Kelulusan ini tertakluk kepada kelulusan daripada jabatan teknikal yang berkaitan",
+          "Pembangunan hendaklah siap dalam tempoh 2 tahun dari tarikh kelulusan ini",
+        ];
+
+    const content = generateFormC1Content(application, conditions);
+    return await saveGeneratedReport(application_id, "form_c1", content);
+  },
+
+  /**
+   * Generate and save Form C2 (Rejection)
+   */
+  async generateFormC2(application_id: string): Promise<Tables<"generated_reports"> | null> {
+    const { data: application, error: appError } = await supabase
+      .from("applications")
+      .select("*, profiles!applications_applicant_id_fkey(full_name)")
+      .eq("id", application_id)
+      .single();
+
+    if (appError) {
+      console.error("Error fetching application:", appError);
+      return null;
+    }
+
+    // Get OSC decision for rejection reasons
+    const { data: decision } = await supabase
+      .from("osc_decisions")
+      .select("*")
+      .eq("application_id", application_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const reasons = decision?.rejection_reasons 
+      ? decision.rejection_reasons.split("\n").filter((r: string) => r.trim())
+      : ["Alasan penolakan tidak dinyatakan"];
+
+    const content = generateFormC2Content(application, reasons);
+    return await saveGeneratedReport(application_id, "form_c2", content);
+  }
+};
