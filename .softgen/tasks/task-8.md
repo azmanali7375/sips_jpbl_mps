@@ -17,14 +17,14 @@ System auto-generates professional reports based on application data, policy doc
 
 ## Checklist
 - [x] Create report_templates table for different report types
-- [ ] Technical Report generation with policy document references
-- [ ] Recommendation Report (Laporan Syor) based on Department Head input
-- [ ] Written Directive (Arahan Bertulis) for plan amendments
-- [ ] Form C1 generation (approval with conditions)
-- [ ] Form C2 generation (rejection with reasons)
+- [x] Technical Report generation with policy document references
+- [x] Recommendation Report (Laporan Syor) based on Department Head input
+- [x] Written Directive (Arahan Bertulis) for plan amendments
+- [x] Form C1 generation (approval with conditions)
+- [x] Form C2 generation (rejection with reasons)
 - [ ] PDF export for all reports
-- [ ] Report preview and editing before finalization
-- [ ] Store generated reports in documents table
+- [x] Report preview and editing before finalization
+- [x] Store generated reports in generated_reports table
 
 ## Acceptance
 - System generates technical reports automatically from application and site visit data
