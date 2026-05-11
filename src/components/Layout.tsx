@@ -18,6 +18,7 @@ import {
   Menu,
   X
 } from "lucide-react";
+import { NotificationCenter } from "./NotificationCenter";
 
 interface LayoutProps {
   children: ReactNode;
@@ -90,7 +91,98 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-muted/20">
+    <div className="min-h-screen bg-background">
+      {/* Navigation */}
+      <nav className="border-b bg-card">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-8">
+              <Link href="/" className="flex items-center gap-3">
+                <img src="/Logo_MPS.png" alt="MPS Logo" className="h-10 w-10" />
+                <span className="font-serif text-xl font-semibold text-primary">
+                  Sistem SPC MPS
+                </span>
+              </Link>
+              {user && (
+                <div className="hidden md:flex items-center gap-6">
+                  <Link
+                    href="/dashboard"
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                      router.pathname === "/dashboard"
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+                  {(profile?.role === "admin_assistant" ||
+                    profile?.role === "unit_head" ||
+                    profile?.role === "admin") && (
+                    <Link
+                      href="/dashboard/register"
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        router.pathname === "/dashboard/register"
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      Daftar Permohonan
+                    </Link>
+                  )}
+                  {(profile?.role === "unit_head" || profile?.role === "admin") && (
+                    <Link
+                      href="/dashboard/assign"
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        router.pathname === "/dashboard/assign"
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      Tugaskan
+                    </Link>
+                  )}
+                  {(profile?.role === "assistant_planner_j5" ||
+                    profile?.role === "unit_head" ||
+                    profile?.role === "admin") && (
+                    <Link
+                      href="/dashboard/my-assignments"
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        router.pathname === "/dashboard/my-assignments"
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      Tugasan Saya
+                    </Link>
+                  )}
+                  {(profile?.role === "department_head" || profile?.role === "admin") && (
+                    <Link
+                      href="/dashboard/review"
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        router.pathname === "/dashboard/review"
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      Semakan Ketua
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              {user ? (
+                <>
+                  <NotificationCenter />
+                  <DropdownMenu>
+                  </DropdownMenu>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </nav>
+
       {/* Mobile menu button */}
       <Button
         variant="ghost"

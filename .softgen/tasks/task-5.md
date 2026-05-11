@@ -3,9 +3,12 @@ title: Workflow Automation & Notifications
 status: todo
 priority: medium
 type: feature
-tags: [workflow, notifications, status]
+tags:
+- workflow
+- notifications
+- status
 created_by: agent
-created_at: 2026-05-09T14:32:57Z
+created_at: 2026-05-09 14:32:57+00:00
 position: 5
 ---
 
