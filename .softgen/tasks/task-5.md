@@ -1,6 +1,6 @@
 ---
 title: Workflow Automation & Notifications
-status: in_progress
+status: done
 priority: medium
 type: feature
 tags:
@@ -27,6 +27,6 @@ Automated workflow management with status progression (Submitted → Under Revie
 - [ ] Create admin workflow configuration panel (optional)
 
 ## Acceptance
-- Application status updates trigger notifications to relevant users
-- Users see real-time notification badges without page refresh
-- Workflow timeline shows complete application history
+- Application status updates trigger notifications to relevant users ✅
+- Users see real-time notification badges without page refresh ✅
+- Workflow timeline shows complete application history ✅
