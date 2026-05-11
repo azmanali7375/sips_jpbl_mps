@@ -1,14 +1,11 @@
 ---
-title: OSC Meeting Decisions & Plan Registration
-status: in_progress
+title: "OSC Meeting Decisions & Plan Registration"
+status: done
 priority: medium
 type: feature
-tags:
-- osc
-- meeting
-- approval
+tags: ["osc", "decisions", "forms", "registration"]
 created_by: agent
-created_at: 2026-05-09 15:32:10+00:00
+created_at: 2026-05-11
 position: 9
 ---
 
