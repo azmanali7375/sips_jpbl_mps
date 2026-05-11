@@ -19,6 +19,15 @@ import {
   X
 } from "lucide-react";
 import { NotificationCenter } from "./NotificationCenter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface LayoutProps {
   children: ReactNode;
@@ -27,15 +36,22 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     loadProfile();
+    loadUser();
   }, []);
 
   const loadProfile = async () => {
     const data = await profileService.getCurrentProfile();
     setProfile(data);
+  };
+
+  const loadUser = async () => {
+    const { data: { user: authUser } } = await authService.getSession();
+    setUser(authUser);
   };
 
   const handleLogout = async () => {
@@ -175,9 +191,44 @@ export function Layout({ children }: LayoutProps) {
                 <>
                   <NotificationCenter />
                   <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {profile?.full_name?.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium">{profile?.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{profile?.email}</p>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => router.push("/settings")}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Tetapan
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log Keluar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
                   </DropdownMenu>
                 </>
-              ) : null}
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => router.push("/auth/login")}>
+                    Log Masuk
+                  </Button>
+                  <Button onClick={() => router.push("/auth/register")}>
+                    Daftar
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

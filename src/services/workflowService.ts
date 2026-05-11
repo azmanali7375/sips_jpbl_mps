@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { notificationService } from "./notificationService";
 
 type WorkflowStatus = 
   | "osc_received"
@@ -40,6 +41,17 @@ export const workflowService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
+    // Get current application data
+    const { data: app } = await supabase
+      .from("applications")
+      .select("*, profiles!applications_applicant_id_fkey(full_name)")
+      .eq("id", applicationId)
+      .single();
+
+    if (!app) return false;
+
+    const oldStatus = app.status;
+
     // Update application status
     const { error: appError } = await supabase
       .from("applications")
@@ -56,7 +68,7 @@ export const workflowService = {
       .from("workflow_history")
       .insert({
         application_id: applicationId,
-        from_status: newStatus,
+        from_status: oldStatus,
         to_status: newStatus,
         changed_by: user.id,
         comment: notes || undefined,
@@ -66,6 +78,19 @@ export const workflowService = {
       console.error("Error recording workflow history:", historyError);
       return false;
     }
+
+    // Create status change notification for applicant
+    const statusTemplate = notificationService.templates.statusChange(
+      app.tracking_number,
+      newStatus
+    );
+    await notificationService.create({
+      userId: app.applicant_id,
+      type: "status_change",
+      title: statusTemplate.title,
+      message: statusTemplate.message,
+      applicationId,
+    });
 
     return true;
   },
@@ -88,7 +113,7 @@ export const workflowService = {
       return false;
     }
 
-    await this.updateStatus(applicationId, "registered", "Application registered by Admin Assistant");
+    await this.updateStatus(applicationId, "registered", "Permohonan didaftarkan oleh Pembantu Tadbir");
     return true;
   },
 
@@ -100,6 +125,21 @@ export const workflowService = {
   ): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
+
+    // Get application and assigner profile
+    const { data: app } = await supabase
+      .from("applications")
+      .select("tracking_number")
+      .eq("id", applicationId)
+      .single();
+
+    const { data: assigner } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+
+    if (!app) return false;
 
     const { error } = await supabase
       .from("applications")
@@ -116,15 +156,19 @@ export const workflowService = {
       return false;
     }
 
-    await this.updateStatus(applicationId, "assigned", notes || `Assigned to planner by Unit Head`);
+    await this.updateStatus(applicationId, "assigned", notes || `Ditugaskan kepada perancang oleh Ketua Unit`);
     
-    // Create notification for planner
-    await supabase.from("notifications").insert({
-      user_id: plannerId,
-      application_id: applicationId,
+    // Create assignment notification for planner
+    const assignmentTemplate = notificationService.templates.assignment(
+      app.tracking_number,
+      assigner?.full_name || "Ketua Unit"
+    );
+    await notificationService.create({
+      userId: plannerId,
       type: "assignment",
-      title: "Tugasan Baru",
-      message: `Anda telah diberikan tugasan baru untuk menyemak permohonan`,
+      title: assignmentTemplate.title,
+      message: assignmentTemplate.message,
+      applicationId,
     });
 
     return true;
@@ -132,10 +176,22 @@ export const workflowService = {
 
   // Assistant Planner: Start site visit
   async startSiteVisit(applicationId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("applications")
+      .update({
+        status: "site_visit",
+      } as any)
+      .eq("id", applicationId);
+
+    if (error) {
+      console.error("Error starting site visit:", error);
+      return false;
+    }
+
     return await this.updateStatus(
       applicationId,
       "site_visit",
-      "Site visit in progress"
+      "Lawatan tapak sedang dijalankan"
     );
   },
 
@@ -157,22 +213,33 @@ export const workflowService = {
       return false;
     }
 
-    await this.updateStatus(applicationId, "technical_report", "Technical report submitted for review");
+    await this.updateStatus(applicationId, "technical_report", "Laporan teknikal dikemukakan untuk semakan");
     
     // Notify Department Head
     const { data: app } = await supabase
       .from("applications")
-      .select("department_head_id")
+      .select("department_head_id, unit_head_id")
       .eq("id", applicationId)
       .single();
 
     if (app?.department_head_id) {
-      await supabase.from("notifications").insert({
-        user_id: app.department_head_id,
-        application_id: applicationId,
+      await notificationService.create({
+        userId: app.department_head_id,
         type: "status_change",
         title: "Laporan Teknikal Sedia",
         message: "Laporan teknikal sedia untuk disemak oleh Ketua Jabatan",
+        applicationId,
+      });
+    }
+
+    // Also notify Unit Head
+    if (app?.unit_head_id) {
+      await notificationService.create({
+        userId: app.unit_head_id,
+        type: "status_change",
+        title: "Laporan Teknikal Dikemukakan",
+        message: "Laporan teknikal telah dikemukakan untuk semakan",
+        applicationId,
       });
     }
 
@@ -204,8 +271,39 @@ export const workflowService = {
     await this.updateStatus(
       applicationId,
       "recommendation",
-      `Department Head recommendation: ${recommendation}`
+      `Syor Ketua Jabatan: ${recommendation}`
     );
+
+    // Notify Unit Head and assigned officer
+    const { data: app } = await supabase
+      .from("applications")
+      .select("unit_head_id, assigned_officer_id")
+      .eq("id", applicationId)
+      .single();
+
+    const notificationsToCreate = [];
+    if (app?.unit_head_id) {
+      notificationsToCreate.push({
+        userId: app.unit_head_id,
+        type: "status_change" as const,
+        title: "Syor Ketua Jabatan Selesai",
+        message: "Ketua Jabatan telah mengemukakan syor untuk permohonan ini",
+        applicationId,
+      });
+    }
+    if (app?.assigned_officer_id) {
+      notificationsToCreate.push({
+        userId: app.assigned_officer_id,
+        type: "status_change" as const,
+        title: "Syor Ketua Jabatan Selesai",
+        message: "Ketua Jabatan telah mengemukakan syor untuk permohonan ini",
+        applicationId,
+      });
+    }
+
+    if (notificationsToCreate.length > 0) {
+      await notificationService.createBulk(notificationsToCreate);
+    }
 
     return true;
   },
@@ -217,10 +315,14 @@ export const workflowService = {
     meetingDate: string,
     reasons?: string
   ): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
     const decisionPayload: any = {
       application_id: applicationId,
       meeting_date: meetingDate,
-      decision_type: decision,
+      decision_type: decision === "approved" ? "lulus" : decision === "rejected" ? "tolak" : "lulus_dengan_pindaan",
+      recorded_by: user.id,
     };
     
     if (decision === "rejected") decisionPayload.rejection_reasons = reasons;
@@ -247,8 +349,48 @@ export const workflowService = {
     await this.updateStatus(
       applicationId,
       statusMap[decision],
-      `OSC Decision: ${decision}`
+      `Keputusan OSC: ${decision === "approved" ? "Diluluskan" : decision === "rejected" ? "Ditolak" : "Lulus Dengan Pindaan"}`
     );
+
+    // Notify all involved parties
+    const { data: app } = await supabase
+      .from("applications")
+      .select("applicant_id, assigned_officer_id, unit_head_id, department_head_id")
+      .eq("id", applicationId)
+      .single();
+
+    if (app) {
+      const notificationsToCreate = [];
+      const decisionLabels = {
+        approved: "DILULUSKAN",
+        rejected: "DITOLAK",
+        approved_with_amendments: "LULUS DENGAN PINDAAN",
+      };
+
+      // Notify applicant
+      notificationsToCreate.push({
+        userId: app.applicant_id,
+        type: "status_change" as const,
+        title: `Permohonan ${decisionLabels[decision]}`,
+        message: `Permohonan anda telah ${decisionLabels[decision].toLowerCase()} dalam mesyuarat OSC`,
+        applicationId,
+      });
+
+      // Notify all officers involved
+      [app.assigned_officer_id, app.unit_head_id, app.department_head_id]
+        .filter(Boolean)
+        .forEach(officerId => {
+          notificationsToCreate.push({
+            userId: officerId!,
+            type: "status_change" as const,
+            title: "Keputusan OSC Direkod",
+            message: `Keputusan OSC: ${decisionLabels[decision]}`,
+            applicationId,
+          });
+        });
+
+      await notificationService.createBulk(notificationsToCreate);
+    }
 
     return true;
   },

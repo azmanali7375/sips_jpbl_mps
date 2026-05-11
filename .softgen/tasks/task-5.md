@@ -1,6 +1,6 @@
 ---
 title: Workflow Automation & Notifications
-status: todo
+status: in_progress
 priority: medium
 type: feature
 tags:
@@ -16,14 +16,15 @@ position: 5
 Automated workflow management with status progression (Submitted → Under Review → Revision Requested → Approved/Rejected) and real-time notifications for status changes, assignments, and comments. Includes notification center and email alerts.
 
 ## Checklist
-- [ ] Create status transition logic with validation rules
-- [ ] Build notification service for creating and managing alerts
-- [ ] Add notification center component with unread count badge
-- [ ] Create notification list with grouping by type
-- [ ] Implement real-time updates using Supabase subscriptions
+- [x] Create status transition logic with validation rules
+- [x] Build notification service for creating and managing alerts
+- [x] Add notification center component with unread count badge
+- [x] Create notification list with grouping by type
+- [x] Implement real-time updates using Supabase subscriptions
+- [x] Integrate notifications into workflow status transitions
 - [ ] Add email notification integration (optional)
-- [ ] Build workflow timeline component showing application history
-- [ ] Create admin workflow configuration panel
+- [x] Build workflow timeline component showing application history
+- [ ] Create admin workflow configuration panel (optional)
 
 ## Acceptance
 - Application status updates trigger notifications to relevant users
