@@ -496,13 +496,17 @@ export async function saveGeneratedReport(
 ) {
   const session = await supabase.auth.getSession();
   
+  if (!session.data.session) {
+    throw new Error("No active session");
+  }
+  
   const { data, error } = await supabase
     .from("generated_reports")
     .insert({
       application_id,
       report_type,
       report_content: content,
-      generated_by: session.data.session?.user.id!,
+      generated_by: session.data.session.user.id,
       is_finalized: false
     })
     .select()
