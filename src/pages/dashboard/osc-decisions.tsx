@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import Layout from "@/components/Layout";
+import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ export default function OSCDecisionsPage() {
 
   const loadApplications = async () => {
     setLoading(true);
-    const apps = await applicationService.getAllApplications({ status: "head_review" });
+    const apps = await applicationService.getAllApplications({ status: "under_review" });
     setApplications(apps);
     setLoading(false);
   };
