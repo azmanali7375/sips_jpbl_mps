@@ -50,6 +50,10 @@ import {
   getWrittenDirectives,
   isDirectiveOverdue,
 } from "@/services/writtenDirectiveService";
+import {
+  getSiteVisits,
+  type SiteVisitWithPhotos,
+} from "@/services/siteVisitService";
 import { Database } from "@/integrations/supabase/types";
 import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck } from "lucide-react";
 
@@ -115,6 +119,9 @@ export default function ApplicationDetailPage() {
   // Written directives state
   const [writtenDirectives, setWrittenDirectives] = useState<WrittenDirective[]>([]);
 
+  // Site visits state
+  const [siteVisits, setSiteVisits] = useState<SiteVisitWithPhotos[]>([]);
+
   // Load data
   useEffect(() => {
     if (!id) return;
@@ -159,6 +166,10 @@ export default function ApplicationDetailPage() {
       // Get written directives
       const directives = await getWrittenDirectives(id as string);
       setWrittenDirectives(directives);
+
+      // Get site visits
+      const visits = await getSiteVisits(id as string);
+      setSiteVisits(visits);
 
       // Get officers (for admin only)
       if (profile?.role === "admin" || profile?.role === "department_head") {
@@ -977,6 +988,105 @@ export default function ApplicationDetailPage() {
                   })}
                 </TableBody>
               </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* NEW SECTION: Lawatan Tapak */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-serif">Lawatan Tapak</CardTitle>
+                <CardDescription>
+                  Rekod lawatan tapak yang telah dilakukan
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => router.push(`/dashboard/site-visit/${application.id}`)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Lawatan
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {siteVisits.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Tiada lawatan tapak direkodkan
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {siteVisits.map((visit) => (
+                  <div
+                    key={visit.id}
+                    className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => router.push(`/dashboard/site-visit/${visit.id}`)}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {new Date(visit.visit_date).toLocaleDateString("ms-MY")}
+                          </span>
+                          {visit.masa_lawatan && (
+                            <span className="text-sm text-muted-foreground">
+                              {visit.masa_lawatan}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {visit.tujuan_lawatan}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Pegawai: {visit.officer?.full_name || "-"}
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          visit.status_lawatan === "Selesai"
+                            ? "default"
+                            : visit.status_lawatan === "Ditunda"
+                            ? "destructive"
+                            : visit.status_lawatan === "Dibatalkan"
+                            ? "outline"
+                            : "secondary"
+                        }
+                      >
+                        {visit.status_lawatan}
+                      </Badge>
+                    </div>
+
+                    {visit.penemuan && (
+                      <div className="text-sm mb-3">
+                        <div className="font-medium">Penemuan:</div>
+                        <div className="text-muted-foreground line-clamp-2">
+                          {visit.penemuan}
+                        </div>
+                      </div>
+                    )}
+
+                    {visit.site_photos && visit.site_photos.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto">
+                        {visit.site_photos.slice(0, 4).map((photo) => (
+                          <img
+                            key={photo.id}
+                            src={photo.photo_url}
+                            alt={photo.caption || "Site photo"}
+                            className="w-20 h-20 object-cover rounded"
+                          />
+                        ))}
+                        {visit.site_photos.length > 4 && (
+                          <div className="w-20 h-20 bg-muted rounded flex items-center justify-center text-sm text-muted-foreground">
+                            +{visit.site_photos.length - 4}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

@@ -1,118 +1,237 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import { Database } from "@/integrations/supabase/types";
 
-export const siteVisitService = {
-  // Create a new site visit
-  async createSiteVisit(
-    applicationId: string,
-    visitDate: string,
-    observations: string
-  ): Promise<Tables<"site_visits"> | null> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+type SiteVisit = Database["public"]["Tables"]["site_visits"]["Row"];
+type SitePhoto = Database["public"]["Tables"]["site_photos"]["Row"];
 
-    const { data, error } = await supabase
-      .from("site_visits")
-      .insert({
-        application_id: applicationId,
-        officer_id: user.id,
-        visit_date: visitDate,
-        observations: observations,
-      })
-      .select()
-      .single();
+export interface SiteVisitFormData {
+  application_id: string;
+  tarikh_lawatan: string;
+  masa_lawatan?: string;
+  pegawai_lawatan: string;
+  tujuan_lawatan: string;
+  penemuan?: string;
+  tindakan_susulan?: string;
+  status_lawatan: string;
+}
 
-    if (error) {
-      console.error("Error creating site visit:", error);
-      return null;
-    }
+export interface SitePhotoFormData {
+  site_visit_id: string;
+  photo_url: string;
+  caption?: string;
+  tarikh_gambar?: string;
+}
 
-    return data;
-  },
+export interface SiteVisitWithPhotos extends SiteVisit {
+  site_photos?: SitePhoto[];
+  officer?: {
+    id: string;
+    full_name: string;
+    role: string;
+  };
+}
 
-  // Upload site photos
-  async uploadSitePhoto(
-    siteVisitId: string,
-    file: File,
-    caption?: string,
-    location?: string
-  ): Promise<boolean> {
-    try {
-      // Upload to Supabase Storage
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${siteVisitId}/${Date.now()}.${fileExt}`;
-      const { error: uploadError, data } = await supabase.storage
-        .from("site-photos")
-        .upload(fileName, file);
+export const TUJUAN_LAWATAN_OPTIONS = [
+  "Semakan Zon Tapak",
+  "Pengesahan Setback",
+  "Pemantauan Kepatuhan",
+  "Lawatan Umum",
+] as const;
 
-      if (uploadError) throw uploadError;
+export const STATUS_LAWATAN_OPTIONS = [
+  "Dirancang",
+  "Selesai",
+  "Ditunda",
+  "Dibatalkan",
+] as const;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("site-photos")
-        .getPublicUrl(fileName);
+/**
+ * Get all site visits for an application
+ */
+export async function getSiteVisits(
+  applicationId: string
+): Promise<SiteVisitWithPhotos[]> {
+  const { data, error } = await supabase
+    .from("site_visits")
+    .select(`
+      *,
+      officer:officer_id(id, full_name, role),
+      site_photos(*)
+    `)
+    .eq("application_id", applicationId)
+    .order("visit_date", { ascending: false });
 
-      // Save photo record
-      const { error: dbError } = await supabase.from("site_photos").insert({
-        site_visit_id: siteVisitId,
-        photo_url: urlData.publicUrl,
-        caption: caption || undefined,
-        location_description: location || undefined,
-      });
+  if (error) {
+    console.error("Error fetching site visits:", error);
+    throw error;
+  }
 
-      if (dbError) throw dbError;
+  return (data as unknown as SiteVisitWithPhotos[]) || [];
+}
 
-      return true;
-    } catch (error) {
-      console.error("Error uploading site photo:", error);
-      return false;
-    }
-  },
+/**
+ * Get a single site visit by ID
+ */
+export async function getSiteVisit(
+  visitId: string
+): Promise<SiteVisitWithPhotos | null> {
+  const { data, error } = await supabase
+    .from("site_visits")
+    .select(`
+      *,
+      officer:officer_id(id, full_name, role),
+      site_photos(*)
+    `)
+    .eq("id", visitId)
+    .single();
 
-  // Get site visits for an application
-  async getSiteVisits(applicationId: string): Promise<Tables<"site_visits">[]> {
-    const { data, error } = await supabase
-      .from("site_visits")
-      .select("*, profiles!site_visits_officer_id_fkey(full_name, role)")
-      .eq("application_id", applicationId)
-      .order("visit_date", { ascending: false });
+  if (error) {
+    console.error("Error fetching site visit:", error);
+    throw error;
+  }
 
-    if (error) {
-      console.error("Error fetching site visits:", error);
-      return [];
-    }
+  return data as unknown as SiteVisitWithPhotos;
+}
 
-    return data || [];
-  },
+/**
+ * Create a new site visit
+ */
+export async function createSiteVisit(
+  formData: SiteVisitFormData,
+  userId: string
+): Promise<SiteVisit> {
+  const { data, error } = await supabase
+    .from("site_visits")
+    .insert({
+      application_id: formData.application_id,
+      officer_id: formData.pegawai_lawatan,
+      visit_date: formData.tarikh_lawatan,
+      masa_lawatan: formData.masa_lawatan || null,
+      tujuan_lawatan: formData.tujuan_lawatan,
+      penemuan: formData.penemuan || null,
+      tindakan_susulan: formData.tindakan_susulan || null,
+      status_lawatan: formData.status_lawatan,
+      is_completed: formData.status_lawatan === "Selesai",
+    })
+    .select()
+    .single();
 
-  // Get photos for a site visit
-  async getSitePhotos(siteVisitId: string): Promise<Tables<"site_photos">[]> {
-    const { data, error } = await supabase
-      .from("site_photos")
-      .select("*")
-      .eq("site_visit_id", siteVisitId)
-      .order("uploaded_at", { ascending: true });
+  if (error) {
+    console.error("Error creating site visit:", error);
+    throw error;
+  }
 
-    if (error) {
-      console.error("Error fetching site photos:", error);
-      return [];
-    }
+  // Create workflow history entry
+  await supabase.from("workflow_history").insert({
+    application_id: formData.application_id,
+    to_status: `Lawatan Tapak (${formData.status_lawatan})`,
+    changed_by: userId,
+    comment: `Lawatan tapak didaftarkan - ${formData.tujuan_lawatan}. Tarikh: ${formData.tarikh_lawatan}`,
+  });
 
-    return data || [];
-  },
+  return data;
+}
 
-  // Complete site visit
-  async completeSiteVisit(siteVisitId: string): Promise<boolean> {
-    const { error } = await supabase
-      .from("site_visits")
-      .update({ is_completed: true })
-      .eq("id", siteVisitId);
+/**
+ * Update an existing site visit
+ */
+export async function updateSiteVisit(
+  visitId: string,
+  formData: Partial<SiteVisitFormData>,
+  userId: string
+): Promise<SiteVisit> {
+  const updateData: any = {};
 
-    if (error) {
-      console.error("Error completing site visit:", error);
-      return false;
-    }
+  if (formData.tarikh_lawatan) updateData.visit_date = formData.tarikh_lawatan;
+  if (formData.masa_lawatan !== undefined) updateData.masa_lawatan = formData.masa_lawatan || null;
+  if (formData.pegawai_lawatan) updateData.officer_id = formData.pegawai_lawatan;
+  if (formData.tujuan_lawatan) updateData.tujuan_lawatan = formData.tujuan_lawatan;
+  if (formData.penemuan !== undefined) updateData.penemuan = formData.penemuan || null;
+  if (formData.tindakan_susulan !== undefined) updateData.tindakan_susulan = formData.tindakan_susulan || null;
+  if (formData.status_lawatan) {
+    updateData.status_lawatan = formData.status_lawatan;
+    updateData.is_completed = formData.status_lawatan === "Selesai";
+  }
 
-    return true;
-  },
-};
+  const { data, error } = await supabase
+    .from("site_visits")
+    .update(updateData)
+    .eq("id", visitId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating site visit:", error);
+    throw error;
+  }
+
+  // Get application_id for workflow history
+  if (formData.application_id) {
+    await supabase.from("workflow_history").insert({
+      application_id: formData.application_id,
+      to_status: `Lawatan Tapak Dikemaskini (${formData.status_lawatan})`,
+      changed_by: userId,
+      comment: `Lawatan tapak dikemaskini`,
+    });
+  }
+
+  return data;
+}
+
+/**
+ * Upload site photo
+ */
+export async function uploadSitePhoto(
+  formData: SitePhotoFormData
+): Promise<SitePhoto> {
+  const { data, error } = await supabase
+    .from("site_photos")
+    .insert({
+      site_visit_id: formData.site_visit_id,
+      photo_url: formData.photo_url,
+      caption: formData.caption || null,
+      tarikh_gambar: formData.tarikh_gambar || new Date().toISOString().split("T")[0],
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error uploading site photo:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Delete site photo
+ */
+export async function deleteSitePhoto(photoId: string): Promise<void> {
+  const { error } = await supabase
+    .from("site_photos")
+    .delete()
+    .eq("id", photoId);
+
+  if (error) {
+    console.error("Error deleting site photo:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get available officers for assignment
+ */
+export async function getAvailableOfficersForVisit(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("role", ["officer", "assistant_planner_j5", "department_head"])
+    .order("full_name");
+
+  if (error) {
+    console.error("Error fetching officers:", error);
+    return [];
+  }
+
+  return data || [];
+}

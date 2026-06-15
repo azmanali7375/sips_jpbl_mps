@@ -721,6 +721,7 @@ export type Database = {
           photo_type: string | null
           photo_url: string
           site_visit_id: string
+          tarikh_gambar: string | null
           uploaded_at: string | null
         }
         Insert: {
@@ -730,6 +731,7 @@ export type Database = {
           photo_type?: string | null
           photo_url: string
           site_visit_id: string
+          tarikh_gambar?: string | null
           uploaded_at?: string | null
         }
         Update: {
@@ -739,6 +741,7 @@ export type Database = {
           photo_type?: string | null
           photo_url?: string
           site_visit_id?: string
+          tarikh_gambar?: string | null
           uploaded_at?: string | null
         }
         Relationships: [
@@ -758,11 +761,16 @@ export type Database = {
           created_at: string | null
           id: string
           is_completed: boolean | null
+          masa_lawatan: string | null
           observations: string | null
           officer_id: string
+          penemuan: string | null
           site_condition: string | null
+          status_lawatan: string | null
           surrounding_development: string | null
           technical_notes: string | null
+          tindakan_susulan: string | null
+          tujuan_lawatan: string | null
           updated_at: string | null
           visit_date: string
         }
@@ -772,11 +780,16 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_completed?: boolean | null
+          masa_lawatan?: string | null
           observations?: string | null
           officer_id: string
+          penemuan?: string | null
           site_condition?: string | null
+          status_lawatan?: string | null
           surrounding_development?: string | null
           technical_notes?: string | null
+          tindakan_susulan?: string | null
+          tujuan_lawatan?: string | null
           updated_at?: string | null
           visit_date: string
         }
@@ -786,11 +799,16 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_completed?: boolean | null
+          masa_lawatan?: string | null
           observations?: string | null
           officer_id?: string
+          penemuan?: string | null
           site_condition?: string | null
+          status_lawatan?: string | null
           surrounding_development?: string | null
           technical_notes?: string | null
+          tindakan_susulan?: string | null
+          tujuan_lawatan?: string | null
           updated_at?: string | null
           visit_date?: string
         }

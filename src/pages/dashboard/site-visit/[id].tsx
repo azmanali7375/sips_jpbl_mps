@@ -1,205 +1,262 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { SEO } from "@/components/SEO";
 import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { applicationService } from "@/services/applicationService";
-import { siteVisitService } from "@/services/siteVisitService";
-import { workflowService } from "@/services/workflowService";
-import type { Tables } from "@/integrations/supabase/types";
-import { MapPin, Upload, Image as ImageIcon, X, CheckCircle, Camera, FileText, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface PhotoUpload {
-  file: File;
-  preview: string;
-  caption: string;
-  location: string;
-}
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, Save, Upload, X, Image as ImageIcon } from "lucide-react";
+import {
+  createSiteVisit,
+  updateSiteVisit,
+  getSiteVisit,
+  uploadSitePhoto,
+  deleteSitePhoto,
+  getAvailableOfficersForVisit,
+  TUJUAN_LAWATAN_OPTIONS,
+  STATUS_LAWATAN_OPTIONS,
+  type SiteVisitFormData,
+  type SiteVisitWithPhotos,
+} from "@/services/siteVisitService";
 
 export default function SiteVisitPage() {
   const router = useRouter();
   const { id } = router.query;
   const { toast } = useToast();
 
-  const [application, setApplication] = useState<Tables<"applications"> | null>(null);
-  const [siteVisit, setSiteVisit] = useState<Tables<"site_visits"> | null>(null);
-  const [existingPhotos, setExistingPhotos] = useState<Tables<"site_photos">[]>([]);
-  
-  const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
-  const [observations, setObservations] = useState("");
-  const [technicalNotes, setTechnicalNotes] = useState("");
-  
-  const [photos, setPhotos] = useState<PhotoUpload[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [application, setApplication] = useState<any>(null);
+  const [officers, setOfficers] = useState<any[]>([]);
+  const [existingVisit, setExistingVisit] = useState<SiteVisitWithPhotos | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // Form state
+  const [tarikhLawatan, setTarikhLawatan] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [masaLawatan, setMasaLawatan] = useState("");
+  const [pegawaiLawatan, setPegawaiLawatan] = useState("");
+  const [tujuanLawatan, setTujuanLawatan] = useState("");
+  const [penemuan, setPenemuan] = useState("");
+  const [tindakanSusulan, setTindakanSusulan] = useState("");
+  const [statusLawatan, setStatusLawatan] = useState("Dirancang");
+
+  // Photo upload state
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [photoCaption, setPhotoCaption] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
-    if (id && typeof id === "string") {
-      loadData(id);
-    }
+    if (!id) return;
+    loadData();
   }, [id]);
 
-  const loadData = async (applicationId: string) => {
+  async function loadData() {
     try {
-      const appData = await applicationService.getApplicationById(applicationId);
-      setApplication(appData);
+      setLoading(true);
 
-      const visits = await siteVisitService.getSiteVisits(applicationId);
-      if (visits.length > 0) {
-        const latestVisit = visits[0];
-        setSiteVisit(latestVisit);
-        setVisitDate(latestVisit.visit_date);
-        setObservations(latestVisit.observations || "");
-        setTechnicalNotes(latestVisit.technical_notes || "");
-
-        const photos = await siteVisitService.getSitePhotos(latestVisit.id);
-        setExistingPhotos(photos);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
       }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      setCurrentUser(profile);
+      setPegawaiLawatan(profile?.id || "");
+
+      // Convert id to string
+      const appId = Array.isArray(id) ? id[0] : id;
+      if (!appId) return;
+
+      // Check if this is an existing visit or new visit for application
+      const { data: visitData } = await supabase
+        .from("site_visits")
+        .select("*")
+        .eq("id", appId)
+        .maybeSingle();
+
+      if (visitData) {
+        // Editing existing visit
+        setIsEditMode(true);
+        const visit = await getSiteVisit(appId);
+        setExistingVisit(visit);
+
+        // Populate form
+        setTarikhLawatan(visit.visit_date);
+        setMasaLawatan(visit.masa_lawatan || "");
+        setPegawaiLawatan(visit.officer_id);
+        setTujuanLawatan(visit.tujuan_lawatan || "");
+        setPenemuan(visit.penemuan || "");
+        setTindakanSusulan(visit.tindakan_susulan || "");
+        setStatusLawatan(visit.status_lawatan || "Dirancang");
+
+        // Get application for this visit
+        const { data: app } = await supabase
+          .from("applications")
+          .select("*")
+          .eq("id", visit.application_id)
+          .single();
+        setApplication(app);
+      } else {
+        // New visit for application
+        setIsEditMode(false);
+        const { data: app } = await supabase
+          .from("applications")
+          .select("*")
+          .eq("id", appId)
+          .single();
+        setApplication(app);
+      }
+
+      // Get officers
+      const officerList = await getAvailableOfficersForVisit();
+      setOfficers(officerList);
     } catch (error) {
       console.error("Error loading data:", error);
       toast({
         title: "Ralat",
-        description: "Gagal memuatkan data permohonan",
+        description: "Gagal memuatkan data",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleFileChange = (files: FileList | null) => {
-    if (!files) return;
+  async function handleSubmit() {
+    if (!application || !currentUser) return;
 
-    const newPhotos: PhotoUpload[] = [];
-    Array.from(files).forEach((file) => {
-      if (file.type.startsWith("image/")) {
-        const preview = URL.createObjectURL(file);
-        newPhotos.push({ file, preview, caption: "", location: "" });
-      }
-    });
-
-    setPhotos((prev) => [...prev, ...newPhotos]);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFileChange(e.dataTransfer.files);
-  };
-
-  const removePhoto = (index: number) => {
-    setPhotos((prev) => {
-      URL.revokeObjectURL(prev[index].preview);
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  const updatePhotoCaption = (index: number, caption: string) => {
-    setPhotos((prev) =>
-      prev.map((p, i) => (i === index ? { ...p, caption } : p))
-    );
-  };
-
-  const updatePhotoLocation = (index: number, location: string) => {
-    setPhotos((prev) =>
-      prev.map((p, i) => (i === index ? { ...p, location } : p))
-    );
-  };
-
-  const handleSaveSiteVisit = async () => {
-    if (!id || typeof id !== "string") return;
-
-    setUploading(true);
-    try {
-      let visitId = siteVisit?.id;
-
-      if (!visitId) {
-        const newVisit = await siteVisitService.createSiteVisit(
-          id,
-          visitDate,
-          observations
-        );
-        if (!newVisit) throw new Error("Failed to create site visit");
-        visitId = newVisit.id;
-        setSiteVisit(newVisit);
-      }
-
-      // Upload all photos
-      for (const photo of photos) {
-        await siteVisitService.uploadSitePhoto(
-          visitId,
-          photo.file,
-          photo.caption,
-          photo.location
-        );
-      }
-
+    // Validation
+    if (!tarikhLawatan || !pegawaiLawatan || !tujuanLawatan) {
       toast({
-        title: "Berjaya",
-        description: "Lawatan tapak disimpan",
+        title: "Ralat",
+        description: "Sila lengkapkan medan wajib: Tarikh Lawatan, Pegawai, dan Tujuan Lawatan",
+        variant: "destructive",
       });
+      return;
+    }
 
-      // Reload to show uploaded photos
-      await loadData(id);
-      setPhotos([]);
+    try {
+      setSubmitting(true);
+
+      const formData: SiteVisitFormData = {
+        application_id: application.id,
+        tarikh_lawatan: tarikhLawatan,
+        masa_lawatan: masaLawatan || undefined,
+        pegawai_lawatan: pegawaiLawatan,
+        tujuan_lawatan: tujuanLawatan,
+        penemuan: penemuan || undefined,
+        tindakan_susulan: tindakanSusulan || undefined,
+        status_lawatan: statusLawatan,
+      };
+
+      if (isEditMode && existingVisit) {
+        await updateSiteVisit(existingVisit.id, formData, currentUser.id);
+        toast({
+          title: "Berjaya",
+          description: "Lawatan tapak berjaya dikemaskini",
+        });
+      } else {
+        await createSiteVisit(formData, currentUser.id);
+        toast({
+          title: "Berjaya",
+          description: "Lawatan tapak berjaya didaftarkan",
+        });
+      }
+
+      // Redirect back to application detail
+      router.push(`/dashboard/permohonan/${application.id}`);
     } catch (error) {
-      console.error("Error saving site visit:", error);
+      console.error("Error submitting site visit:", error);
       toast({
         title: "Ralat",
         description: "Gagal menyimpan lawatan tapak",
         variant: "destructive",
       });
     } finally {
-      setUploading(false);
+      setSubmitting(false);
     }
-  };
+  }
 
-  const handleCompleteSiteVisit = async () => {
-    if (!siteVisit) return;
-
-    try {
-      await siteVisitService.completeSiteVisit(siteVisit.id);
-      await workflowService.updateStatus(id as string, "technical_report");
-
-      toast({
-        title: "Lawatan Tapak Selesai",
-        description: "Status dikemaskini kepada Laporan Teknikal",
-      });
-
-      router.push("/dashboard/my-assignments");
-    } catch (error) {
-      console.error("Error completing site visit:", error);
+  async function handlePhotoUpload() {
+    if (!existingVisit || !photoUrl.trim()) {
       toast({
         title: "Ralat",
-        description: "Gagal melengkapkan lawatan tapak",
+        description: "Sila masukkan URL gambar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+
+      await uploadSitePhoto({
+        site_visit_id: existingVisit.id,
+        photo_url: photoUrl,
+        caption: photoCaption || undefined,
+        tarikh_gambar: new Date().toISOString().split("T")[0],
+      });
+
+      toast({
+        title: "Berjaya",
+        description: "Gambar berjaya dimuat naik",
+      });
+
+      // Reset form and reload
+      setPhotoUrl("");
+      setPhotoCaption("");
+      loadData();
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memuat naik gambar",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function handleDeletePhoto(photoId: string) {
+    if (!confirm("Adakah anda pasti untuk memadam gambar ini?")) return;
+
+    try {
+      await deleteSitePhoto(photoId);
+      toast({
+        title: "Berjaya",
+        description: "Gambar dipadam",
+      });
+      loadData();
+    } catch (error) {
+      console.error("Error deleting photo:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memadam gambar",
         variant: "destructive",
       });
     }
-  };
+  }
 
   if (loading) {
     return (
       <Layout>
-        <SEO title="Lawatan Tapak - Sistem SPC MPS" />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-muted-foreground">Memuatkan...</p>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-muted-foreground">Memuatkan...</div>
         </div>
       </Layout>
     );
@@ -208,276 +265,239 @@ export default function SiteVisitPage() {
   if (!application) {
     return (
       <Layout>
-        <SEO title="Lawatan Tapak - Sistem SPC MPS" />
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Permohonan tidak dijumpai</AlertDescription>
-        </Alert>
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
+          <div className="text-muted-foreground">Permohonan tidak dijumpai</div>
+          <Button onClick={() => router.push("/dashboard")}>
+            Kembali ke Dashboard
+          </Button>
+        </div>
       </Layout>
     );
   }
 
-  const totalPhotos = existingPhotos.length + photos.length;
-  const canComplete = siteVisit && totalPhotos >= 3 && observations.trim().length > 0;
-
   return (
     <Layout>
-      <SEO title={`Lawatan Tapak - ${application.tracking_number}`} />
-      
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-serif font-bold flex items-center gap-3">
-            <MapPin className="h-8 w-8 text-primary" />
-            Lawatan Tapak
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Rekod pemerhatian dan muat naik gambar tapak
-          </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/dashboard/permohonan/${application.id}`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Kembali
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold font-serif">
+                {isEditMode ? "Edit Lawatan Tapak" : "Daftar Lawatan Tapak"}
+              </h1>
+              <p className="text-muted-foreground">
+                {application.no_fail_jpl} - {application.nama_pemaju_pemilik}
+              </p>
+            </div>
+          </div>
         </div>
-
-        {/* Application Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Maklumat Permohonan</CardTitle>
-          </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-muted-foreground">No. Rujukan</Label>
-              <p className="font-mono font-medium">{application.tracking_number}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Nama Projek</Label>
-              <p className="font-medium">{application.project_name}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Lokasi</Label>
-              <p>{application.location}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Status</Label>
-              <div className="mt-1">
-                <Badge variant="secondary">{application.status}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Site Visit Form */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Maklumat Lawatan
-            </CardTitle>
+            <CardTitle className="font-serif">Maklumat Lawatan Tapak</CardTitle>
             <CardDescription>
-              Rekodkan tarikh, pemerhatian dan nota teknikal
+              Rekod lawatan ke tapak pembangunan
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="visit-date">Tarikh Lawatan</Label>
-              <Input
-                id="visit-date"
-                type="date"
-                value={visitDate}
-                onChange={(e) => setVisitDate(e.target.value)}
-                className="max-w-xs"
-              />
+              <label className="text-sm font-medium">No. Fail (Rujukan)</label>
+              <Input value={application.no_fail_jpl} disabled />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Tarikh Lawatan *</label>
+                <Input
+                  type="date"
+                  value={tarikhLawatan}
+                  onChange={(e) => setTarikhLawatan(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Masa Lawatan</label>
+                <Input
+                  type="time"
+                  value={masaLawatan}
+                  onChange={(e) => setMasaLawatan(e.target.value)}
+                />
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="observations">Pemerhatian Tapak</Label>
+              <label className="text-sm font-medium">Pegawai Lawatan *</label>
+              <Select value={pegawaiLawatan} onValueChange={setPegawaiLawatan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih pegawai" />
+                </SelectTrigger>
+                <SelectContent>
+                  {officers.map((officer) => (
+                    <SelectItem key={officer.id} value={officer.id}>
+                      {officer.full_name} ({officer.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Tujuan Lawatan *</label>
+              <Select value={tujuanLawatan} onValueChange={setTujuanLawatan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih tujuan lawatan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TUJUAN_LAWATAN_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Penemuan</label>
               <Textarea
-                id="observations"
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                placeholder="Huraikan keadaan tapak, akses jalan, kemudahan sedia ada, pematuhan setback, dll."
                 rows={6}
-                className="font-mono text-sm"
+                placeholder="Catatan penemuan dari lawatan tapak..."
+                value={penemuan}
+                onChange={(e) => setPenemuan(e.target.value)}
               />
             </div>
 
             <div>
-              <Label htmlFor="technical-notes">Nota Teknikal</Label>
+              <label className="text-sm font-medium">Tindakan Susulan</label>
               <Textarea
-                id="technical-notes"
-                value={technicalNotes}
-                onChange={(e) => setTechnicalNotes(e.target.value)}
-                placeholder="Catatan teknikal untuk laporan (pilihan)"
                 rows={4}
-                className="font-mono text-sm"
+                placeholder="Tindakan susulan yang diperlukan..."
+                value={tindakanSusulan}
+                onChange={(e) => setTindakanSusulan(e.target.value)}
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Status Lawatan</label>
+              <Select value={statusLawatan} onValueChange={setStatusLawatan}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_LAWATAN_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Photo Upload */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" />
-              Muat Naik Gambar Tapak
-            </CardTitle>
-            <CardDescription>
-              Seret dan lepaskan gambar atau klik untuk pilih fail. Minimum 3 gambar diperlukan.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Drag-drop zone */}
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                isDragging
-                  ? "border-primary bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-muted-foreground/50"
-              }`}
-            >
-              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm font-medium mb-2">
-                Seret gambar ke sini atau klik untuk pilih
-              </p>
-              <p className="text-xs text-muted-foreground mb-4">
-                Format: JPG, PNG, HEIC. Saiz maksimum: 10MB setiap fail
-              </p>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => handleFileChange(e.target.files)}
-                className="max-w-xs mx-auto"
-              />
-            </div>
+        {/* Photo Upload (only for existing visits) */}
+        {isEditMode && existingVisit && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif">Gambar Lawatan Tapak</CardTitle>
+              <CardDescription>
+                Muat naik gambar dari lawatan tapak
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Upload form */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <div>
+                  <label className="text-sm font-medium">URL Gambar</label>
+                  <Input
+                    placeholder="https://example.com/photo.jpg"
+                    value={photoUrl}
+                    onChange={(e) => setPhotoUrl(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Caption</label>
+                  <Input
+                    placeholder="Keterangan gambar..."
+                    value={photoCaption}
+                    onChange={(e) => setPhotoCaption(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={handlePhotoUpload}
+                  disabled={uploadingPhoto || !photoUrl.trim()}
+                  size="sm"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploadingPhoto ? "Memuat naik..." : "Muat Naik"}
+                </Button>
+              </div>
 
-            {/* Photo Gallery - New uploads */}
-            {photos.length > 0 && (
-              <div>
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  Gambar Baru ({photos.length})
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {photos.map((photo, index) => (
-                    <div key={index} className="border rounded-lg overflow-hidden">
-                      <div className="relative aspect-video bg-muted">
-                        <img
-                          src={photo.preview}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
+              {/* Photo gallery */}
+              {existingVisit.site_photos && existingVisit.site_photos.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {existingVisit.site_photos.map((photo) => (
+                    <div key={photo.id} className="relative group">
+                      <img
+                        src={photo.photo_url}
+                        alt={photo.caption || "Site photo"}
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                         <Button
-                          size="icon"
                           variant="destructive"
-                          className="absolute top-2 right-2"
-                          onClick={() => removePhoto(index)}
+                          size="sm"
+                          onClick={() => handleDeletePhoto(photo.id)}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-4 w-4 mr-2" />
+                          Padam
                         </Button>
                       </div>
-                      <div className="p-3 space-y-2">
-                        <Input
-                          placeholder="Keterangan gambar"
-                          value={photo.caption}
-                          onChange={(e) => updatePhotoCaption(index, e.target.value)}
-                          className="text-sm"
-                        />
-                        <Input
-                          placeholder="Lokasi (contoh: Bahagian depan tapak)"
-                          value={photo.location}
-                          onChange={(e) => updatePhotoLocation(index, e.target.value)}
-                          className="text-sm"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Existing Photos */}
-            {existingPhotos.length > 0 && (
-              <div>
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  Gambar Yang Dimuat Naik ({existingPhotos.length})
-                </h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {existingPhotos.map((photo) => (
-                    <div key={photo.id} className="border rounded-lg overflow-hidden">
-                      <div className="relative aspect-video bg-muted">
-                        <img
-                          src={photo.photo_url}
-                          alt={photo.caption || "Site photo"}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      {(photo.caption || photo.location_description) && (
-                        <div className="p-3 space-y-1 text-sm">
-                          {photo.caption && (
-                            <p className="font-medium">{photo.caption}</p>
-                          )}
-                          {photo.location_description && (
-                            <p className="text-muted-foreground text-xs">
-                              {photo.location_description}
-                            </p>
-                          )}
+                      {photo.caption && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          {photo.caption}
                         </div>
                       )}
+                      <div className="text-xs text-muted-foreground">
+                        {photo.tarikh_gambar
+                          ? new Date(photo.tarikh_gambar).toLocaleDateString("ms-MY")
+                          : ""}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-8 text-muted-foreground flex flex-col items-center gap-2">
+                  <ImageIcon className="h-12 w-12 opacity-50" />
+                  <div>Tiada gambar dimuat naik</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-            {totalPhotos > 0 && (
-              <Alert>
-                <ImageIcon className="h-4 w-4" />
-                <AlertDescription>
-                  Jumlah gambar: {totalPhotos} {totalPhotos >= 3 ? "✓" : `(minimum 3 diperlukan)`}
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <div className="flex justify-between">
+        {/* Submit Button */}
+        <div className="flex justify-end gap-4">
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard/my-assignments")}
+            onClick={() => router.push(`/dashboard/permohonan/${application.id}`)}
+            disabled={submitting}
           >
-            Kembali
+            Batal
           </Button>
-          <div className="flex gap-3">
-            <Button
-              onClick={handleSaveSiteVisit}
-              disabled={uploading || photos.length === 0}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {uploading ? "Memuat naik..." : "Simpan Lawatan"}
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleCompleteSiteVisit}
-              disabled={!canComplete}
-              className="bg-success hover:bg-success/90"
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Selesai Lawatan Tapak
-            </Button>
-          </div>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            <Save className="h-4 w-4 mr-2" />
+            {submitting ? "Menyimpan..." : isEditMode ? "Kemaskini" : "Simpan"}
+          </Button>
         </div>
-
-        {!canComplete && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Untuk melengkapkan lawatan tapak: minimum 3 gambar dan pemerhatian tapak diperlukan
-            </AlertDescription>
-          </Alert>
-        )}
       </div>
     </Layout>
   );
