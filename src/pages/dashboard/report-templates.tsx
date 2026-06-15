@@ -308,8 +308,12 @@ export default function ReportTemplates() {
                 <Input
                   value={formData.template_name}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData((prev) => ({ ...prev, template_name: value }));
+                    setFormData({
+                      template_name: e.target.value,
+                      template_type: formData.template_type,
+                      template_content: formData.template_content,
+                      description: formData.description,
+                    });
                   }}
                   placeholder="Contoh: Ulasan Teknikal Standard"
                 />
@@ -320,7 +324,12 @@ export default function ReportTemplates() {
                 <Select
                   value={formData.template_type}
                   onValueChange={(value) => {
-                    setFormData((prev) => ({ ...prev, template_type: value }));
+                    setFormData({
+                      template_name: formData.template_name,
+                      template_type: value,
+                      template_content: formData.template_content,
+                      description: formData.description,
+                    });
                   }}
                 >
                   <SelectTrigger>
@@ -341,8 +350,12 @@ export default function ReportTemplates() {
                 <Input
                   value={formData.description}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData((prev) => ({ ...prev, description: value }));
+                    setFormData({
+                      template_name: formData.template_name,
+                      template_type: formData.template_type,
+                      template_content: formData.template_content,
+                      description: e.target.value,
+                    });
                   }}
                   placeholder="Penerangan ringkas templat ini"
                 />
@@ -355,8 +368,12 @@ export default function ReportTemplates() {
                 <Textarea
                   value={formData.template_content}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData((prev) => ({ ...prev, template_content: value }));
+                    setFormData({
+                      template_name: formData.template_name,
+                      template_type: formData.template_type,
+                      template_content: e.target.value,
+                      description: formData.description,
+                    });
                   }}
                   rows={15}
                   placeholder="Masukkan kandungan templat. Gunakan placeholder seperti {{no_fail_jpl}}, {{tajuk_permohonan}}, dll."

@@ -142,11 +142,6 @@ export async function registerNewApplication(
         skala_pembangunan: formData.skala_pembangunan,
         status: "pending",
         assigned_officer_id: formData.assigned_to || null,
-        no_rujukan_jkr: formData.no_rujukan_jkr?.trim() || null,
-        no_rujukan_jps: formData.no_rujukan_jps?.trim() || null,
-        no_rujukan_tnb: formData.no_rujukan_tnb?.trim() || null,
-        no_rujukan_telekom: formData.no_rujukan_telekom?.trim() || null,
-        no_rujukan_pbt_lain: formData.no_rujukan_pbt_lain?.trim() || null,
       })
       .select()
       .single();
