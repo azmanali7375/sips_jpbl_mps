@@ -15,6 +15,7 @@ import { Calendar, FileText, CheckCircle2, XCircle, AlertCircle, Clock, Download
 import { applicationService, type Application } from "@/services/applicationService";
 import { oscDecisionService, type OSCDecisionType } from "@/services/oscDecisionService";
 import { borangC1Service } from "@/services/borangC1Service";
+import { borangC2Service } from "@/services/borangC2Service";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OSCDecisionsPage() {
@@ -41,6 +42,12 @@ export default function OSCDecisionsPage() {
   const [c1Data, setC1Data] = useState<any>(null);
   const [editableC1Data, setEditableC1Data] = useState<any>(null);
   const [generatingC1, setGeneratingC1] = useState(false);
+
+  // C2 generation state
+  const [showC2Modal, setShowC2Modal] = useState(false);
+  const [c2Data, setC2Data] = useState<any>(null);
+  const [editableC2Data, setEditableC2Data] = useState<any>(null);
+  const [generatingC2, setGeneratingC2] = useState(false);
 
   useEffect(() => {
     loadApplications();
@@ -197,6 +204,63 @@ export default function OSCDecisionsPage() {
     }
   };
 
+  const handleGenerateC2 = async (appId: string) => {
+    try {
+      // Get C2 data
+      const data = await borangC2Service.getC2Data(appId);
+      
+      if (!data) {
+        toast({
+          title: "Ralat",
+          description: "Gagal mendapatkan maklumat untuk Borang C(2)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setC2Data(data);
+      setEditableC2Data({ ...data });
+      setShowC2Modal(true);
+    } catch (error) {
+      console.error("Error preparing C2:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menyediakan Borang C(2)",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadC2 = () => {
+    if (!editableC2Data) return;
+
+    setGeneratingC2(true);
+    
+    try {
+      const html = borangC2Service.generateC2HTML(editableC2Data);
+      const timestamp = new Date().toISOString().split("T")[0].replace(/-/g, "");
+      const filename = `C2_${editableC2Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
+      
+      borangC2Service.downloadC2PDF(html, filename);
+      
+      toast({
+        title: "Borang C(2) Dijana",
+        description: "Buka fail HTML dan cetak ke PDF dari pelayar anda.",
+      });
+      
+      setShowC2Modal(false);
+    } catch (error) {
+      console.error("Error generating C2:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menjana Borang C(2)",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingC2(false);
+    }
+  };
+
   const getDecisionIcon = (type: OSCDecisionType) => {
     switch (type) {
       case "Lulus": return <CheckCircle2 className="h-5 w-5 text-success" />;
@@ -267,6 +331,19 @@ export default function OSCDecisionsPage() {
                         >
                           <Download className="h-3 w-3 mr-1" />
                           Jana Borang C(1)
+                        </Button>
+                      )}
+
+                      {/* Show Generate C2 button for rejected applications */}
+                      {app.status === "rejected" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => handleGenerateC2(app.id)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Jana Borang C(2)
                         </Button>
                       )}
                     </div>
@@ -598,6 +675,122 @@ export default function OSCDecisionsPage() {
                   </Button>
                   <Button onClick={handleDownloadC1} disabled={generatingC1}>
                     {generatingC1 ? (
+                      "Menjana..."
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Jana PDF
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Borang C(2) Modal */}
+        <Dialog open={showC2Modal} onOpenChange={setShowC2Modal}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Jana Borang C(2) - Penolakan Kebenaran Merancang</DialogTitle>
+            </DialogHeader>
+
+            {editableC2Data && (
+              <div className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-900 text-sm">
+                    Semak semua maklumat sebelum menjana PDF. Anda boleh edit sebab penolakan di bawah.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Fail JPL</Label>
+                    <Input value={editableC2Data.no_fail_jpl} disabled className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Permohonan OSC</Label>
+                    <Input value={editableC2Data.no_permohonan_osc} disabled className="text-sm" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Nama Pemaju / Pemilik</Label>
+                    <Input value={editableC2Data.nama_pemaju_pemilik} disabled className="text-sm" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Alamat Pemohon</Label>
+                    <Textarea
+                      value={editableC2Data.alamat_pemohon}
+                      onChange={(e) =>
+                        setEditableC2Data({ ...editableC2Data, alamat_pemohon: e.target.value })
+                      }
+                      placeholder="Masukkan alamat lengkap pemohon (satu baris per line)"
+                      className="text-sm"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Tajuk Permohonan</Label>
+                    <Input value={editableC2Data.tajuk_permohonan} disabled className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Mesyuarat OSC</Label>
+                    <Input
+                      value={editableC2Data.no_mesyuarat}
+                      onChange={(e) =>
+                        setEditableC2Data({ ...editableC2Data, no_mesyuarat: e.target.value })
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Tarikh Mesyuarat</Label>
+                    <Input
+                      type="date"
+                      value={editableC2Data.tarikh_mesyuarat_osc}
+                      onChange={(e) =>
+                        setEditableC2Data({ ...editableC2Data, tarikh_mesyuarat_osc: e.target.value })
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Tarikh Kelulusan (Tarikh Surat)</Label>
+                    <Input
+                      type="date"
+                      value={editableC2Data.tarikh_kelulusan}
+                      onChange={(e) =>
+                        setEditableC2Data({ ...editableC2Data, tarikh_kelulusan: e.target.value })
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">
+                      Sebab Penolakan (LAMPIRAN)
+                    </Label>
+                    <Textarea
+                      value={editableC2Data.sebab_penolakan}
+                      onChange={(e) =>
+                        setEditableC2Data({ ...editableC2Data, sebab_penolakan: e.target.value })
+                      }
+                      rows={10}
+                      placeholder="Masukkan sebab penolakan (satu sebab per baris)..."
+                      className="text-sm font-mono"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Format: Satu sebab per baris. Sub-sebab guna 2.1, 2.2, dll.
+                    </p>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowC2Modal(false)}>
+                    Batal
+                  </Button>
+                  <Button onClick={handleDownloadC2} disabled={generatingC2}>
+                    {generatingC2 ? (
                       "Menjana..."
                     ) : (
                       <>
