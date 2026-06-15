@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -21,93 +21,165 @@ export type Database = {
           assigned_at: string | null
           assigned_officer_id: string | null
           building_height: number | null
+          catatan_dalaman: string | null
           created_at: string | null
+          daerah: string | null
           decision_date: string | null
           department_head_id: string | null
           head_review_completed_at: string | null
           id: string
+          jabatan_memperaku: string | null
+          jenis_proses_pr: string | null
+          kategori_permohonan: string | null
           land_use_zone: string | null
+          latitud: number | null
           location: string
+          lokasi_mercu_tanda: string | null
+          longitud: number | null
           lot_number: string | null
+          mukim: string | null
+          nama_pemaju_pemilik: string | null
+          nama_sp: string | null
+          negeri: string | null
+          no_fail_jpl: string | null
+          no_kp_sp: string | null
+          no_permohonan_osc: string | null
           osc_meeting_date: string | null
           plot_area: number | null
           plot_ratio: number | null
           project_name: string
           project_type: string | null
+          rancangan_tempatan: string | null
           registered_by: string | null
           reviewed_at: string | null
           setback_front: number | null
           setback_rear: number | null
           setback_side: number | null
           site_visit_completed_at: string | null
+          skala_pembangunan: string | null
           status: string | null
+          status_dalaman: string | null
+          status_semakan_osc: string | null
           submitted_at: string | null
+          tajuk_permohonan: string | null
+          tarikh_kpi: string | null
+          tarikh_lengkap_diterima_osc: string | null
+          tarikh_penghantaran: string | null
           technical_report_completed_at: string | null
           tracking_number: string
           unit_head_id: string | null
           updated_at: string | null
+          zoning: string | null
         }
         Insert: {
           applicant_id: string
           assigned_at?: string | null
           assigned_officer_id?: string | null
           building_height?: number | null
+          catatan_dalaman?: string | null
           created_at?: string | null
+          daerah?: string | null
           decision_date?: string | null
           department_head_id?: string | null
           head_review_completed_at?: string | null
           id?: string
+          jabatan_memperaku?: string | null
+          jenis_proses_pr?: string | null
+          kategori_permohonan?: string | null
           land_use_zone?: string | null
+          latitud?: number | null
           location: string
+          lokasi_mercu_tanda?: string | null
+          longitud?: number | null
           lot_number?: string | null
+          mukim?: string | null
+          nama_pemaju_pemilik?: string | null
+          nama_sp?: string | null
+          negeri?: string | null
+          no_fail_jpl?: string | null
+          no_kp_sp?: string | null
+          no_permohonan_osc?: string | null
           osc_meeting_date?: string | null
           plot_area?: number | null
           plot_ratio?: number | null
           project_name: string
           project_type?: string | null
+          rancangan_tempatan?: string | null
           registered_by?: string | null
           reviewed_at?: string | null
           setback_front?: number | null
           setback_rear?: number | null
           setback_side?: number | null
           site_visit_completed_at?: string | null
+          skala_pembangunan?: string | null
           status?: string | null
+          status_dalaman?: string | null
+          status_semakan_osc?: string | null
           submitted_at?: string | null
+          tajuk_permohonan?: string | null
+          tarikh_kpi?: string | null
+          tarikh_lengkap_diterima_osc?: string | null
+          tarikh_penghantaran?: string | null
           technical_report_completed_at?: string | null
           tracking_number?: string
           unit_head_id?: string | null
           updated_at?: string | null
+          zoning?: string | null
         }
         Update: {
           applicant_id?: string
           assigned_at?: string | null
           assigned_officer_id?: string | null
           building_height?: number | null
+          catatan_dalaman?: string | null
           created_at?: string | null
+          daerah?: string | null
           decision_date?: string | null
           department_head_id?: string | null
           head_review_completed_at?: string | null
           id?: string
+          jabatan_memperaku?: string | null
+          jenis_proses_pr?: string | null
+          kategori_permohonan?: string | null
           land_use_zone?: string | null
+          latitud?: number | null
           location?: string
+          lokasi_mercu_tanda?: string | null
+          longitud?: number | null
           lot_number?: string | null
+          mukim?: string | null
+          nama_pemaju_pemilik?: string | null
+          nama_sp?: string | null
+          negeri?: string | null
+          no_fail_jpl?: string | null
+          no_kp_sp?: string | null
+          no_permohonan_osc?: string | null
           osc_meeting_date?: string | null
           plot_area?: number | null
           plot_ratio?: number | null
           project_name?: string
           project_type?: string | null
+          rancangan_tempatan?: string | null
           registered_by?: string | null
           reviewed_at?: string | null
           setback_front?: number | null
           setback_rear?: number | null
           setback_side?: number | null
           site_visit_completed_at?: string | null
+          skala_pembangunan?: string | null
           status?: string | null
+          status_dalaman?: string | null
+          status_semakan_osc?: string | null
           submitted_at?: string | null
+          tajuk_permohonan?: string | null
+          tarikh_kpi?: string | null
+          tarikh_lengkap_diterima_osc?: string | null
+          tarikh_penghantaran?: string | null
           technical_report_completed_at?: string | null
           tracking_number?: string
           unit_head_id?: string | null
           updated_at?: string | null
+          zoning?: string | null
         }
         Relationships: [
           {
@@ -795,7 +867,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_jpl_file_number: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
