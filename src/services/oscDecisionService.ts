@@ -73,14 +73,14 @@ export const oscDecisionService = {
     // Get application details for notification
     const { data: application } = await supabase
       .from("applications")
-      .select("assigned_to")
+      .select("assigned_officer_id")
       .eq("id", data.application_id)
       .single();
 
     // Send notification to assigned officer
-    if (application?.assigned_to) {
-      await notificationService.createNotification({
-        user_id: application.assigned_to,
+    if (application?.assigned_officer_id) {
+      await notificationService.create({
+        user_id: application.assigned_officer_id,
         type: "osc_decision",
         title: `Keputusan OSC: ${data.keputusan_osc}`,
         message: `Sila sediakan dan hantar surat rasmi kepada pemohon.`,
@@ -99,6 +99,9 @@ export const oscDecisionService = {
     noKelulusanKm?: string,
     syaratKelulusan?: string
   ): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+
     const tarikhKelulusanDate = new Date(tarikhKelulusan);
     const tarikhTamatSah = new Date(tarikhKelulusanDate);
     tarikhTamatSah.setFullYear(tarikhTamatSah.getFullYear() + tempohSahKelulusan);
@@ -107,11 +110,12 @@ export const oscDecisionService = {
       .from("approved_plans")
       .insert({
         application_id: applicationId,
-        approval_number: noKelulusanKm,
+        plan_registration_number: noKelulusanKm || `PENDING-${Date.now()}`,
+        endorsed_date: tarikhKelulusan,
+        registered_by: user.id,
         tarikh_kelulusan: tarikhKelulusan,
         tarikh_tamat_sah: tarikhTamatSah.toISOString().split('T')[0],
         syarat_kelulusan: syaratKelulusan,
-        status: "pending_registration",
       });
 
     if (error) {
