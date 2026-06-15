@@ -43,6 +43,7 @@ interface ApplicationWithDetails extends Tables<"applications"> {
 
 export default function SIPSDashboard() {
   const router = useRouter();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     jumlahAktif: 0,
