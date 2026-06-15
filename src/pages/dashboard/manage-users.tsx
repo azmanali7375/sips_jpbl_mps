@@ -182,12 +182,21 @@ export default function ManageUsersPage() {
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           profile.role === "admin"
                             ? "bg-primary/10 text-primary"
-                            : profile.role === "officer"
+                            : profile.role === "unit_head"
                             ? "bg-secondary/10 text-secondary"
+                            : profile.role === "department_head"
+                            ? "bg-accent/10 text-accent"
+                            : profile.role === "assistant_planner_j5"
+                            ? "bg-success/10 text-success"
                             : "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {profile.role}
+                        {profile.role === "admin" && "Admin"}
+                        {profile.role === "admin_assistant" && "Admin Assistant"}
+                        {profile.role === "unit_head" && "Unit Head"}
+                        {profile.role === "assistant_planner_j5" && "Assistant Planner J5"}
+                        {profile.role === "department_head" && "Department Head"}
+                        {profile.role === "applicant" && "Applicant"}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -266,8 +275,11 @@ export default function ManageUsersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="officer">Officer</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="admin_assistant">Admin Assistant</SelectItem>
+                    <SelectItem value="unit_head">Unit Head</SelectItem>
+                    <SelectItem value="assistant_planner_j5">Assistant Planner J5</SelectItem>
+                    <SelectItem value="department_head">Department Head</SelectItem>
+                    <SelectItem value="applicant">Applicant</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
