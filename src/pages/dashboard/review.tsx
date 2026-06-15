@@ -79,11 +79,15 @@ export default function TechnicalReviewPage() {
       setCurrentUser(profile);
       setPegawaiPenyemak(profile?.id || "");
 
+      // Convert application_id to string (router.query can be string | string[])
+      const appId = Array.isArray(application_id) ? application_id[0] : application_id;
+      if (!appId) return;
+
       // Get application details
       const { data: appData } = await supabase
         .from("applications")
         .select("*")
-        .eq("id", application_id)
+        .eq("id", appId)
         .single();
 
       setApplication(appData);
