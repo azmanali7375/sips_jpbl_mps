@@ -15,6 +15,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      agency_ulasan: {
+        Row: {
+          application_id: string
+          catatan: string | null
+          created_at: string | null
+          id: string
+          keputusan_agensi: string | null
+          kod_agensi: string
+          nama_agensi: string
+          ringkasan_ulasan: string | null
+          tarikh_ulasan: string | null
+        }
+        Insert: {
+          application_id: string
+          catatan?: string | null
+          created_at?: string | null
+          id?: string
+          keputusan_agensi?: string | null
+          kod_agensi: string
+          nama_agensi: string
+          ringkasan_ulasan?: string | null
+          tarikh_ulasan?: string | null
+        }
+        Update: {
+          application_id?: string
+          catatan?: string | null
+          created_at?: string | null
+          id?: string
+          keputusan_agensi?: string | null
+          kod_agensi?: string
+          nama_agensi?: string
+          ringkasan_ulasan?: string | null
+          tarikh_ulasan?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_ulasan_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           applicant_id: string

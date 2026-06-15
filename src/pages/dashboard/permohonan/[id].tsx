@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
+import { agencyUlasanService, type AgencyUlasan, type AgencyUlasanStats } from "@/services/agencyUlasanService";
 import {
   getApplicationDetail,
   getWorkflowHistory,
@@ -69,7 +71,7 @@ import {
 } from "@/services/documentService";
 import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
-import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle, Calendar, User, Clock, CheckCircle, X, Eye } from "lucide-react";
 import { cajPemajanService, type CajPemajanData } from "@/services/cajPemajanService";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
@@ -118,6 +120,23 @@ export default function ApplicationDetailPage() {
   const [workflowHistory, setWorkflowHistory] = useState<WorkflowHistoryWithProfile[]>([]);
   const [officers, setOfficers] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [agencyUlasan, setAgencyUlasan] = useState<AgencyUlasan[]>([]);
+  const [agencyStats, setAgencyStats] = useState<AgencyUlasanStats | null>(null);
+  const [editingAgencyId, setEditingAgencyId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    tarikh_ulasan: string;
+    ringkasan_ulasan: string;
+    keputusan_agensi: string;
+    catatan: string;
+  }>({
+    tarikh_ulasan: "",
+    ringkasan_ulasan: "",
+    keputusan_agensi: "Tiada Ulasan",
+    catatan: "",
+  });
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importProcessing, setImportProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -366,6 +385,86 @@ export default function ApplicationDetailPage() {
       });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadAgencyUlasan() {
+    if (!application?.id) return;
+
+    try {
+      const agencies = await agencyUlasanService.getByApplication(application.id);
+      setAgencyUlasan(agencies);
+      setAgencyStats(agencyUlasanService.calculateStats(agencies));
+    } catch (error) {
+      console.error("Error loading agency reviews:", error);
+    }
+  }
+
+  async function handleEditAgency(agency: AgencyUlasan) {
+    setEditingAgencyId(agency.id);
+    setEditForm({
+      tarikh_ulasan: agency.tarikh_ulasan || "",
+      ringkasan_ulasan: agency.ringkasan_ulasan || "",
+      keputusan_agensi: agency.keputusan_agensi,
+      catatan: agency.catatan || "",
+    });
+  }
+
+  async function handleSaveAgency() {
+    if (!editingAgencyId) return;
+
+    try {
+      await agencyUlasanService.updateAgency(editingAgencyId, {
+        tarikh_ulasan: editForm.tarikh_ulasan || null,
+        ringkasan_ulasan: editForm.ringkasan_ulasan || null,
+        keputusan_agensi: editForm.keputusan_agensi,
+        catatan: editForm.catatan || null,
+      });
+
+      toast({
+        title: "Berjaya",
+        description: "Ulasan agensi dikemaskini",
+      });
+
+      setEditingAgencyId(null);
+      loadAgencyUlasan();
+    } catch (error) {
+      console.error("Error saving agency:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menyimpan ulasan agensi",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleImportFromOSC() {
+    if (!importText.trim() || !application?.id) return;
+
+    setImportProcessing(true);
+    try {
+      const updatedCount = await agencyUlasanService.importFromOSC(
+        application.id,
+        importText
+      );
+
+      toast({
+        title: "Import Berjaya",
+        description: `${updatedCount} ulasan agensi telah diimport`,
+      });
+
+      setShowImportModal(false);
+      setImportText("");
+      loadAgencyUlasan();
+    } catch (error) {
+      console.error("Error importing agency reviews:", error);
+      toast({
+        title: "Ralat Import",
+        description: error instanceof Error ? error.message : "Gagal import ulasan",
+        variant: "destructive",
+      });
+    } finally {
+      setImportProcessing(false);
     }
   }
 
@@ -2603,6 +2702,220 @@ Return this exact JSON structure with ONLY the requested fields:
         {/* Dokumen */}
         <Card>
         </Card>
+
+        {/* Ulasan Agensi Section */}
+        {application.jenis_aplikasi === "KM" && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Ulasan Agensi Teknikal</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Ulasan daripada agensi-agensi teknikal yang terlibat
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowImportModal(true)}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import dari OSC
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Summary Stats */}
+              {agencyStats && (
+                <div className="mb-6">
+                  <div className="grid grid-cols-4 gap-4 mb-4">
+                    <div className="p-3 bg-green-50 border border-green-200 rounded">
+                      <div className="text-2xl font-bold text-green-700">
+                        {agencyStats.tiada_halangan}
+                      </div>
+                      <div className="text-xs text-green-600">Tiada Halangan</div>
+                    </div>
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <div className="text-2xl font-bold text-yellow-700">
+                        {agencyStats.dengan_syarat}
+                      </div>
+                      <div className="text-xs text-yellow-600">Dengan Syarat</div>
+                    </div>
+                    <div className="p-3 bg-red-50 border border-red-200 rounded">
+                      <div className="text-2xl font-bold text-red-700">
+                        {agencyStats.tidak_menyokong}
+                      </div>
+                      <div className="text-xs text-red-600">Tidak Menyokong</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded">
+                      <div className="text-2xl font-bold text-gray-700">
+                        {agencyStats.belum_ulasan}
+                      </div>
+                      <div className="text-xs text-gray-600">Belum Ulasan</div>
+                    </div>
+                  </div>
+
+                  {/* Kertas Perakuan Banner */}
+                  {agencyStats.completion_percent >= 80 && (
+                    <Alert className="bg-green-50 border-green-200">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="flex items-center justify-between">
+                        <span className="text-green-900 font-medium">
+                          Ulasan agensi cukup untuk jana Kertas Perakuan ({agencyStats.completion_percent.toFixed(0)}%)
+                        </span>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                            // TODO: Navigate to Kertas Perakuan generation
+                            toast({
+                              title: "Info",
+                              description: "Modul Kertas Perakuan akan dibangunkan",
+                            });
+                          }}
+                        >
+                          Jana Kertas Perakuan →
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+
+              {/* Agency Table */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Agensi</TableHead>
+                    <TableHead>Tarikh Ulasan</TableHead>
+                    <TableHead>Ringkasan Ulasan</TableHead>
+                    <TableHead>Keputusan</TableHead>
+                    <TableHead className="text-right">Tindakan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {agencyUlasan.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        Tiada ulasan agensi dijumpai
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    agencyUlasan.map((agency) => (
+                      <TableRow key={agency.id}>
+                        {editingAgencyId === agency.id ? (
+                          <>
+                            <TableCell>
+                              <Badge variant="secondary">{agency.kod_agensi}</Badge>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {agency.nama_agensi}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="date"
+                                value={editForm.tarikh_ulasan}
+                                onChange={(e) =>
+                                  setEditForm((prev) => ({ ...prev, tarikh_ulasan: e.target.value }))
+                                }
+                                className="w-full"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Textarea
+                                value={editForm.ringkasan_ulasan}
+                                onChange={(e) =>
+                                  setEditForm((prev) => ({ ...prev, ringkasan_ulasan: e.target.value }))
+                                }
+                                rows={2}
+                                className="w-full"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={editForm.keputusan_agensi}
+                                onValueChange={(value) =>
+                                  setEditForm((prev) => ({ ...prev, keputusan_agensi: value }))
+                                }
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Tiada Halangan">Tiada Halangan</SelectItem>
+                                  <SelectItem value="Tiada Halangan dengan Syarat">
+                                    Tiada Halangan dengan Syarat
+                                  </SelectItem>
+                                  <SelectItem value="Belum Boleh Menyokong">
+                                    Belum Boleh Menyokong
+                                  </SelectItem>
+                                  <SelectItem value="Tiada Ulasan">Tiada Ulasan</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-right space-x-2">
+                              <Button size="sm" onClick={handleSaveAgency}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingAgencyId(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell>
+                              <Badge variant="secondary">{agency.kod_agensi}</Badge>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {agency.nama_agensi}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {agency.tarikh_ulasan || (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="max-w-md">
+                                {agency.ringkasan_ulasan || (
+                                  <span className="text-muted-foreground text-sm">Tiada ulasan</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                className={agencyUlasanService.getDecisionColor(
+                                  agency.keputusan_agensi
+                                )}
+                              >
+                                {agency.keputusan_agensi}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditAgency(agency)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* AI Plan Analysis */}
       </div>
 
       {/* AI Semakan Panel */}
@@ -3709,6 +4022,50 @@ Return this exact JSON structure with ONLY the requested fields:
               className="bg-green-600 hover:bg-green-700"
             >
               {savingPayment ? "Menyimpan..." : "Rekod Pembayaran"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import from OSC Modal */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import Ulasan Agensi dari OSC</DialogTitle>
+            <DialogDescription>
+              Tampal teks ulasan agensi dari dokumen Kertas Perakuan OSC. AI akan mengekstrak ulasan setiap agensi secara automatik.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={12}
+              placeholder="Tampal teks ulasan agensi di sini...
+
+Contoh:
+1. JBK - Tiada halangan dari aspek bangunan. Tarikh: 15/05/2026
+2. TNB - Tiada halangan dengan syarat. Bayaran utiliti perlu dijelaskan. Tarikh: 18/05/2026
+..."
+              className="font-mono text-sm"
+            />
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                AI akan cuba mengenal pasti kod agensi, tarikh ulasan, ringkasan, dan keputusan dari teks yang ditampal.
+                Anda boleh mengedit setiap ulasan secara manual selepas import.
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportModal(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleImportFromOSC}
+              disabled={!importText.trim() || importProcessing}
+            >
+              {importProcessing ? "Memproses..." : "Import Ulasan"}
             </Button>
           </DialogFooter>
         </DialogContent>
