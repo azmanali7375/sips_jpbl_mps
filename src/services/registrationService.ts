@@ -91,6 +91,21 @@ export async function registerNewApplication(
 
     const no_fail_jpl = fileNumberData as string;
 
+    // Extract additional fields from formData if they exist (from OSC import)
+    const additionalFields = {
+      kawasan_pembangunan_m2: (formData as any).kawasan_pembangunan_m2 || null,
+      nisbah_plot: (formData as any).nisbah_plot || null,
+      kawasan_lantai_kasar_m2: (formData as any).kawasan_lantai_kasar_m2 || null,
+      bil_tempat_letak_kereta: (formData as any).bil_tempat_letak_kereta || null,
+      bil_tempat_letak_motosikal: (formData as any).bil_tempat_letak_motosikal || null,
+      bil_tempat_letak_oku: (formData as any).bil_tempat_letak_oku || null,
+      bil_unit: (formData as any).bil_unit || null,
+      bil_tingkat: (formData as any).bil_tingkat || null,
+      ketinggian_bangunan_m: (formData as any).ketinggian_bangunan_m || null,
+      jenis_guna_tanah: (formData as any).jenis_guna_tanah || null,
+      komponen: (formData as any).komponen || null,
+    };
+
     // Insert application record - jenis_aplikasi and kpi_hari will be auto-set by trigger
     const { data: appData, error: appError } = await supabase
       .from("applications")
@@ -111,6 +126,7 @@ export async function registerNewApplication(
         skala_pembangunan: formData.skala_pembangunan,
         status: "pending",
         assigned_officer_id: formData.assigned_to || null,
+        ...additionalFields,
       })
       .select()
       .single();

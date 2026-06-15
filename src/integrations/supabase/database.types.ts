@@ -20,6 +20,11 @@ export type Database = {
           applicant_id: string
           assigned_at: string | null
           assigned_officer_id: string | null
+          bil_tempat_letak_kereta: number | null
+          bil_tempat_letak_motosikal: number | null
+          bil_tempat_letak_oku: number | null
+          bil_tingkat: number | null
+          bil_unit: number | null
           building_height: number | null
           catatan_dalaman: string | null
           created_at: string | null
@@ -30,8 +35,13 @@ export type Database = {
           id: string
           jabatan_memperaku: string | null
           jenis_aplikasi: string | null
+          jenis_guna_tanah: string | null
           jenis_proses_pr: string | null
           kategori_permohonan: string | null
+          kawasan_lantai_kasar_m2: number | null
+          kawasan_pembangunan_m2: number | null
+          ketinggian_bangunan_m: number | null
+          komponen: string | null
           kpi_hari: number | null
           land_use_zone: string | null
           latitud: number | null
@@ -43,6 +53,7 @@ export type Database = {
           nama_pemaju_pemilik: string | null
           nama_sp: string | null
           negeri: string | null
+          nisbah_plot: number | null
           no_fail_jpl: string | null
           no_kp_sp: string | null
           no_permohonan_osc: string | null
@@ -77,6 +88,11 @@ export type Database = {
           applicant_id: string
           assigned_at?: string | null
           assigned_officer_id?: string | null
+          bil_tempat_letak_kereta?: number | null
+          bil_tempat_letak_motosikal?: number | null
+          bil_tempat_letak_oku?: number | null
+          bil_tingkat?: number | null
+          bil_unit?: number | null
           building_height?: number | null
           catatan_dalaman?: string | null
           created_at?: string | null
@@ -87,8 +103,13 @@ export type Database = {
           id?: string
           jabatan_memperaku?: string | null
           jenis_aplikasi?: string | null
+          jenis_guna_tanah?: string | null
           jenis_proses_pr?: string | null
           kategori_permohonan?: string | null
+          kawasan_lantai_kasar_m2?: number | null
+          kawasan_pembangunan_m2?: number | null
+          ketinggian_bangunan_m?: number | null
+          komponen?: string | null
           kpi_hari?: number | null
           land_use_zone?: string | null
           latitud?: number | null
@@ -100,6 +121,7 @@ export type Database = {
           nama_pemaju_pemilik?: string | null
           nama_sp?: string | null
           negeri?: string | null
+          nisbah_plot?: number | null
           no_fail_jpl?: string | null
           no_kp_sp?: string | null
           no_permohonan_osc?: string | null
@@ -134,6 +156,11 @@ export type Database = {
           applicant_id?: string
           assigned_at?: string | null
           assigned_officer_id?: string | null
+          bil_tempat_letak_kereta?: number | null
+          bil_tempat_letak_motosikal?: number | null
+          bil_tempat_letak_oku?: number | null
+          bil_tingkat?: number | null
+          bil_unit?: number | null
           building_height?: number | null
           catatan_dalaman?: string | null
           created_at?: string | null
@@ -144,8 +171,13 @@ export type Database = {
           id?: string
           jabatan_memperaku?: string | null
           jenis_aplikasi?: string | null
+          jenis_guna_tanah?: string | null
           jenis_proses_pr?: string | null
           kategori_permohonan?: string | null
+          kawasan_lantai_kasar_m2?: number | null
+          kawasan_pembangunan_m2?: number | null
+          ketinggian_bangunan_m?: number | null
+          komponen?: string | null
           kpi_hari?: number | null
           land_use_zone?: string | null
           latitud?: number | null
@@ -157,6 +189,7 @@ export type Database = {
           nama_pemaju_pemilik?: string | null
           nama_sp?: string | null
           negeri?: string | null
+          nisbah_plot?: number | null
           no_fail_jpl?: string | null
           no_kp_sp?: string | null
           no_permohonan_osc?: string | null

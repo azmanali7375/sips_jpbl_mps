@@ -260,66 +260,69 @@ export default function DaftarBaharu() {
     const filled = new Set<string>();
     const missing = new Set<string>();
 
-    // Track which fields were auto-filled and which were missing
-    const fieldMapping: Array<[string, keyof typeof extractedData]> = [
-      ["no_permohonan_osc", "no_permohonan_osc"],
-      ["kategori_permohonan", "kategori_permohonan"],
-      ["skala_pembangunan", "skala_pembangunan"],
-      ["nama_sp", "nama_sp"],
-      ["no_kp_sp", "no_kp_sp"],
-      ["jenis_proses_pr", "jenis_proses_pr"],
-      ["status_semakan_osc", "status_semakan_osc"],
-      ["tarikh_penghantaran", "tarikh_penghantaran"],
-      ["tarikh_lengkap_diterima_osc", "tarikh_lengkap_diterima_osc"],
-      ["nama_pemaju_pemilik", "nama_pemaju_pemilik"],
-      ["tajuk_permohonan", "tajuk_permohonan"],
-      ["lokasi_mercu_tanda", "lokasi_mercu_tanda"],
-      ["mukim", "mukim"],
-      ["daerah", "daerah"],
-      ["negeri", "negeri"],
-      ["rancangan_tempatan", "rancangan_tempatan"],
-      ["zoning", "zoning"],
-      ["longitud", "longitud"],
-      ["latitud", "latitud"],
-    ];
+    // Count extracted vs missing fields
+    let extractedFieldsCount = 0;
+    let missingFieldsCount = 0;
 
-    fieldMapping.forEach(([fieldKey, dataKey]) => {
-      if (extractedData[dataKey] !== null && extractedData[dataKey] !== undefined) {
-        filled.add(fieldKey);
+    // Helper to track field
+    const trackField = (value: any, fieldName: string) => {
+      if (value !== null && value !== undefined) {
+        filled.add(fieldName);
+        extractedFieldsCount++;
       } else {
-        missing.add(fieldKey);
+        missing.add(fieldName);
+        missingFieldsCount++;
       }
-    });
+    };
+
+    // Track Maklumat Am fields
+    const am = extractedData.maklumat_am || {};
+    trackField(am.no_permohonan_osc, "no_permohonan_osc");
+    trackField(am.kategori_permohonan, "kategori_permohonan");
+    trackField(am.skala_pembangunan, "skala_pembangunan");
+    trackField(am.nama_sp, "nama_sp");
+    trackField(am.no_kp_sp, "no_kp_sp");
+    trackField(am.jenis_proses_pr, "jenis_proses_pr");
+    trackField(am.tarikh_penghantaran, "tarikh_penghantaran");
+    trackField(am.tarikh_lengkap_diterima_osc, "tarikh_lengkap_diterima_osc");
+    trackField(am.nama_pemaju_pemilik, "nama_pemaju_pemilik");
+    trackField(am.tajuk_permohonan, "tajuk_permohonan");
+    trackField(am.lokasi_mercu_tanda, "lokasi_mercu_tanda");
+    trackField(am.mukim, "mukim");
+    trackField(am.zoning, "zoning");
 
     setAutoFilledFields(filled);
     setMissingFields(missing);
+    setExtractedCount(extractedFieldsCount);
+    setMissingCount(missingFieldsCount);
 
     // Fill form fields from extracted data
     setFormData((prev) => ({
       ...prev,
-      no_permohonan_osc: extractedData.no_permohonan_osc || prev.no_permohonan_osc,
-      kategori_permohonan: extractedData.kategori_permohonan || prev.kategori_permohonan,
-      skala_pembangunan: extractedData.skala_pembangunan || prev.skala_pembangunan,
-      nama_sp: extractedData.nama_sp || prev.nama_sp,
-      no_kp_sp: extractedData.no_kp_sp || prev.no_kp_sp,
-      jenis_proses_pr: extractedData.jenis_proses_pr || prev.jenis_proses_pr,
-      status_semakan_osc: extractedData.status_semakan_osc || prev.status_semakan_osc,
-      tarikh_penghantaran: extractedData.tarikh_penghantaran || prev.tarikh_penghantaran,
-      tarikh_lengkap_diterima_osc: extractedData.tarikh_lengkap_diterima_osc || prev.tarikh_lengkap_diterima_osc,
-      nama_pemaju_pemilik: extractedData.nama_pemaju_pemilik || prev.nama_pemaju_pemilik,
-      tajuk_permohonan: extractedData.tajuk_permohonan || prev.tajuk_permohonan,
-      lokasi_mercu_tanda: extractedData.lokasi_mercu_tanda || prev.lokasi_mercu_tanda,
-      mukim: extractedData.mukim || prev.mukim,
-      daerah: extractedData.daerah || prev.daerah,
-      negeri: extractedData.negeri || prev.negeri,
-      rancangan_tempatan: extractedData.rancangan_tempatan || prev.rancangan_tempatan,
-      zoning: extractedData.zoning || prev.zoning,
-      longitud: extractedData.longitud !== null ? extractedData.longitud : prev.longitud,
-      latitud: extractedData.latitud !== null ? extractedData.latitud : prev.latitud,
+      no_permohonan_osc: am.no_permohonan_osc || prev.no_permohonan_osc,
+      kategori_permohonan: am.kategori_permohonan || prev.kategori_permohonan,
+      skala_pembangunan: (am.skala_pembangunan as any) || prev.skala_pembangunan,
+      nama_sp: am.nama_sp || prev.nama_sp,
+      no_kp_sp: am.no_kp_sp || prev.no_kp_sp,
+      jenis_proses_pr: (am.jenis_proses_pr as any) || prev.jenis_proses_pr,
+      tarikh_penghantaran: am.tarikh_penghantaran || prev.tarikh_penghantaran,
+      tarikh_lengkap_diterima_osc: am.tarikh_lengkap_diterima_osc || prev.tarikh_lengkap_diterima_osc,
+      nama_pemaju_pemilik: am.nama_pemaju_pemilik || prev.nama_pemaju_pemilik,
+      tajuk_permohonan: am.tajuk_permohonan || prev.tajuk_permohonan,
+      lokasi_mercu_tanda: am.lokasi_mercu_tanda || prev.lokasi_mercu_tanda,
+      mukim: am.mukim || prev.mukim,
+      daerah: am.daerah || prev.daerah,
+      negeri: am.negeri || prev.negeri,
+      rancangan_tempatan: (am.rancangan_tempatan as any) || prev.rancangan_tempatan,
+      zoning: am.zoning || prev.zoning,
+      longitud: am.longitud !== null ? am.longitud : prev.longitud,
+      latitud: am.latitud !== null ? am.latitud : prev.latitud,
     }));
 
     // Store land lots for later insertion
-    setImportedLotsCount(landLots.length);
+    if (landLots.length > 0) {
+      setImportedLotsCount(landLots.length);
+    }
 
     // Show success banner
     setShowImportSuccess(true);
@@ -337,7 +340,7 @@ export default function DaftarBaharu() {
 
     toast({
       title: "Import Berjaya",
-      description: `${extractedCount} medan telah diisi secara automatik`,
+      description: `${extractedFieldsCount} medan telah diisi secara automatik. ${landLots.length > 0 ? `${landLots.length} lot tanah akan disimpan.` : ""}`,
     });
   };
 
@@ -1078,7 +1081,7 @@ export default function DaftarBaharu() {
               </div>
             ) : extractedData ? (
               /* Review Panel */
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
                 <div>
                   <h3 className="font-semibold text-lg mb-3">Semak Maklumat Diekstrak</h3>
                   
@@ -1099,45 +1102,103 @@ export default function DaftarBaharu() {
                     </Alert>
                   )}
 
-                  {/* Data Table */}
-                  <div className="border rounded-md overflow-hidden">
+                  {/* Validation Results */}
+                  {(() => {
+                    const { validateOSCData, getValidationSummary } = require("@/services/zoningValidationService");
+                    const validation = validateOSCData({
+                      zoning: extractedData.maklumat_am?.zoning,
+                      nisbah_plot: extractedData.maklumat_permohonan?.nisbah_plot,
+                      ketinggian_bangunan_m: extractedData.pecahan_pembangunan?.[0]?.ketinggian_bangunan_m,
+                      kawasan_pembangunan_m2: extractedData.maklumat_permohonan?.kawasan_pembangunan_m2,
+                      kawasan_lantai_kasar_m2: extractedData.maklumat_permohonan?.kawasan_lantai_kasar_m2,
+                      bil_tempat_letak_kereta: extractedData.maklumat_permohonan?.bil_tempat_letak_kereta,
+                      bil_unit: extractedData.pecahan_pembangunan?.[0]?.bil_unit,
+                    });
+
+                    return validation.issues.length > 0 && (
+                      <Alert className={
+                        validation.errors_count > 0 
+                          ? "bg-red-50 border-red-200 mb-4" 
+                          : validation.warnings_count > 0
+                          ? "bg-orange-50 border-orange-200 mb-4"
+                          : "bg-blue-50 border-blue-200 mb-4"
+                      }>
+                        <AlertCircle className={`h-4 w-4 ${
+                          validation.errors_count > 0 
+                            ? "text-red-600" 
+                            : validation.warnings_count > 0
+                            ? "text-orange-600"
+                            : "text-blue-600"
+                        }`} />
+                        <AlertDescription>
+                          <p className="font-semibold mb-2">{getValidationSummary(validation)}</p>
+                          <ul className="space-y-1 text-sm">
+                            {validation.issues.map((issue, idx) => (
+                              <li key={idx} className={
+                                issue.severity === "error" 
+                                  ? "text-red-900" 
+                                  : issue.severity === "warning"
+                                  ? "text-orange-900"
+                                  : "text-blue-900"
+                              }>
+                                <strong>{issue.field}:</strong> {issue.message}
+                                {issue.allowed_value && (
+                                  <> (Sekarang: {issue.current_value}, Dibenarkan: {issue.allowed_value})</>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-xs mt-2 opacity-75">Rujukan: RTD 2030 Segamat</p>
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  })()}
+
+                  {/* Section 1: Maklumat Am */}
+                  <div className="border rounded-md overflow-hidden mb-4">
+                    <div className="bg-primary text-primary-foreground p-2 font-semibold">
+                      Maklumat Am
+                    </div>
                     <table className="w-full">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="border p-2 text-left font-semibold text-sm">Medan</th>
-                          <th className="border p-2 text-left font-semibold text-sm">Nilai Diekstrak oleh AI</th>
-                        </tr>
-                      </thead>
                       <tbody>
                         {[
-                          { label: "No. Permohonan OSC", value: extractedData.no_permohonan_osc },
-                          { label: "Kategori Permohonan", value: extractedData.kategori_permohonan },
-                          { label: "Skala Pembangunan", value: extractedData.skala_pembangunan },
-                          { label: "Nama Pemohon (SP)", value: extractedData.nama_sp },
-                          { label: "No. KP (SP)", value: extractedData.no_kp_sp },
-                          { label: "Jenis Proses PR", value: extractedData.jenis_proses_pr },
-                          { label: "Status Semakan (OSC)", value: extractedData.status_semakan_osc },
-                          { label: "Tarikh Penghantaran", value: extractedData.tarikh_penghantaran },
-                          { label: "Tarikh Lengkap OSC (KPI)", value: extractedData.tarikh_lengkap_diterima_osc, highlight: true },
-                          { label: "Jabatan Memperaku", value: extractedData.jabatan_memperaku },
-                          { label: "Negeri", value: extractedData.negeri },
-                          { label: "Daerah", value: extractedData.daerah },
-                          { label: "Mukim", value: extractedData.mukim },
-                          { label: "Nama Pemaju / Pemilik", value: extractedData.nama_pemaju_pemilik },
-                          { label: "Lokasi / Mercu Tanda", value: extractedData.lokasi_mercu_tanda },
-                          { label: "Longitud", value: extractedData.longitud },
-                          { label: "Latitud", value: extractedData.latitud },
-                          { label: "Rancangan Tempatan", value: extractedData.rancangan_tempatan },
-                          { label: "Zoning", value: extractedData.zoning },
-                          { label: "Tajuk Permohonan", value: extractedData.tajuk_permohonan, truncate: true },
+                          { label: "No. Permohonan OSC", value: extractedData.maklumat_am?.no_permohonan_osc },
+                          { label: "Jenis Aplikasi", value: extractedData.maklumat_am?.jenis_aplikasi, badge: true },
+                          { label: "Kategori Permohonan", value: extractedData.maklumat_am?.kategori_permohonan },
+                          { label: "Skala Pembangunan", value: extractedData.maklumat_am?.skala_pembangunan },
+                          { label: "Nama Pemohon (SP)", value: extractedData.maklumat_am?.nama_sp },
+                          { label: "No. KP (SP)", value: extractedData.maklumat_am?.no_kp_sp },
+                          { label: "Jenis Proses PR", value: extractedData.maklumat_am?.jenis_proses_pr },
+                          { label: "Tarikh Penghantaran", value: extractedData.maklumat_am?.tarikh_penghantaran },
+                          { label: "Tarikh Lengkap OSC (KPI)", value: extractedData.maklumat_am?.tarikh_lengkap_diterima_osc, highlight: true },
+                          { label: "Negeri", value: extractedData.maklumat_am?.negeri },
+                          { label: "Daerah", value: extractedData.maklumat_am?.daerah },
+                          { label: "Mukim", value: extractedData.maklumat_am?.mukim },
+                          { label: "Nama Pemaju / Pemilik", value: extractedData.maklumat_am?.nama_pemaju_pemilik },
+                          { label: "Lokasi / Mercu Tanda", value: extractedData.maklumat_am?.lokasi_mercu_tanda },
+                          { label: "Longitud", value: extractedData.maklumat_am?.longitud },
+                          { label: "Latitud", value: extractedData.maklumat_am?.latitud },
+                          { label: "Rancangan Tempatan", value: extractedData.maklumat_am?.rancangan_tempatan },
+                          { label: "Zoning", value: extractedData.maklumat_am?.zoning },
+                          { label: "Tajuk Permohonan", value: extractedData.maklumat_am?.tajuk_permohonan, truncate: true },
                           { label: "Maklumat Tanah", value: `${landLots.length} lot ditemui`, custom: true },
                         ].map((row, index) => (
                           <tr key={index} className={row.highlight ? "bg-blue-50" : ""}>
-                            <td className="border p-2 text-sm font-medium">{row.label}</td>
+                            <td className="border p-2 text-sm font-medium w-1/3">{row.label}</td>
                             <td className="border p-2 text-sm">
                               {row.value === null || row.value === undefined ? (
                                 <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
                                   Tidak ditemui
+                                </Badge>
+                              ) : row.badge && row.value ? (
+                                <Badge className={
+                                  row.value === "KM" 
+                                    ? "bg-blue-600" 
+                                    : row.value === "PB"
+                                    ? "bg-green-600"
+                                    : "bg-gray-600"
+                                }>
+                                  {row.value} ({row.value === "KM" ? "57 hari KPI" : "14 hari KPI"})
                                 </Badge>
                               ) : row.truncate && typeof row.value === "string" ? (
                                 <div>
@@ -1165,6 +1226,84 @@ export default function DaftarBaharu() {
                     </table>
                   </div>
 
+                  {/* Section 2: Maklumat Permohonan */}
+                  {extractedData.maklumat_permohonan && (
+                    <div className="border rounded-md overflow-hidden mb-4">
+                      <div className="bg-primary text-primary-foreground p-2 font-semibold">
+                        Maklumat Permohonan (Statistik Pembangunan)
+                      </div>
+                      <table className="w-full">
+                        <tbody>
+                          {[
+                            { 
+                              label: "Kawasan Pembangunan", 
+                              value: extractedData.maklumat_permohonan.kawasan_pembangunan_m2 
+                                ? `${extractedData.maklumat_permohonan.kawasan_pembangunan_m2.toFixed(2)} m² / ${extractedData.maklumat_permohonan.kawasan_pembangunan_hektar?.toFixed(4) || "?"} hektar`
+                                : null
+                            },
+                            { label: "Nisbah Plot", value: extractedData.maklumat_permohonan.nisbah_plot?.toFixed(2) },
+                            { label: "Kawasan Lantai Kasar", value: extractedData.maklumat_permohonan.kawasan_lantai_kasar_m2 ? `${extractedData.maklumat_permohonan.kawasan_lantai_kasar_m2.toFixed(2)} m²` : null },
+                            { label: "Kawasan Landskap Lembut", value: extractedData.maklumat_permohonan.kawasan_landskap_lembut_m2 ? `${extractedData.maklumat_permohonan.kawasan_landskap_lembut_m2.toFixed(2)} m²` : null },
+                            { label: "Tempat Letak Kereta", value: extractedData.maklumat_permohonan.bil_tempat_letak_kereta ? `${extractedData.maklumat_permohonan.bil_tempat_letak_kereta} petak` : null },
+                            { label: "Tempat Letak Motosikal", value: extractedData.maklumat_permohonan.bil_tempat_letak_motosikal ? `${extractedData.maklumat_permohonan.bil_tempat_letak_motosikal} petak` : null },
+                            { label: "Tempat Letak OKU", value: extractedData.maklumat_permohonan.bil_tempat_letak_oku ? `${extractedData.maklumat_permohonan.bil_tempat_letak_oku} petak` : null },
+                          ].map((row, index) => (
+                            <tr key={index}>
+                              <td className="border p-2 text-sm font-medium w-1/3">{row.label}</td>
+                              <td className="border p-2 text-sm">
+                                {row.value === null || row.value === undefined ? (
+                                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
+                                    Tidak ditemui
+                                  </Badge>
+                                ) : (
+                                  row.value
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Section 3: Pecahan Pembangunan */}
+                  {extractedData.pecahan_pembangunan && extractedData.pecahan_pembangunan.length > 0 && (
+                    <div className="border rounded-md overflow-hidden mb-4">
+                      <div className="bg-primary text-primary-foreground p-2 font-semibold">
+                        Pecahan Pembangunan
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="border p-2 text-left">Komponen</th>
+                              <th className="border p-2 text-left">Bil Unit</th>
+                              <th className="border p-2 text-left">Bil Tingkat</th>
+                              <th className="border p-2 text-left">KLK (m²)</th>
+                              <th className="border p-2 text-left">Ketinggian (m)</th>
+                              <th className="border p-2 text-left">Jenis Strata</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {extractedData.pecahan_pembangunan.map((item: any, idx: number) => (
+                              <tr key={idx}>
+                                <td className="border p-2">
+                                  <div className="font-medium">{item.komponen || "-"}</div>
+                                  <div className="text-xs text-muted-foreground">{item.jenis_guna_tanah}</div>
+                                </td>
+                                <td className="border p-2">{item.bil_unit || "-"}</td>
+                                <td className="border p-2">{item.bil_tingkat || "-"}</td>
+                                <td className="border p-2">{item.kawasan_lantai_kasar_m2?.toFixed(2) || "-"}</td>
+                                <td className="border p-2">{item.ketinggian_bangunan_m?.toFixed(1) || "-"}</td>
+                                <td className="border p-2">{item.jenis_strata || "-"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Summary */}
                   <p className="text-sm text-muted-foreground mt-3">
                     {extractedCount} medan berjaya diekstrak, {missingCount} medan tidak ditemui.
@@ -1172,7 +1311,7 @@ export default function DaftarBaharu() {
 
                   {/* Disclaimer */}
                   <p className="text-xs text-muted-foreground mt-2">
-                    Sila semak semua nilai sebelum mengesahkan.
+                    Sila semak semua nilai sebelum mengesahkan. Pengesahan pematuhan adalah automatik berdasarkan RTD 2030 Segamat.
                   </p>
                 </div>
 
