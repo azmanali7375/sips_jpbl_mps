@@ -108,7 +108,10 @@ export const policyLibraryService = {
       .order("section_number");
 
     if (params.query) {
-      queryBuilder = queryBuilder.textSearch("content_text", params.query);
+      // Use ILIKE for pattern matching on content_text and keywords_text
+      queryBuilder = queryBuilder.or(
+        `content_text.ilike.%${params.query}%,keywords_text.ilike.%${params.query}%`
+      );
     }
 
     if (params.documentCodes && params.documentCodes.length > 0) {
