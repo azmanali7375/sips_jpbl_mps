@@ -647,30 +647,54 @@ export type Database = {
       reviews: {
         Row: {
           application_id: string
+          cadangan_kepada_osc: string | null
           comment: string
           compliance_results: Json | null
           created_at: string | null
           decision: string | null
           id: string
+          jenis_semakan: string | null
+          kaedah_semakan: string | null
+          keputusan_semakan: string | null
           officer_id: string
+          ringkasan_ulasan: string | null
+          syarat_syarat: string | null
+          tarikh_semakan: string | null
+          updated_at: string | null
         }
         Insert: {
           application_id: string
+          cadangan_kepada_osc?: string | null
           comment: string
           compliance_results?: Json | null
           created_at?: string | null
           decision?: string | null
           id?: string
+          jenis_semakan?: string | null
+          kaedah_semakan?: string | null
+          keputusan_semakan?: string | null
           officer_id: string
+          ringkasan_ulasan?: string | null
+          syarat_syarat?: string | null
+          tarikh_semakan?: string | null
+          updated_at?: string | null
         }
         Update: {
           application_id?: string
+          cadangan_kepada_osc?: string | null
           comment?: string
           compliance_results?: Json | null
           created_at?: string | null
           decision?: string | null
           id?: string
+          jenis_semakan?: string | null
+          kaedah_semakan?: string | null
+          keputusan_semakan?: string | null
           officer_id?: string
+          ringkasan_ulasan?: string | null
+          syarat_syarat?: string | null
+          tarikh_semakan?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {

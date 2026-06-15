@@ -1,210 +1,203 @@
-import { useEffect, useState } from "react";
-import { SEO } from "@/components/SEO";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { DocumentViewer } from "@/components/DocumentViewer";
-import { workflowService } from "@/services/workflowService";
-import { reviewService } from "@/services/reviewService";
-import { documentService } from "@/services/documentService";
-import { complianceService } from "@/services/complianceService";
-import { ComplianceResults } from "@/components/ComplianceResults";
-import type { Tables } from "@/integrations/supabase/types";
-import type { ComplianceResult } from "@/services/complianceService";
-import { 
-  FileCheck, 
-  AlertCircle, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  TrendingUp,
-  Eye,
-  MessageSquare,
-  ThumbsUp,
-  ThumbsDown,
-  AlertTriangle
-} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, Save } from "lucide-react";
+import {
+  getComplianceRules,
+  submitTechnicalReview,
+  formatRequiredValue,
+  JENIS_SEMAKAN_OPTIONS,
+  KAEDAH_SEMAKAN_OPTIONS,
+  KEPUTUSAN_SEMAKAN_OPTIONS,
+  STATUS_PEMATUHAN_OPTIONS,
+  type ComplianceCheckItem,
+  type TechnicalReviewFormData,
+} from "@/services/technicalReviewService";
 
-type ApplicationWithProfile = Tables<"applications"> & {
-  profiles?: {
-    full_name: string;
-    email: string;
-  };
-};
+export default function TechnicalReviewPage() {
+  const router = useRouter();
+  const { application_id } = router.query;
+  const { toast } = useToast();
 
-export default function ReviewDashboard() {
-  const [applications, setApplications] = useState<ApplicationWithProfile[]>([]);
-  const [filteredApps, setFilteredApps] = useState<ApplicationWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    total_reviewed: 0,
-    pending: 0,
-    approved_today: 0,
-    under_review: 0,
-  });
-  
-  // Filters
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Detail view
-  const [selectedApp, setSelectedApp] = useState<ApplicationWithProfile | null>(null);
-  const [appDocuments, setAppDocuments] = useState<any[]>([]);
-  const [appReviews, setAppReviews] = useState<any[]>([]);
-  const [complianceCheckResult, setComplianceCheckResult] = useState<any>(null);
-  const [rechecking, setRechecking] = useState(false);
-  
-  // Review form
-  const [comment, setComment] = useState("");
-  const [decision, setDecision] = useState<"pending" | "approved" | "rejected" | "revision_required">("pending");
   const [submitting, setSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [application, setApplication] = useState<any>(null);
+  const [officers, setOfficers] = useState<any[]>([]);
+  const [complianceRules, setComplianceRules] = useState<any[]>([]);
+
+  // Form state
+  const [jenisSemakan, setJenisSemakan] = useState("Semakan Pertama");
+  const [tarikhSemakan, setTarikhSemakan] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [pegawaiPenyemak, setPegawaiPenyemak] = useState("");
+  const [kaedahSemakan, setKaedahSemakan] = useState("Manual");
+  const [complianceChecks, setComplianceChecks] = useState<ComplianceCheckItem[]>([]);
+  const [keputusanSemakan, setKeputusanSemakan] = useState("");
+  const [ringkasanUlasan, setRingkasanUlasan] = useState("");
+  const [syaratSyarat, setSyaratSyarat] = useState("");
+  const [cadanganKepadaOsc, setCadanganKepadaOsc] = useState("");
 
   useEffect(() => {
+    if (!application_id) return;
     loadData();
-  }, []);
+  }, [application_id]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [applications, statusFilter, searchQuery]);
-
-  const loadData = async () => {
+  async function loadData() {
     try {
-      const [appsData, statsData] = await Promise.all([
-        workflowService.getAssignedToMe(),
-        reviewService.getOfficerStats(),
-      ]);
-      
-      setApplications(appsData as ApplicationWithProfile[]);
-      setStats(statsData);
+      setLoading(true);
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      setCurrentUser(profile);
+      setPegawaiPenyemak(profile?.id || "");
+
+      // Get application details
+      const { data: appData } = await supabase
+        .from("applications")
+        .select("*")
+        .eq("id", application_id)
+        .single();
+
+      setApplication(appData);
+
+      // Get officers
+      const { data: officerList } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("role", ["officer", "assistant_planner_j5", "department_head"])
+        .order("full_name");
+
+      setOfficers(officerList || []);
+
+      // Get compliance rules
+      const rules = await getComplianceRules();
+      setComplianceRules(rules);
+
+      // Initialize compliance checks
+      const checks: ComplianceCheckItem[] = rules.map((rule) => ({
+        rule_id: rule.id,
+        rule_name: rule.rule_name,
+        rule_type: rule.rule_type || "",
+        required_value: formatRequiredValue(rule),
+        proposed_value: "",
+        status: "Tidak Berkaitan",
+        catatan: "",
+      }));
+      setComplianceChecks(checks);
     } catch (error) {
       console.error("Error loading data:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memuatkan data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const applyFilters = () => {
-    let filtered = [...applications];
+  function updateComplianceCheck(index: number, field: string, value: string) {
+    const updated = [...complianceChecks];
+    updated[index] = { ...updated[index], [field]: value };
+    setComplianceChecks(updated);
+  }
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(app => app.status === statusFilter);
+  async function handleSubmit() {
+    if (!application_id || !currentUser) return;
+
+    // Validation
+    if (!pegawaiPenyemak || !keputusanSemakan || !ringkasanUlasan.trim()) {
+      toast({
+        title: "Ralat",
+        description: "Sila lengkapkan medan wajib: Pegawai Penyemak, Keputusan Semakan, dan Ringkasan Ulasan",
+        variant: "destructive",
+      });
+      return;
     }
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(app => 
-        app.tracking_number?.toLowerCase().includes(query) ||
-        app.project_name.toLowerCase().includes(query) ||
-        app.location.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredApps(filtered);
-  };
-
-  const handleViewDetails = async (app: ApplicationWithProfile) => {
-    setSelectedApp(app);
-    setComment("");
-    setDecision("pending");
-
-    // Load application details
-    const [docs, reviews, complianceCheck] = await Promise.all([
-      documentService.getApplicationDocuments(app.id),
-      reviewService.getApplicationReviews(app.id),
-      complianceService.getLatestComplianceCheck(app.id),
-    ]);
-
-    setAppDocuments(docs);
-    setAppReviews(reviews);
-    setComplianceCheckResult(complianceCheck);
-  };
-
-  const handleRecheckCompliance = async () => {
-    if (!selectedApp) return;
-    setRechecking(true);
     try {
-      const result = await complianceService.performComplianceCheck(selectedApp);
-      await complianceService.saveComplianceCheck(selectedApp.id, result);
-      setComplianceCheckResult(result);
-    } catch (error) {
-      console.error("Error rechecking compliance:", error);
-    } finally {
-      setRechecking(false);
-    }
-  };
+      setSubmitting(true);
 
-  const handleDownloadReport = () => {
-    if (!selectedApp || !complianceCheckResult) return;
-    const report = complianceService.generateComplianceReport(selectedApp, complianceCheckResult);
-    const blob = new Blob([report], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Laporan_Pematuhan_${selectedApp.tracking_number}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+      const formData: TechnicalReviewFormData = {
+        application_id: application_id as string,
+        jenis_semakan: jenisSemakan,
+        tarikh_semakan: tarikhSemakan,
+        pegawai_penyemak: pegawaiPenyemak,
+        kaedah_semakan: kaedahSemakan,
+        compliance_checks: complianceChecks,
+        keputusan_semakan: keputusanSemakan,
+        ringkasan_ulasan: ringkasanUlasan,
+        syarat_syarat: syaratSyarat,
+        cadangan_kepada_osc: cadanganKepadaOsc,
+      };
 
-  const handleSubmitReview = async () => {
-    if (!selectedApp || !comment.trim()) return;
+      await submitTechnicalReview(formData, currentUser.id);
 
-    setSubmitting(true);
-    try {
-      await reviewService.addReview(selectedApp.id, comment, decision);
-      
-      // Reload data
-      await loadData();
-      
-      // Close dialog
-      setSelectedApp(null);
-      setComment("");
-      setDecision("pending");
+      toast({
+        title: "Berjaya",
+        description: "Semakan teknikal berjaya didaftarkan",
+      });
+
+      // Redirect back to application detail
+      router.push(`/dashboard/permohonan/${application_id}`);
     } catch (error) {
       console.error("Error submitting review:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menyimpan semakan teknikal",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      submitted: { label: "Dihantar", variant: "outline" },
-      registered: { label: "Didaftarkan", variant: "secondary" },
-      assigned: { label: "Ditugaskan", variant: "secondary" },
-      under_review: { label: "Dalam Semakan", variant: "default" },
-      approved: { label: "Lulus", variant: "secondary" },
-      rejected: { label: "Ditolak", variant: "destructive" },
-    };
-
-    const { label, variant } = config[status] || { label: status, variant: "outline" };
-    return <Badge variant={variant}>{label}</Badge>;
-  };
-
-  const getDecisionIcon = (decision: string) => {
-    switch (decision) {
-      case "approved": return <ThumbsUp className="h-4 w-4 text-green-600" />;
-      case "rejected": return <ThumbsDown className="h-4 w-4 text-red-600" />;
-      case "revision_required": return <AlertTriangle className="h-4 w-4 text-amber-600" />;
-      default: return <Clock className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
+  }
 
   if (loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-96">
-          <p className="text-muted-foreground">Memuatkan...</p>
+          <div className="text-muted-foreground">Memuatkan...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!application) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
+          <div className="text-muted-foreground">Permohonan tidak dijumpai</div>
+          <Button onClick={() => router.push("/dashboard")}>
+            Kembali ke Dashboard
+          </Button>
         </div>
       </Layout>
     );
@@ -212,343 +205,239 @@ export default function ReviewDashboard() {
 
   return (
     <Layout>
-      <SEO title="Papan Semakan Pegawai - Sistem SPC MPS" />
-      
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-6xl">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-serif font-bold">Papan Semakan Pegawai</h1>
-          <p className="text-muted-foreground mt-1">
-            Semak dan nilai permohonan pembangunan yang ditugaskan
-          </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/dashboard/permohonan/${application_id}`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Kembali
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold font-serif">Daftar Semakan Teknikal</h1>
+              <p className="text-muted-foreground">
+                {application.no_fail_jpl} - {application.nama_pemaju_pemilik}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Jumlah Tugasan</CardTitle>
-              <FileCheck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono">{stats.total_reviewed}</div>
-              <p className="text-xs text-muted-foreground">Permohonan ditugaskan</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Menunggu</CardTitle>
-              <Clock className="h-4 w-4 text-amber-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono text-amber-600">{stats.pending}</div>
-              <p className="text-xs text-muted-foreground">Belum disemak</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Dalam Semakan</CardTitle>
-              <AlertCircle className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono text-primary">{stats.under_review}</div>
-              <p className="text-xs text-muted-foreground">Sedang disemak</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Lulus Hari Ini</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono text-green-600">{stats.approved_today}</div>
-              <p className="text-xs text-muted-foreground">Keputusan hari ini</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
+        {/* Form Section 1: Maklumat Semakan */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Tapis Permohonan</CardTitle>
+            <CardTitle className="font-serif">Maklumat Semakan</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <div className="flex-1">
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">No. Fail (Rujukan)</label>
+                <Input value={application.no_fail_jpl} disabled />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Jenis Semakan *</label>
+                <Select value={jenisSemakan} onValueChange={setJenisSemakan}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JENIS_SEMAKAN_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tarikh Semakan *</label>
                 <Input
-                  placeholder="Cari no. rujukan, nama projek, atau lokasi..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  type="date"
+                  value={tarikhSemakan}
+                  onChange={(e) => setTarikhSemakan(e.target.value)}
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="submitted">Dihantar</SelectItem>
-                  <SelectItem value="registered">Didaftarkan</SelectItem>
-                  <SelectItem value="assigned">Ditugaskan</SelectItem>
-                  <SelectItem value="under_review">Dalam Semakan</SelectItem>
-                  <SelectItem value="approved">Lulus</SelectItem>
-                  <SelectItem value="rejected">Ditolak</SelectItem>
-                </SelectContent>
-              </Select>
+              <div>
+                <label className="text-sm font-medium">Pegawai Penyemak *</label>
+                <Select value={pegawaiPenyemak} onValueChange={setPegawaiPenyemak}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih pegawai" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {officers.map((officer) => (
+                      <SelectItem key={officer.id} value={officer.id}>
+                        {officer.full_name} ({officer.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Kaedah Semakan *</label>
+                <Select value={kaedahSemakan} onValueChange={setKaedahSemakan}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KAEDAH_SEMAKAN_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Applications Table */}
-        {filteredApps.length === 0 ? (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {searchQuery || statusFilter !== "all" 
-                ? "Tiada permohonan sepadan dengan tapisan"
-                : "Tiada permohonan ditugaskan kepada anda"}
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileCheck className="h-5 w-5" />
-                Senarai Permohonan
-              </CardTitle>
-              <CardDescription>
-                {filteredApps.length} permohonan ditunjukkan
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>No. Rujukan</TableHead>
-                    <TableHead>Nama Projek</TableHead>
-                    <TableHead>Pemohon</TableHead>
-                    <TableHead>Lokasi</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Tindakan</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredApps.map((app) => (
-                    <TableRow key={app.id}>
-                      <TableCell className="font-mono text-sm">
-                        {app.tracking_number || "-"}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {app.project_name}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {app.profiles?.full_name || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {app.location}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(app.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewDetails(app)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Semak
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Detail Dialog */}
-        <Dialog open={!!selectedApp} onOpenChange={() => setSelectedApp(null)}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Butiran Permohonan</DialogTitle>
-              <DialogDescription>
-                {selectedApp?.tracking_number} - {selectedApp?.project_name}
-              </DialogDescription>
-            </DialogHeader>
-
-            <Tabs defaultValue="details" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="details">Maklumat</TabsTrigger>
-                <TabsTrigger value="documents">Dokumen</TabsTrigger>
-                <TabsTrigger value="compliance">Pematuhan</TabsTrigger>
-                <TabsTrigger value="reviews">Semakan</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="details" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Maklumat Projek</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">No. Rujukan:</span>
-                        <p className="font-mono font-medium">{selectedApp?.tracking_number || "-"}</p>
+        {/* Compliance Check Panel */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif">Semakan Pematuhan</CardTitle>
+            <CardDescription>
+              Semak setiap peraturan dan rekodkan pematuhan
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Peraturan</TableHead>
+                  <TableHead>Nilai Diperlukan</TableHead>
+                  <TableHead>Nilai Cadangan</TableHead>
+                  <TableHead>Status Pematuhan</TableHead>
+                  <TableHead>Catatan</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {complianceChecks.map((check, index) => (
+                  <TableRow key={check.rule_id}>
+                    <TableCell>
+                      <div className="font-medium">{check.rule_name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {check.rule_type}
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Jenis Projek:</span>
-                        <p className="font-medium capitalize">{selectedApp?.project_type}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Lokasi:</span>
-                        <p className="font-medium">{selectedApp?.location}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">No. Lot:</span>
-                        <p className="font-medium">{selectedApp?.lot_number || "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Zon Guna Tanah:</span>
-                        <p className="font-medium">{selectedApp?.land_use_zone || "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Luas Plot:</span>
-                        <p className="font-medium">{selectedApp?.plot_area ? `${selectedApp.plot_area} m²` : "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Nisbah Plot:</span>
-                        <p className="font-medium">{selectedApp?.plot_ratio || "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Ketinggian Bangunan:</span>
-                        <p className="font-medium">{selectedApp?.building_height ? `${selectedApp.building_height} m` : "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Setback Hadapan:</span>
-                        <p className="font-medium">{selectedApp?.setback_front ? `${selectedApp.setback_front} m` : "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Setback Belakang:</span>
-                        <p className="font-medium">{selectedApp?.setback_rear ? `${selectedApp.setback_rear} m` : "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Setback Sisi:</span>
-                        <p className="font-medium">{selectedApp?.setback_side ? `${selectedApp.setback_side} m` : "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Status:</span>
-                        <div className="mt-1">{getStatusBadge(selectedApp?.status || "")}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="documents">
-                <DocumentViewer documents={appDocuments} />
-              </TabsContent>
-
-              <TabsContent value="compliance" className="space-y-4">
-                <ComplianceResults
-                  checkResult={complianceCheckResult}
-                  onRecheck={handleRecheckCompliance}
-                  onDownloadReport={handleDownloadReport}
-                  loading={rechecking}
-                />
-              </TabsContent>
-
-              <TabsContent value="reviews" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Sejarah Semakan</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {appReviews.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">
-                        Tiada semakan sebelum ini
-                      </p>
-                    ) : (
-                      <div className="space-y-4">
-                        {appReviews.map((review) => (
-                          <div key={review.id} className="p-4 rounded-lg border">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start gap-3">
-                                {getDecisionIcon(review.decision)}
-                                <div>
-                                  <p className="font-medium text-sm">
-                                    {review.profiles?.full_name}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {review.profiles?.role} • {new Date(review.created_at).toLocaleString("ms-MY")}
-                                  </p>
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="capitalize">
-                                {review.decision.replace("_", " ")}
-                              </Badge>
-                            </div>
-                            <p className="mt-3 text-sm">{review.comment}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Add Review Form */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5" />
-                      Tambah Semakan Baharu
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="decision">Keputusan</Label>
-                      <Select value={decision} onValueChange={(v: any) => setDecision(v)}>
-                        <SelectTrigger>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {check.required_value}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        placeholder="Nilai dari pelan"
+                        value={check.proposed_value}
+                        onChange={(e) =>
+                          updateComplianceCheck(index, "proposed_value", e.target.value)
+                        }
+                        className="w-32"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={check.status}
+                        onValueChange={(value) =>
+                          updateComplianceCheck(index, "status", value)
+                        }
+                      >
+                        <SelectTrigger className="w-40">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pending">Dalam Semakan</SelectItem>
-                          <SelectItem value="approved">Lulus</SelectItem>
-                          <SelectItem value="rejected">Ditolak</SelectItem>
-                          <SelectItem value="revision_required">Pindaan Diperlukan</SelectItem>
+                          {STATUS_PEMATUHAN_OPTIONS.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="comment">
-                        Komen / Catatan <span className="text-destructive">*</span>
-                      </Label>
-                      <Textarea
-                        id="comment"
-                        placeholder="Masukkan komen atau catatan semakan anda..."
-                        rows={4}
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        required
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        placeholder="Catatan"
+                        value={check.catatan}
+                        onChange={(e) =>
+                          updateComplianceCheck(index, "catatan", e.target.value)
+                        }
                       />
-                    </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
-                    <Button
-                      onClick={handleSubmitReview}
-                      disabled={!comment.trim() || submitting}
-                      className="w-full"
-                    >
-                      {submitting ? "Menghantar..." : "Hantar Semakan"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </DialogContent>
-        </Dialog>
+        {/* Review Outcome */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif">Keputusan Semakan</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Keputusan Semakan *</label>
+              <Select value={keputusanSemakan} onValueChange={setKeputusanSemakan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih keputusan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {KEPUTUSAN_SEMAKAN_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Ringkasan Ulasan *</label>
+              <Textarea
+                rows={5}
+                placeholder="Masukkan ringkasan ulasan teknikal..."
+                value={ringkasanUlasan}
+                onChange={(e) => setRingkasanUlasan(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Syarat-syarat (jika berkaitan)</label>
+              <Textarea
+                rows={4}
+                placeholder="Masukkan syarat-syarat lulus bersyarat..."
+                value={syaratSyarat}
+                onChange={(e) => setSyaratSyarat(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Cadangan kepada OSC</label>
+              <Textarea
+                rows={4}
+                placeholder="Masukkan cadangan untuk OSC..."
+                value={cadanganKepadaOsc}
+                onChange={(e) => setCadanganKepadaOsc(e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Submit Button */}
+        <div className="flex justify-end gap-4">
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/permohonan/${application_id}`)}
+            disabled={submitting}
+          >
+            Batal
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            <Save className="h-4 w-4 mr-2" />
+            {submitting ? "Menyimpan..." : "Simpan Semakan"}
+          </Button>
+        </div>
       </div>
     </Layout>
   );
