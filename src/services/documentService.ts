@@ -1,120 +1,148 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
-import type { DocumentType } from "@/types";
+import { Database } from "@/integrations/supabase/types";
 
-export type Document = Tables<"documents">;
+type Document = Database["public"]["Tables"]["documents"]["Row"];
+type DocumentInsert = Database["public"]["Tables"]["documents"]["Insert"];
 
-export const documentService = {
-  async uploadDocument(
-    applicationId: string,
-    file: File,
-    fileType: DocumentType
-  ): Promise<Document | null> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+export const JENIS_DOKUMEN_OPTIONS = [
+  "Pelan Susun Atur",
+  "Pelan Bangunan",
+  "Pelan CAD",
+  "Kebenaran Tanah",
+  "Laporan Teknikal",
+  "Surat Pemohon",
+  "Dokumen OSC",
+  "Lain-lain",
+] as const;
 
-    // Upload file to Supabase Storage
-    const fileExtension = file.name.split(".").pop();
-    const fileName = `${applicationId}/${Date.now()}-${file.name}`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("dc-documents")
-      .upload(fileName, file);
+export interface DocumentFormData {
+  jenis_dokumen: string;
+  file_name: string;
+  file_path: string;
+  file_type?: string;
+  file_extension?: string;
+  file_size?: number;
+  versi?: string;
+  catatan?: string;
+}
 
-    if (uploadError) {
-      console.error("Error uploading file:", uploadError);
-      return null;
-    }
+/**
+ * Get all documents for an application, grouped by jenis_dokumen
+ */
+export async function getApplicationDocuments(
+  applicationId: string
+): Promise<Record<string, Document[]>> {
+  const { data, error } = await supabase
+    .from("documents")
+    .select(
+      `
+      *,
+      uploaded_by_profile:uploaded_by(id, full_name, email)
+    `
+    )
+    .eq("application_id", applicationId)
+    .order("uploaded_at", { ascending: false });
 
-    // Create document record
-    const { data, error } = await supabase
-      .from("documents")
-      .insert({
-        application_id: applicationId,
-        file_name: file.name,
-        file_path: uploadData.path,
-        file_type: fileType,
-        file_extension: fileExtension,
-        file_size: file.size,
-        uploaded_by: user.id,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating document record:", error);
-      return null;
-    }
-
-    return data;
-  },
-
-  async getApplicationDocuments(applicationId: string): Promise<Document[]> {
-    const { data, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("application_id", applicationId)
-      .order("uploaded_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching documents:", error);
-      return [];
-    }
-
-    return data || [];
-  },
-
-  async getDocumentUrl(filePath: string): Promise<string | null> {
-    const { data } = supabase.storage
-      .from("dc-documents")
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
-  },
-
-  async downloadDocument(filePath: string, fileName: string): Promise<void> {
-    const { data, error } = await supabase.storage
-      .from("dc-documents")
-      .download(filePath);
-
-    if (error) {
-      console.error("Error downloading file:", error);
-      return;
-    }
-
-    // Create download link
-    const url = window.URL.createObjectURL(data);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  },
-
-  async deleteDocument(id: string, filePath: string): Promise<boolean> {
-    // Delete from storage
-    const { error: storageError } = await supabase.storage
-      .from("dc-documents")
-      .remove([filePath]);
-
-    if (storageError) {
-      console.error("Error deleting file from storage:", storageError);
-      return false;
-    }
-
-    // Delete document record
-    const { error } = await supabase
-      .from("documents")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error deleting document record:", error);
-      return false;
-    }
-
-    return true;
+  if (error) {
+    console.error("Error fetching documents:", error);
+    throw error;
   }
-};
+
+  // Group by jenis_dokumen
+  const grouped: Record<string, Document[]> = {};
+  (data || []).forEach((doc) => {
+    const category = doc.jenis_dokumen || "Lain-lain";
+    if (!grouped[category]) {
+      grouped[category] = [];
+    }
+    grouped[category].push(doc);
+  });
+
+  return grouped;
+}
+
+/**
+ * Upload a new document
+ */
+export async function uploadDocument(
+  applicationId: string,
+  formData: DocumentFormData,
+  userId: string
+): Promise<Document> {
+  const documentData: DocumentInsert = {
+    application_id: applicationId,
+    file_name: formData.file_name,
+    file_path: formData.file_path,
+    file_type: formData.file_type,
+    file_extension: formData.file_extension,
+    file_size: formData.file_size,
+    jenis_dokumen: formData.jenis_dokumen,
+    versi: formData.versi,
+    catatan: formData.catatan,
+    uploaded_by: userId,
+  };
+
+  const { data, error } = await supabase
+    .from("documents")
+    .insert(documentData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error uploading document:", error);
+    throw error;
+  }
+
+  // Insert workflow history
+  await supabase.from("workflow_history").insert({
+    application_id: applicationId,
+    to_status: "Dokumen Dimuat Naik",
+    changed_by: userId,
+    comment: `Dokumen dimuat naik: ${formData.jenis_dokumen} - ${formData.file_name}`,
+  });
+
+  return data;
+}
+
+/**
+ * Delete a document
+ */
+export async function deleteDocument(documentId: string): Promise<void> {
+  const { error } = await supabase
+    .from("documents")
+    .delete()
+    .eq("id", documentId);
+
+  if (error) {
+    console.error("Error deleting document:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get file extension from filename
+ */
+export function getFileExtension(filename: string): string {
+  const parts = filename.split(".");
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+}
+
+/**
+ * Validate file type for document upload
+ */
+export function isValidFileType(filename: string): boolean {
+  const ext = getFileExtension(filename);
+  const validExtensions = ["pdf", "dwg", "dxf", "jpg", "jpeg", "png"];
+  return validExtensions.includes(ext);
+}
+
+/**
+ * Format file size for display
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+}

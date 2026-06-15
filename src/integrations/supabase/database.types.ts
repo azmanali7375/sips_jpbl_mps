@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -318,36 +318,45 @@ export type Database = {
       documents: {
         Row: {
           application_id: string
+          catatan: string | null
           file_extension: string | null
           file_name: string
           file_path: string
           file_size: number | null
           file_type: string | null
           id: string
+          jenis_dokumen: string | null
           uploaded_at: string | null
           uploaded_by: string | null
+          versi: string | null
         }
         Insert: {
           application_id: string
+          catatan?: string | null
           file_extension?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
           file_type?: string | null
           id?: string
+          jenis_dokumen?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
+          versi?: string | null
         }
         Update: {
           application_id?: string
+          catatan?: string | null
           file_extension?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
           file_type?: string | null
           id?: string
+          jenis_dokumen?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
+          versi?: string | null
         }
         Relationships: [
           {
