@@ -50,6 +50,12 @@ export default function SenaraiPermohonan() {
   const [userId, setUserId] = useState<string>("");
   const [officers, setOfficers] = useState<{ id: string; full_name: string }[]>([]);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [scaleFilter, setScaleFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+
   const [filters, setFilters] = useState<ApplicationFilters>({
     search: "",
     status_dalaman: "",
@@ -248,7 +254,7 @@ export default function SenaraiPermohonan() {
                       <SelectValue placeholder="Semua Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Semua Status</SelectItem>
+                      <SelectItem value="all">Semua Status</SelectItem>
                       <SelectItem value="Diterima">Diterima</SelectItem>
                       <SelectItem value="Dalam Semakan Teknikal">
                         Dalam Semakan Teknikal
@@ -276,7 +282,7 @@ export default function SenaraiPermohonan() {
                       <SelectValue placeholder="Semua Skala" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Semua Skala</SelectItem>
+                      <SelectItem value="all">Semua Skala</SelectItem>
                       <SelectItem value="Kecil">Kecil</SelectItem>
                       <SelectItem value="Sederhana">Sederhana</SelectItem>
                       <SelectItem value="Besar A">Besar A</SelectItem>
@@ -295,10 +301,10 @@ export default function SenaraiPermohonan() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Semua Pegawai" />
+                        <SelectValue placeholder="Filter pegawai" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Semua Pegawai</SelectItem>
+                        <SelectItem value="all">Semua Pegawai</SelectItem>
                         {officers.map((officer) => (
                           <SelectItem key={officer.id} value={officer.id}>
                             {officer.full_name}

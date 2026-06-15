@@ -55,9 +55,9 @@ export default function PustakaDasarPage() {
   
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDocCodes, setSelectedDocCodes] = useState<string[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState("");
-  const [selectedLandUse, setSelectedLandUse] = useState("");
+  const [selectedDoc, setSelectedDoc] = useState("all");
+  const [selectedTopic, setSelectedTopic] = useState("all");
+  const [selectedLandUse, setSelectedLandUse] = useState("all");
   const [searchResults, setSearchResults] = useState<PolicyChunk[]>([]);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
 
@@ -478,13 +478,24 @@ export default function PustakaDasarPage() {
   const handleSearch = async () => {
     try {
       setSearching(true);
-      const results = await policyLibraryService.searchPolicies({
-        query: searchQuery || undefined,
-        documentCodes: selectedDocCodes.length > 0 ? selectedDocCodes : undefined,
-        topicTag: selectedTopic || undefined,
-        landUseTag: selectedLandUse || undefined,
-        limit: 50,
-      });
+      let query = supabase.from("policy_chunks").select("*");
+
+      // Filter by document
+      if (selectedDoc && selectedDoc !== "all") {
+        query = query.eq("document_code", selectedDoc);
+      }
+
+      // Filter by topic
+      if (selectedTopic && selectedTopic !== "all") {
+        query = query.contains("topic_tags", [selectedTopic]);
+      }
+
+      // Filter by land use
+      if (selectedLandUse && selectedLandUse !== "all") {
+        query = query.contains("land_use_tags", [selectedLandUse]);
+      }
+
+      const results = await query.limit(50);
       setSearchResults(results);
     } catch (error) {
       console.error("Error searching:", error);
@@ -691,23 +702,16 @@ export default function PustakaDasarPage() {
               <div>
                 <Label htmlFor="topic-filter">Topik</Label>
                 <Select value={selectedTopic} onValueChange={setSelectedTopic}>
-                  <SelectTrigger id="topic-filter">
-                    <SelectValue placeholder="Semua topik" />
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Topik" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Semua topik</SelectItem>
-                    <SelectItem value="anjakan">Anjakan</SelectItem>
-                    <SelectItem value="nisbah_plot">Nisbah Plot</SelectItem>
-                    <SelectItem value="densiti">Densiti</SelectItem>
-                    <SelectItem value="ketinggian">Ketinggian</SelectItem>
-                    <SelectItem value="parkir">Parkir</SelectItem>
-                    <SelectItem value="kawasan_lapang">Kawasan Lapang</SelectItem>
-                    <SelectItem value="zon_perancangan">Zon Perancangan</SelectItem>
-                    <SelectItem value="kegunaan_tanah">Kegunaan Tanah</SelectItem>
-                    <SelectItem value="infrastruktur">Infrastruktur</SelectItem>
-                    <SelectItem value="alam_sekitar">Alam Sekitar</SelectItem>
-                    <SelectItem value="kemudahan_awam">Kemudahan Awam</SelectItem>
-                    <SelectItem value="lain">Lain-lain</SelectItem>
+                    <SelectItem value="all">Semua topik</SelectItem>
+                    {allTopics.map((topic) => (
+                      <SelectItem key={topic} value={topic}>
+                        {topic}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -715,19 +719,16 @@ export default function PustakaDasarPage() {
               <div>
                 <Label htmlFor="landuse-filter">Kegunaan Tanah</Label>
                 <Select value={selectedLandUse} onValueChange={setSelectedLandUse}>
-                  <SelectTrigger id="landuse-filter">
-                    <SelectValue placeholder="Semua kegunaan" />
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Kegunaan tanah" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Semua kegunaan</SelectItem>
-                    <SelectItem value="komersial">Komersial</SelectItem>
-                    <SelectItem value="kediaman">Kediaman</SelectItem>
-                    <SelectItem value="perindustrian">Perindustrian</SelectItem>
-                    <SelectItem value="pertanian">Pertanian</SelectItem>
-                    <SelectItem value="institusi">Institusi</SelectItem>
-                    <SelectItem value="rekreasi">Rekreasi</SelectItem>
-                    <SelectItem value="campuran">Campuran</SelectItem>
-                    <SelectItem value="semua">Semua</SelectItem>
+                    <SelectItem value="all">Semua kegunaan</SelectItem>
+                    {landUseOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
