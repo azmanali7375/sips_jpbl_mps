@@ -510,7 +510,7 @@ export default function DaftarBaharu() {
       if (landLots.length > 0 && result.application_id) {
         try {
           const { data: lotsData, error: lotsError } = await supabase
-            .from("maklumat_tanah")
+            .from("land_lots")
             .insert(
               landLots.map((lot) => ({
                 application_id: result.application_id,
