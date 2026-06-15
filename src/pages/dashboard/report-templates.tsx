@@ -123,7 +123,7 @@ export default function ReportTemplates() {
             template_name: formData.template_name,
             template_type: formData.template_type,
             template_content: formData.template_content,
-            description: formData.description || null,
+            description: formData.description.trim() ? formData.description.trim() : null,
           })
           .eq("id", editingId);
 
@@ -141,7 +141,7 @@ export default function ReportTemplates() {
             template_name: formData.template_name,
             template_type: formData.template_type,
             template_content: formData.template_content,
-            description: formData.description || null,
+            description: formData.description.trim() ? formData.description.trim() : null,
           });
 
         if (error) throw error;
