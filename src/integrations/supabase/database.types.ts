@@ -29,8 +29,10 @@ export type Database = {
           head_review_completed_at: string | null
           id: string
           jabatan_memperaku: string | null
+          jenis_aplikasi: string | null
           jenis_proses_pr: string | null
           kategori_permohonan: string | null
+          kpi_hari: number | null
           land_use_zone: string | null
           latitud: number | null
           location: string
@@ -84,8 +86,10 @@ export type Database = {
           head_review_completed_at?: string | null
           id?: string
           jabatan_memperaku?: string | null
+          jenis_aplikasi?: string | null
           jenis_proses_pr?: string | null
           kategori_permohonan?: string | null
+          kpi_hari?: number | null
           land_use_zone?: string | null
           latitud?: number | null
           location: string
@@ -139,8 +143,10 @@ export type Database = {
           head_review_completed_at?: string | null
           id?: string
           jabatan_memperaku?: string | null
+          jenis_aplikasi?: string | null
           jenis_proses_pr?: string | null
           kategori_permohonan?: string | null
+          kpi_hari?: number | null
           land_use_zone?: string | null
           latitud?: number | null
           location?: string

@@ -18,6 +18,7 @@ import {
   PieChart
 } from "lucide-react";
 import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Button } from "@/components/ui/button";
 
 interface DashboardStats {
   jumlahAktif: number;
@@ -171,6 +172,35 @@ export default function SIPSDashboard() {
     kpiDate.setHours(0, 0, 0, 0);
     const diffTime = kpiDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const calculateDaysRemaining = (deadline: string) => {
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getStatusColor = (daysRemaining: number, kpiDays: number) => {
+    // Calculate proportional thresholds based on KPI days
+    // PB (14 days): Red ≤ 3, Orange 4-7
+    // KM (57 days): Red ≤ 7, Orange 8-14
+    const redThreshold = kpiDays === 14 ? 3 : 7;
+    const orangeThreshold = kpiDays === 14 ? 7 : 14;
+
+    if (daysRemaining <= redThreshold) return "text-red-600";
+    if (daysRemaining <= orangeThreshold) return "text-orange-500";
+    return "text-green-600";
+  };
+
+  const getStatusBadge = (daysRemaining: number, kpiDays: number) => {
+    const redThreshold = kpiDays === 14 ? 3 : 7;
+    const orangeThreshold = kpiDays === 14 ? 7 : 14;
+
+    if (daysRemaining <= redThreshold) return "bg-red-100 text-red-700 border-red-200";
+    if (daysRemaining <= orangeThreshold) return "bg-orange-100 text-orange-700 border-orange-200";
+    return "bg-green-100 text-green-700 border-green-200";
   };
 
   const getRowColor = (remainingDays: number): string => {

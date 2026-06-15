@@ -115,24 +115,46 @@ export async function registerNewApplication(
       submitted_at: new Date().toISOString(),
     };
 
-    // Insert application
-    const { data: application, error: applicationError } = await supabase
+    // Insert application record - jenis_aplikasi and kpi_hari will be auto-set by trigger
+    const { data: appData, error: appError } = await supabase
       .from("applications")
-      .insert(applicationData)
-      .select("id")
+      .insert({
+        no_permohonan_osc: formData.no_permohonan_osc.trim(),
+        no_fail_jpl: no_fail_jpl,
+        tarikh_penghantaran: formData.tarikh_penghantaran,
+        tarikh_lengkap_diterima_osc: formData.tarikh_lengkap_diterima_osc,
+        tarikh_kpi: tarikh_kpi,
+        nama_sp: formData.nama_sp.trim(),
+        nama_pemaju_pemilik: formData.nama_pemaju_pemilik?.trim() || formData.nama_sp.trim(),
+        tajuk_permohonan: formData.tajuk_permohonan.trim(),
+        lokasi: formData.lokasi?.trim() || null,
+        mukim: formData.mukim?.trim() || null,
+        daerah: "Segamat",
+        skala_pembangunan: formData.skala_pembangunan,
+        kategori: formData.kategori?.trim() || null,
+        status: "pending",
+        assigned_to: formData.assigned_to || null,
+        created_by: userId,
+        no_rujukan_jkr: formData.no_rujukan_jkr?.trim() || null,
+        no_rujukan_jps: formData.no_rujukan_jps?.trim() || null,
+        no_rujukan_tnb: formData.no_rujukan_tnb?.trim() || null,
+        no_rujukan_telekom: formData.no_rujukan_telekom?.trim() || null,
+        no_rujukan_pbt_lain: formData.no_rujukan_pbt_lain?.trim() || null,
+      })
+      .select()
       .single();
 
-    if (applicationError) {
-      console.error("Error inserting application:", applicationError);
+    if (appError) {
+      console.error("Error inserting application:", appError);
       return {
         success: false,
-        error: `Gagal mendaftar permohonan: ${applicationError.message}`,
+        error: `Gagal mendaftar permohonan: ${appError.message}`,
       };
     }
 
     // Insert workflow history
     const workflowData: WorkflowHistoryInsert = {
-      application_id: application.id,
+      application_id: appData.id,
       to_status: "Diterima",
       changed_by: userId,
       comment: `Permohonan Didaftar dalam SIPS - No. OSC: ${formData.no_permohonan_osc}`,
@@ -151,7 +173,7 @@ export async function registerNewApplication(
       success: true,
       no_fail_jpl,
       tarikh_kpi,
-      application_id: application.id,
+      application_id: appData.id,
     };
   } catch (error) {
     console.error("Unexpected error during registration:", error);

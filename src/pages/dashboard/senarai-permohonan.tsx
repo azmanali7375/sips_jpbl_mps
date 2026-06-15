@@ -55,6 +55,24 @@ export default function SenaraiPermohonan() {
   const [scaleFilter, setScaleFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const calculateDaysRemaining = (deadline: string) => {
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getStatusColor = (daysRemaining: number, kpiDays: number) => {
+    const redThreshold = kpiDays === 14 ? 3 : 7;
+    const orangeThreshold = kpiDays === 14 ? 7 : 14;
+
+    if (daysRemaining <= redThreshold) return "text-red-600 font-semibold";
+    if (daysRemaining <= orangeThreshold) return "text-orange-500 font-semibold";
+    return "text-green-600";
+  };
 
   const [filters, setFilters] = useState<ApplicationFilters>({
     search: "",
@@ -354,15 +372,14 @@ export default function SenaraiPermohonan() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="font-semibold">No. Fail JPL</TableHead>
-                    <TableHead className="font-semibold">No. Permohonan OSC</TableHead>
-                    <TableHead className="font-semibold">Nama Pemaju/Pemilik</TableHead>
-                    <TableHead className="font-semibold">Skala</TableHead>
-                    <TableHead className="font-semibold">Tarikh Lengkap OSC</TableHead>
-                    <TableHead className="font-semibold">Tarikh KPI</TableHead>
-                    <TableHead className="font-semibold text-center">Baki Hari</TableHead>
-                    <TableHead className="font-semibold">Status Dalaman</TableHead>
-                    <TableHead className="font-semibold">Pegawai</TableHead>
+                    <TableHead>No. Fail JPL</TableHead>
+                    <TableHead>Nama Pemohon</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead>Skala</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Baki Hari</TableHead>
+                    <TableHead>Pegawai</TableHead>
+                    <TableHead>Tindakan</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
