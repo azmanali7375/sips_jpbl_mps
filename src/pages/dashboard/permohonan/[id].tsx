@@ -1454,7 +1454,7 @@ Return this exact JSON structure with ONLY the requested fields:
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowUploadDialog(true)}
+                onClick={() => setShowUploadModal(true)}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Muat Naik Dokumen
