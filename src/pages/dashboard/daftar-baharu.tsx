@@ -38,6 +38,14 @@ export default function DaftarBaharu() {
   const [fileType, setFileType] = useState<"pdf" | "image" | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // AI processing state
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedData, setExtractedData] = useState<any>(null);
+  const [extractedCount, setExtractedCount] = useState(0);
+  const [missingCount, setMissingCount] = useState(0);
+  const [landLots, setLandLots] = useState<any[]>([]);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState<RegistrationFormData>({
     no_permohonan_osc: "",
     kategori_permohonan: "",
@@ -157,13 +165,122 @@ export default function DaftarBaharu() {
     setFileType(null);
   };
 
-  const handleAnalyzeDocument = () => {
-    // This will be implemented in the next prompt
-    toast({
-      title: "Fungsi Akan Datang",
-      description: "Analisis dokumen akan dilaksanakan dalam kemas kini seterusnya",
-    });
-    setShowImportModal(false);
+  const handleAnalyzeDocument = async () => {
+    if (!uploadedFile) return;
+
+    setIsProcessing(true);
+    setProcessingError(null);
+
+    try {
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data URL prefix to get pure base64
+          const base64String = result.split(",")[1];
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(uploadedFile);
+      });
+
+      // Determine media type
+      const mediaType = uploadedFile.type;
+
+      // Determine content type for API
+      const contentType = fileType === "pdf" ? "document" : "image";
+
+      // Get Anthropic API key from environment
+      const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error("Anthropic API key not configured");
+      }
+
+      // Call Anthropic API
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system:
+            'You are a document parser for Malaysian planning applications. Extract fields from an OSC 3.0 Plus document and return ONLY valid JSON with no explanation. If a field is not visible return null. Never invent values. Return this exact structure: {"no_permohonan_osc":string,"kategori_permohonan":string,"skala_pembangunan":string,"nama_sp":string,"no_kp_sp":string,"jenis_proses_pr":string,"status_semakan_osc":string,"tarikh_penghantaran":string (YYYY-MM-DD),"tarikh_lengkap_diterima_osc":string (YYYY-MM-DD),"jabatan_memperaku":string,"negeri":string,"daerah":string,"mukim":string,"tajuk_permohonan":string,"nama_pemaju_pemilik":string,"lokasi_mercu_tanda":string,"longitud":number,"latitud":number,"rancangan_tempatan":string,"zoning":string,"maklumat_tanah":[{"jenis_lot":string,"no_lot":string,"pemilik_tanah":string,"kategori":string,"syarat_nyata":string,"catatan":string}]}',
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: contentType,
+                  source: {
+                    type: "base64",
+                    media_type: mediaType,
+                    data: base64,
+                  },
+                },
+                {
+                  type: "text",
+                  text: "Extract all fields from this OSC 3.0 Plus document and return as JSON only.",
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || "API request failed");
+      }
+
+      const data = await response.json();
+
+      // Find text content block
+      const textBlock = data.content?.find((block: any) => block.type === "text");
+      if (!textBlock) {
+        throw new Error("No text content in API response");
+      }
+
+      // Parse JSON from response
+      let parsedData;
+      try {
+        parsedData = JSON.parse(textBlock.text);
+      } catch (e) {
+        throw new Error("Failed to parse extracted data as JSON");
+      }
+
+      // Count extracted and missing fields
+      const allFields = Object.keys(parsedData).filter((key) => key !== "maklumat_tanah");
+      const extracted = allFields.filter((key) => parsedData[key] !== null);
+      const missing = allFields.filter((key) => parsedData[key] === null);
+
+      setExtractedData(parsedData);
+      setExtractedCount(extracted.length);
+      setMissingCount(missing.length);
+      setLandLots(parsedData.maklumat_tanah || []);
+
+      // Success - move to review panel (will be implemented next)
+      toast({
+        title: "Analisis Berjaya",
+        description: `${extracted.length} medan berjaya diekstrak`,
+      });
+    } catch (error) {
+      console.error("Error analyzing document:", error);
+      setProcessingError(
+        error instanceof Error ? error.message : "Gagal menganalisis dokumen"
+      );
+      toast({
+        title: "Ralat Analisis",
+        description: "Gagal menganalisis dokumen. Sila cuba lagi.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleInputChange = (
@@ -732,119 +849,184 @@ export default function DaftarBaharu() {
               <DialogTitle>Import Maklumat dari OSC 3.0 Plus</DialogTitle>
             </DialogHeader>
 
-            {/* Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-              <p className="font-semibold text-blue-900 mb-2">Cara mendapatkan dokumen OSC:</p>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
-                <li>Buka permohonan dalam OSC 3.0 Plus</li>
-                <li>Klik butang &apos;Cetak&apos; di bahagian kanan</li>
-                <li>Simpan sebagai PDF atau ambil tangkapan skrin</li>
-                <li>Muat naik fail di sini</li>
-              </ol>
-            </div>
-
-            {/* Upload Area */}
-            <div className="mt-4">
-              {!uploadedFile ? (
-                <div
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                    isDragging
-                      ? "border-primary bg-primary/5"
-                      : "border-muted-foreground/25 hover:border-muted-foreground/50"
-                  }`}
-                >
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    accept=".pdf,.png,.jpg,.jpeg,.webp"
-                    onChange={handleFileInputChange}
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer flex flex-col items-center"
-                  >
-                    <Upload className="h-12 w-12 text-muted-foreground mb-3" />
-                    <p className="text-base font-medium text-foreground mb-1">
-                      Seret fail ke sini atau klik untuk pilih
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      PDF, PNG, JPG, WEBP • Maksimum 10MB
-                    </p>
-                  </label>
+            {isProcessing ? (
+              /* Processing Screen */
+              <div className="py-12 text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
                 </div>
-              ) : (
-                <div className="border rounded-lg p-4 bg-muted/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {fileType === "pdf" ? (
-                        <FileIcon className="h-10 w-10 text-destructive" />
-                      ) : (
-                        <ImageIcon className="h-10 w-10 text-primary" />
-                      )}
-                      <div>
-                        <p className="font-medium">{uploadedFile.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                <p className="text-lg font-medium mb-2">
+                  AI sedang membaca dokumen OSC anda...
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Mengambil masa 10–20 saat. Sila tunggu.
+                </p>
+              </div>
+            ) : processingError ? (
+              /* Error State */
+              <div className="py-8">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <p className="font-semibold mb-2">Ralat Analisis</p>
+                    <p className="text-sm">{processingError}</p>
+                  </AlertDescription>
+                </Alert>
+                <div className="mt-6 flex justify-center gap-3">
+                  <Button variant="outline" onClick={() => {
+                    setProcessingError(null);
+                    setUploadedFile(null);
+                    setFileType(null);
+                  }}>
+                    Muat Naik Fail Lain
+                  </Button>
+                  <Button onClick={() => setShowImportModal(false)}>
+                    Tutup
+                  </Button>
+                </div>
+              </div>
+            ) : extractedData ? (
+              /* Review Panel - will be implemented in next prompt */
+              <div className="py-8">
+                <Alert className="bg-green-50 border-green-200">
+                  <AlertCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-900">
+                    <p className="font-semibold mb-1">Analisis Selesai</p>
+                    <p className="text-sm">
+                      {extractedCount} medan berjaya diekstrak, {missingCount} medan tidak dijumpai
+                    </p>
+                  </AlertDescription>
+                </Alert>
+                <p className="text-sm text-muted-foreground mt-4 text-center">
+                  Review panel akan dilaksanakan dalam langkah seterusnya
+                </p>
+                <div className="mt-6 flex justify-center">
+                  <Button onClick={() => {
+                    setShowImportModal(false);
+                    setExtractedData(null);
+                  }}>
+                    Tutup
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Upload Area */
+              <>
+                {/* Instructions */}
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                  <p className="font-semibold text-blue-900 mb-2">Cara mendapatkan dokumen OSC:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+                    <li>Buka permohonan dalam OSC 3.0 Plus</li>
+                    <li>Klik butang &apos;Cetak&apos; di bahagian kanan</li>
+                    <li>Simpan sebagai PDF atau ambil tangkapan skrin</li>
+                    <li>Muat naik fail di sini</li>
+                  </ol>
+                </div>
+
+                {/* Upload Area */}
+                <div className="mt-4">
+                  {!uploadedFile ? (
+                    <div
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                        isDragging
+                          ? "border-primary bg-primary/5"
+                          : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        id="file-upload"
+                        className="hidden"
+                        accept=".pdf,.png,.jpg,.jpeg,.webp"
+                        onChange={handleFileInputChange}
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="cursor-pointer flex flex-col items-center"
+                      >
+                        <Upload className="h-12 w-12 text-muted-foreground mb-3" />
+                        <p className="text-base font-medium text-foreground mb-1">
+                          Seret fail ke sini atau klik untuk pilih
                         </p>
+                        <p className="text-sm text-muted-foreground">
+                          PDF, PNG, JPG, WEBP • Maksimum 10MB
+                        </p>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg p-4 bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {fileType === "pdf" ? (
+                            <FileIcon className="h-10 w-10 text-destructive" />
+                          ) : (
+                            <ImageIcon className="h-10 w-10 text-primary" />
+                          )}
+                          <div>
+                            <p className="font-medium">{uploadedFile.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveFile}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      {/* Preview for images */}
+                      {fileType === "image" && uploadedFile && (
+                        <div className="mt-3 border rounded-md overflow-hidden">
+                          <img
+                            src={URL.createObjectURL(uploadedFile)}
+                            alt="Preview"
+                            className="w-full h-auto max-h-64 object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {/* Change file link */}
+                      <div className="mt-3 text-center">
+                        <label
+                          htmlFor="file-upload-replace"
+                          className="text-sm text-primary hover:underline cursor-pointer"
+                        >
+                          Tukar Fail
+                        </label>
+                        <input
+                          type="file"
+                          id="file-upload-replace"
+                          className="hidden"
+                          accept=".pdf,.png,.jpg,.jpeg,.webp"
+                          onChange={handleFileInputChange}
+                        />
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRemoveFile}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Preview for images */}
-                  {fileType === "image" && uploadedFile && (
-                    <div className="mt-3 border rounded-md overflow-hidden">
-                      <img
-                        src={URL.createObjectURL(uploadedFile)}
-                        alt="Preview"
-                        className="w-full h-auto max-h-64 object-contain"
-                      />
-                    </div>
                   )}
-
-                  {/* Change file link */}
-                  <div className="mt-3 text-center">
-                    <label
-                      htmlFor="file-upload-replace"
-                      className="text-sm text-primary hover:underline cursor-pointer"
-                    >
-                      Tukar Fail
-                    </label>
-                    <input
-                      type="file"
-                      id="file-upload-replace"
-                      className="hidden"
-                      accept=".pdf,.png,.jpg,.jpeg,.webp"
-                      onChange={handleFileInputChange}
-                    />
-                  </div>
                 </div>
-              )}
-            </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowImportModal(false)}>
-                Batal
-              </Button>
-              <Button
-                onClick={handleAnalyzeDocument}
-                disabled={!uploadedFile}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Analisa Dokumen
-              </Button>
-            </DialogFooter>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowImportModal(false)}>
+                    Batal
+                  </Button>
+                  <Button
+                    onClick={handleAnalyzeDocument}
+                    disabled={!uploadedFile}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Analisa Dokumen
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </div>
