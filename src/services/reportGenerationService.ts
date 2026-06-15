@@ -233,7 +233,6 @@ export const reportGenerationService = {
         report_content: params.report_content,
         status: params.status,
         generated_by: params.generated_by,
-        generated_at: new Date().toISOString(),
       })
       .select()
       .single();
