@@ -327,7 +327,7 @@ export default function SIPSDashboard() {
         {/* OSC Compliance Summary */}
         {(() => {
           // Run validation on all pending applications
-          const complianceResults = applications
+          const complianceResults = kpiPerformance
             .filter(app => app.status === "pending" || app.status === "under_review")
             .map(app => ({
               application: app,
