@@ -556,6 +556,19 @@ export default function DaftarBaharu() {
           </Alert>
         )}
 
+        {/* PB Application Detection Banner */}
+        {formData.no_permohonan_osc && formData.no_permohonan_osc.startsWith("MPSEG-PB") && (
+          <Alert className="bg-green-50 border-green-200">
+            <AlertCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription>
+              <p className="font-semibold text-green-900">Permohonan Pelan Bangunan (PB) dikesan</p>
+              <p className="text-sm text-green-700 mt-1">
+                KPI: <strong>14 hari bekerja</strong> (Jabatan Bangunan - JBK)
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Info Alert */}
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -916,6 +929,19 @@ export default function DaftarBaharu() {
                     }
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label>Jabatan Memperaku</Label>
+                <Input
+                  value={
+                    formData.no_permohonan_osc?.startsWith("MPSEG-PB")
+                      ? "Jabatan Bangunan (JBK)"
+                      : "Jabatan Perancang Bandar & Landskap (JPL)"
+                  }
+                  disabled
+                  className="bg-muted"
+                />
               </div>
             </CardContent>
           </Card>

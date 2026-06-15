@@ -26,6 +26,7 @@ import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, Cartes
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface DashboardStats {
   jumlahAktif: number;
@@ -538,85 +539,275 @@ export default function SIPSDashboard() {
           </Card>
         </div>
 
-        {/* Row 4: KPI Performance Table */}
+        {/* KPI Performance */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              KPI Performance – Permohonan Aktif
-            </CardTitle>
-            <CardDescription>
-              Permohonan disusun mengikut keutamaan (paling kritikal di atas)
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Prestasi KPI</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Permohonan aktif mengikut tarikh akhir KPI
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const { generateExcelReport, downloadExcelReport } = await import("@/services/excelReportService");
+                    
+                    // Fetch all applications for export
+                    const { data: allApps, error } = await supabase
+                      .from("applications")
+                      .select("*")
+                      .order("tarikh_lengkap_diterima_osc", { ascending: true });
+
+                    if (error) throw error;
+
+                    const blob = await generateExcelReport(allApps || [], "ALL");
+                    const today = new Date().toISOString().split("T")[0];
+                    downloadExcelReport(blob, `Laporan_KPI_SIPS_${today}.xlsx`);
+
+                    toast({
+                      title: "Export Berjaya",
+                      description: "Laporan Excel telah dimuat turun",
+                    });
+                  } catch (error) {
+                    console.error("Export error:", error);
+                    toast({
+                      title: "Ralat Export",
+                      description: "Gagal menghasilkan laporan Excel",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>No. Fail</TableHead>
-                    <TableHead>Pemohon</TableHead>
-                    <TableHead>Jenis</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Baki Hari</TableHead>
-                    <TableHead>Tindakan</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {kpiPerformance.length === 0 ? (
+            {/* KPI Tabs */}
+            <Tabs defaultValue="all" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="km">KM (57 Hari)</TabsTrigger>
+                <TabsTrigger value="pb">PB (14 Hari)</TabsTrigger>
+                <TabsTrigger value="all">Semua</TabsTrigger>
+              </TabsList>
+
+              {/* KM Tab */}
+              <TabsContent value="km">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        Tiada permohonan aktif
-                      </TableCell>
+                      <TableHead>No. Fail</TableHead>
+                      <TableHead>Pemohon</TableHead>
+                      <TableHead>Jenis</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Baki Hari</TableHead>
+                      <TableHead>Tindakan</TableHead>
                     </TableRow>
-                  ) : (
-                    kpiPerformance.slice(0, 10).map((app) => {
-                      const remainingDays = calculateRemainingDays(app.tarikh_kpi);
-                      return (
-                        <TableRow key={app.id}>
-                          <TableCell className="font-medium">{app.no_fail_jpl}</TableCell>
-                          <TableCell>{app.nama_pemaju_pemilik}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{app.jenis_aplikasi || "KM"}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                app.status === "approved"
-                                  ? "default"
-                                  : app.status === "rejected"
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                            >
-                              {getStatusLabel(app.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {app.tarikh_kpi ? (
-                              <span className={getStatusColor(calculateDaysRemaining(app.tarikh_kpi), app.kpi_hari || 57)}>
-                                {calculateDaysRemaining(app.tarikh_kpi)} hari
-                              </span>
-                            ) : (
-                              "-"
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => router.push(`/dashboard/permohonan/${app.id}`)}
-                            >
-                              Lihat
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {kpiPerformance.filter(app => app.jenis_aplikasi === "KM" || !app.jenis_aplikasi).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          Tiada permohonan KM aktif
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      kpiPerformance
+                        .filter(app => app.jenis_aplikasi === "KM" || !app.jenis_aplikasi)
+                        .slice(0, 10)
+                        .map((app) => {
+                          const remainingDays = calculateRemainingDays(app.tarikh_kpi);
+                          return (
+                            <TableRow key={app.id}>
+                              <TableCell className="font-medium">{app.no_fail_jpl}</TableCell>
+                              <TableCell>{app.nama_pemaju_pemilik}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800">KM</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    app.status === "approved"
+                                      ? "default"
+                                      : app.status === "rejected"
+                                      ? "destructive"
+                                      : "secondary"
+                                  }
+                                >
+                                  {getStatusLabel(app.status)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {app.tarikh_kpi ? (
+                                  <span className={getStatusColor(calculateDaysRemaining(app.tarikh_kpi), 57)}>
+                                    {calculateDaysRemaining(app.tarikh_kpi)} hari
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => router.push(`/dashboard/permohonan/${app.id}`)}
+                                >
+                                  Lihat
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+
+              {/* PB Tab */}
+              <TabsContent value="pb">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>No. Fail</TableHead>
+                      <TableHead>Pemohon</TableHead>
+                      <TableHead>Jenis</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Baki Hari</TableHead>
+                      <TableHead>Tindakan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {kpiPerformance.filter(app => app.jenis_aplikasi === "PB").length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          Tiada permohonan PB aktif
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      kpiPerformance
+                        .filter(app => app.jenis_aplikasi === "PB")
+                        .slice(0, 10)
+                        .map((app) => {
+                          const remainingDays = calculateRemainingDays(app.tarikh_kpi);
+                          return (
+                            <TableRow key={app.id}>
+                              <TableCell className="font-medium">{app.no_fail_jpl}</TableCell>
+                              <TableCell>{app.nama_pemaju_pemilik}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="bg-green-100 text-green-800">PB</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    app.status === "approved"
+                                      ? "default"
+                                      : app.status === "rejected"
+                                      ? "destructive"
+                                      : "secondary"
+                                  }
+                                >
+                                  {getStatusLabel(app.status)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {app.tarikh_kpi ? (
+                                  <span className={getStatusColor(calculateDaysRemaining(app.tarikh_kpi), 14)}>
+                                    {calculateDaysRemaining(app.tarikh_kpi)} hari
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => router.push(`/dashboard/permohonan/${app.id}`)}
+                                >
+                                  Lihat
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+
+              {/* All Tab */}
+              <TabsContent value="all">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>No. Fail</TableHead>
+                      <TableHead>Pemohon</TableHead>
+                      <TableHead>Jenis</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Baki Hari</TableHead>
+                      <TableHead>Tindakan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {kpiPerformance.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          Tiada permohonan aktif
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      kpiPerformance.slice(0, 10).map((app) => {
+                        const remainingDays = calculateRemainingDays(app.tarikh_kpi);
+                        return (
+                          <TableRow key={app.id}>
+                            <TableCell className="font-medium">{app.no_fail_jpl}</TableCell>
+                            <TableCell>{app.nama_pemaju_pemilik}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{app.jenis_aplikasi || "KM"}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  app.status === "approved"
+                                    ? "default"
+                                    : app.status === "rejected"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                              >
+                                {getStatusLabel(app.status)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {app.tarikh_kpi ? (
+                                <span className={getStatusColor(calculateDaysRemaining(app.tarikh_kpi), app.kpi_hari || 57)}>
+                                  {calculateDaysRemaining(app.tarikh_kpi)} hari
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push(`/dashboard/permohonan/${app.id}`)}
+                              >
+                                Lihat
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
