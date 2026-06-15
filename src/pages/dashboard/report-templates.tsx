@@ -309,7 +309,7 @@ export default function ReportTemplates() {
                   value={formData.template_name}
                   onChange={(e) => {
                     const newValue = e.target.value;
-                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                    setFormData((prev: TemplateFormData) => ({
                       ...prev,
                       template_name: newValue,
                     }));
@@ -323,7 +323,7 @@ export default function ReportTemplates() {
                 <Select
                   value={formData.template_type}
                   onValueChange={(value) => {
-                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                    setFormData((prev: TemplateFormData) => ({
                       ...prev,
                       template_type: value,
                     }));
@@ -348,7 +348,7 @@ export default function ReportTemplates() {
                   value={formData.description}
                   onChange={(e) => {
                     const newValue = e.target.value;
-                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                    setFormData((prev: TemplateFormData) => ({
                       ...prev,
                       description: newValue,
                     }));
@@ -365,7 +365,7 @@ export default function ReportTemplates() {
                   value={formData.template_content}
                   onChange={(e) => {
                     const newValue = e.target.value;
-                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                    setFormData((prev: TemplateFormData) => ({
                       ...prev,
                       template_content: newValue,
                     }));
