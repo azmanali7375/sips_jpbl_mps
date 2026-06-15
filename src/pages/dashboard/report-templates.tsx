@@ -191,13 +191,6 @@ export default function ReportTemplates() {
     }
   }
 
-  const updateFormField = (field: keyof TemplateFormData, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   if (loading) {
     return (
       <Layout>
@@ -314,7 +307,9 @@ export default function ReportTemplates() {
                 </Label>
                 <Input
                   value={formData.template_name}
-                  onChange={(e) => updateFormField("template_name", e.target.value)}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, template_name: e.target.value }));
+                  }}
                   placeholder="Contoh: Ulasan Teknikal Standard"
                 />
               </div>
@@ -323,7 +318,9 @@ export default function ReportTemplates() {
                 <Label>Jenis Templat</Label>
                 <Select
                   value={formData.template_type}
-                  onValueChange={(value) => updateFormField("template_type", value)}
+                  onValueChange={(value) => {
+                    setFormData(prev => ({ ...prev, template_type: value }));
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -342,7 +339,9 @@ export default function ReportTemplates() {
                 <Label>Penerangan</Label>
                 <Input
                   value={formData.description}
-                  onChange={(e) => updateFormField("description", e.target.value)}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, description: e.target.value }));
+                  }}
                   placeholder="Penerangan ringkas templat ini"
                 />
               </div>
@@ -353,11 +352,16 @@ export default function ReportTemplates() {
                 </Label>
                 <Textarea
                   value={formData.template_content}
-                  onChange={(e) => updateFormField("template_content", e.target.value)}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, template_content: e.target.value }));
+                  }}
                   rows={15}
                   placeholder="Masukkan kandungan templat. Gunakan placeholder seperti {{no_fail_jpl}}, {{tajuk_permohonan}}, dll."
                   className="font-mono text-sm"
                 />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Placeholder yang boleh digunakan: {"{{no_fail_jpl}}"}, {"{{tajuk_permohonan}}"}, {"{{nama_pemohon}}"}, {"{{lokasi}}"}, dll.
+                </p>
               </div>
             </div>
 
