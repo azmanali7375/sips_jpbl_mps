@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { profileService } from "@/services/profileService";
 import { supabase } from "@/integrations/supabase/client";
+import { validateOSCData } from "@/services/zoningValidationService";
 import type { Tables } from "@/integrations/supabase/types";
 import { 
   FileText, 
@@ -15,10 +16,16 @@ import {
   XCircle,
   TrendingUp,
   BarChart3,
-  PieChart
+  PieChart,
+  AlertCircle,
+  CheckCircle,
+  Users,
+  Calendar
 } from "lucide-react";
 import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface DashboardStats {
   jumlahAktif: number;
@@ -281,7 +288,7 @@ export default function SIPSDashboard() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Clock className="h-4 w-4 text-success" />
-                Dalam Tempoh KPI
+                Dalam Tempoh Kpi
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -316,6 +323,163 @@ export default function SIPSDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* OSC Compliance Summary */}
+        {(() => {
+          // Run validation on all pending applications
+          const complianceResults = applications
+            .filter(app => app.status === "pending" || app.status === "under_review")
+            .map(app => ({
+              application: app,
+              validation: validateOSCData({
+                zoning: (app as any).zoning,
+                nisbah_plot: (app as any).nisbah_plot,
+                ketinggian_bangunan_m: (app as any).ketinggian_bangunan_m,
+                kawasan_pembangunan_m2: (app as any).kawasan_pembangunan_m2,
+                kawasan_lantai_kasar_m2: (app as any).kawasan_lantai_kasar_m2,
+                bil_tempat_letak_kereta: (app as any).bil_tempat_letak_kereta,
+                bil_unit: (app as any).bil_unit,
+              })
+            }));
+
+          const totalWithIssues = complianceResults.filter(r => r.validation.issues.length > 0).length;
+          const totalErrors = complianceResults.reduce((sum, r) => sum + r.validation.errors_count, 0);
+          const totalWarnings = complianceResults.reduce((sum, r) => sum + r.validation.warnings_count, 0);
+          const totalInfo = complianceResults.reduce((sum, r) => sum + r.validation.info_count, 0);
+
+          // Top violation categories
+          const violationCategories: Record<string, number> = {};
+          complianceResults.forEach(r => {
+            r.validation.issues.forEach(issue => {
+              violationCategories[issue.field] = (violationCategories[issue.field] || 0) + 1;
+            });
+          });
+
+          const topViolations = Object.entries(violationCategories)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+          const nonCompliantApps = complianceResults
+            .filter(r => r.validation.errors_count > 0)
+            .slice(0, 5);
+
+          return totalWithIssues > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-orange-600" />
+                  Status Pematuhan OSC
+                  <Badge variant="secondary">{totalWithIssues} permohonan dengan isu</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <Card className="bg-muted/30">
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-center">{totalWithIssues}</div>
+                      <div className="text-xs text-center text-muted-foreground mt-1">
+                        Permohonan Dengan Isu
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-red-50 border-red-200">
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-center text-red-700">{totalErrors}</div>
+                      <div className="text-xs text-center text-red-600 mt-1">
+                        Ralat Kritikal
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-orange-50 border-orange-200">
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-center text-orange-700">{totalWarnings}</div>
+                      <div className="text-xs text-center text-orange-600 mt-1">
+                        Amaran
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-center text-blue-700">{totalInfo}</div>
+                      <div className="text-xs text-center text-blue-600 mt-1">
+                        Makluman
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Top Violations */}
+                  <div>
+                    <h4 className="font-semibold mb-3 text-sm">Pelanggaran Teratas</h4>
+                    <div className="space-y-2">
+                      {topViolations.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Tiada pelanggaran dijumpai</p>
+                      ) : (
+                        topViolations.map(([field, count]) => (
+                          <div key={field} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                            <span className="text-sm font-medium capitalize">
+                              {field.replace(/_/g, " ")}
+                            </span>
+                            <Badge variant="secondary">{count}</Badge>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Non-Compliant Applications */}
+                  <div>
+                    <h4 className="font-semibold mb-3 text-sm">Permohonan Tidak Patuh (Ralat Kritikal)</h4>
+                    <div className="space-y-2">
+                      {nonCompliantApps.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Tiada ralat kritikal</p>
+                      ) : (
+                        nonCompliantApps.map(({ application, validation }) => (
+                          <div 
+                            key={application.id} 
+                            className="p-2 bg-red-50 border border-red-200 rounded hover:bg-red-100 cursor-pointer transition-colors"
+                            onClick={() => router.push(`/dashboard/permohonan/${application.id}`)}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-red-900 truncate">
+                                  {application.no_fail_jpl}
+                                </div>
+                                <div className="text-xs text-red-700 mt-1">
+                                  {validation.errors_count} ralat, {validation.warnings_count} amaran
+                                </div>
+                              </div>
+                              <Badge className="ml-2 bg-red-600 text-white">
+                                {validation.errors_count}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {nonCompliantApps.length > 0 && (
+                      <Button
+                        variant="link"
+                        className="text-xs mt-2 h-auto p-0"
+                        onClick={() => router.push("/dashboard/senarai-permohonan")}
+                      >
+                        Lihat semua permohonan →
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <Alert className="mt-4 bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-900 text-sm">
+                    Pematuhan automatik berdasarkan RTD 2030 Segamat. Semakan manual masih diperlukan untuk perincian penuh.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Row 2 & 3: Charts */}
         <div className="grid gap-6 md:grid-cols-2">
