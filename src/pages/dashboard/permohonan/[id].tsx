@@ -15,6 +15,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import {
@@ -54,11 +55,20 @@ import {
   getSiteVisits,
   type SiteVisitWithPhotos,
 } from "@/services/siteVisitService";
+import {
+  getApplicationDocuments,
+  uploadDocument,
+  deleteDocument,
+  isValidFileType,
+  formatFileSize,
+  JENIS_DOKUMEN_OPTIONS,
+} from "@/services/documentService";
 import { Database } from "@/integrations/supabase/types";
 import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck } from "lucide-react";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
 type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
+type Document = Database["public"]["Tables"]["documents"]["Row"];
 
 const STATUS_COLORS: Record<string, string> = {
   "Diterima": "bg-blue-500",
@@ -122,6 +132,17 @@ export default function ApplicationDetailPage() {
   // Site visits state
   const [siteVisits, setSiteVisits] = useState<SiteVisitWithPhotos[]>([]);
 
+  // Documents state
+  const [documents, setDocuments] = useState<Record<string, Document[]>>({});
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    jenis_dokumen: "",
+    nama_dokumen: "",
+    dokumen_url: "",
+    versi: "",
+    catatan: "",
+  });
+
   // Load data
   useEffect(() => {
     if (!id) return;
@@ -170,6 +191,10 @@ export default function ApplicationDetailPage() {
       // Get site visits
       const visits = await getSiteVisits(id as string);
       setSiteVisits(visits);
+
+      // Get documents
+      const docs = await getApplicationDocuments(id as string);
+      setDocuments(docs);
 
       // Get officers (for admin only)
       if (profile?.role === "admin" || profile?.role === "department_head") {
@@ -393,6 +418,93 @@ export default function ApplicationDetailPage() {
     }
   }
 
+  async function handleUploadDocument() {
+    if (!application || !currentUser) return;
+
+    if (!uploadForm.jenis_dokumen || !uploadForm.nama_dokumen || !uploadForm.dokumen_url) {
+      toast({
+        title: "Ralat",
+        description: "Jenis dokumen, nama dokumen, dan URL adalah wajib",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isValidFileType(uploadForm.dokumen_url)) {
+      toast({
+        title: "Ralat",
+        description: "Format fail tidak sah. Gunakan PDF, DWG, DXF, JPG, atau PNG",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await uploadDocument(
+        application.id,
+        {
+          jenis_dokumen: uploadForm.jenis_dokumen,
+          file_name: uploadForm.nama_dokumen,
+          file_path: uploadForm.dokumen_url,
+          versi: uploadForm.versi,
+          catatan: uploadForm.catatan,
+        },
+        currentUser.id
+      );
+
+      toast({
+        title: "Berjaya",
+        description: "Dokumen berjaya dimuat naik",
+      });
+
+      setUploadForm({
+        jenis_dokumen: "",
+        nama_dokumen: "",
+        dokumen_url: "",
+        versi: "",
+        catatan: "",
+      });
+      setShowUploadModal(false);
+
+      const docs = await getApplicationDocuments(application.id);
+      setDocuments(docs);
+    } catch (error) {
+      toast({
+        title: "Ralat",
+        description: "Gagal memuat naik dokumen",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteDocument(documentId: string) {
+    if (!confirm("Adakah anda pasti untuk memadam dokumen ini?")) return;
+
+    try {
+      await deleteDocument(documentId);
+
+      toast({
+        title: "Berjaya",
+        description: "Dokumen dipadam",
+      });
+
+      if (application) {
+        const docs = await getApplicationDocuments(application.id);
+        setDocuments(docs);
+      }
+    } catch (error) {
+      toast({
+        title: "Ralat",
+        description: "Gagal memadam dokumen",
+        variant: "destructive",
+      });
+    }
+  }
+
   if (loading) {
     return (
       <Layout>
@@ -479,7 +591,7 @@ export default function ApplicationDetailPage() {
               <FileBarChart className="h-4 w-4 mr-2" />
               Jana Ulasan
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setShowUploadModal(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Muat Naik Dokumen
             </Button>
@@ -910,6 +1022,92 @@ export default function ApplicationDetailPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Document Upload Modal */}
+        <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Muat Naik Dokumen</DialogTitle>
+              <DialogDescription>
+                No. Fail: {application.no_fail_jpl}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div>
+                <label className="text-sm font-medium">Jenis Dokumen *</label>
+                <Select
+                  value={uploadForm.jenis_dokumen}
+                  onValueChange={(value) =>
+                    setUploadForm({ ...uploadForm, jenis_dokumen: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih jenis dokumen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JENIS_DOKUMEN_OPTIONS.map((jenis) => (
+                      <SelectItem key={jenis} value={jenis}>
+                        {jenis}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Nama Dokumen *</label>
+                <Input
+                  placeholder="e.g., Pelan Tapak Lokasi - Rev 2"
+                  value={uploadForm.nama_dokumen}
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, nama_dokumen: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">URL Dokumen *</label>
+                <Input
+                  placeholder="https://... atau path fail"
+                  value={uploadForm.dokumen_url}
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, dokumen_url: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Format diterima: PDF, DWG, DXF, JPG, PNG
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Versi</label>
+                <Input
+                  placeholder="e.g., v1, v2, Rev A"
+                  value={uploadForm.versi}
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, versi: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Catatan</label>
+                <Textarea
+                  rows={3}
+                  placeholder="Catatan tambahan tentang dokumen ini"
+                  value={uploadForm.catatan}
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, catatan: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowUploadModal(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleUploadDocument} disabled={saving}>
+                {saving ? "Memuat naik..." : "Muat Naik"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* NEW SECTION: Arahan Bertulis */}
         <Card>
           <CardHeader>
@@ -1084,6 +1282,90 @@ export default function ApplicationDetailPage() {
                         )}
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* NEW SECTION: Dokumen */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-serif">Dokumen</CardTitle>
+                <CardDescription>
+                  Dokumen yang dimuat naik untuk permohonan ini
+                </CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setShowUploadModal(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Muat Naik
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {Object.keys(documents).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Tiada dokumen dimuat naik
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {Object.entries(documents).map(([category, docs]) => (
+                  <div key={category}>
+                    <h3 className="font-medium mb-3">{category}</h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nama Dokumen</TableHead>
+                          <TableHead>Versi</TableHead>
+                          <TableHead>Dimuat Naik Oleh</TableHead>
+                          <TableHead>Tarikh</TableHead>
+                          <TableHead className="w-20">Tindakan</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {docs.map((doc) => (
+                          <TableRow key={doc.id}>
+                            <TableCell>{doc.file_name}</TableCell>
+                            <TableCell>
+                              {doc.versi ? (
+                                <Badge variant="outline">{doc.versi}</Badge>
+                              ) : (
+                                "-"
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {(doc as any).uploaded_by_profile?.full_name || "-"}
+                            </TableCell>
+                            <TableCell>
+                              {doc.uploaded_at
+                                ? new Date(doc.uploaded_at).toLocaleDateString("ms-MY")
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => window.open(doc.file_path, "_blank")}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteDocument(doc.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 ))}
               </div>
