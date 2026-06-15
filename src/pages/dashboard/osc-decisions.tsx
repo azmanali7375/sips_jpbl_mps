@@ -70,31 +70,16 @@ export default function OSCDecisionsPage() {
       setSelectedApp(app);
       setApplication(app);
 
-      // Fetch existing OSC decision if any
-      const existingDecision = await oscDecisionService.getOSCDecision(id);
-      
-      if (existingDecision) {
-        setFormData({
-          tarikh_mesyuarat_osc: existingDecision.meeting_date || "",
-          no_mesyuarat: existingDecision.meeting_number || "",
-          keputusan_osc: existingDecision.decision_type,
-          syarat_kelulusan: existingDecision.approval_conditions || "",
-          tempoh_sah_kelulusan: existingDecision.validity_period || 2,
-          no_kelulusan_km: existingDecision.approval_number || "",
-          catatan_osc: existingDecision.remarks || "",
-        });
-      } else {
-        // Reset form for new entry
-        setFormData({
-          tarikh_mesyuarat_osc: "",
-          no_mesyuarat: "",
-          keputusan_osc: "" as OSCDecisionType,
-          syarat_kelulusan: "",
-          tempoh_sah_kelulusan: 2,
-          no_kelulusan_km: "",
-          catatan_osc: "",
-        });
-      }
+      // Reset form for new entry
+      setFormData({
+        tarikh_mesyuarat_osc: "",
+        no_mesyuarat: "",
+        keputusan_osc: "" as OSCDecisionType,
+        syarat_kelulusan: "",
+        tempoh_sah_kelulusan: 2,
+        no_kelulusan_km: "",
+        catatan_osc: "",
+      });
     } catch (error) {
       console.error("Error selecting application:", error);
       toast({
@@ -261,7 +246,7 @@ export default function OSCDecisionsPage() {
     }
   };
 
-  const handleDownloadC2 = () => {
+  const handleDownloadC2 = async () => {
     if (!editableC2Data) return;
 
     setGeneratingC2(true);

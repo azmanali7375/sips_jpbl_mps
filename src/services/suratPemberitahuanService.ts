@@ -26,15 +26,13 @@ export const suratPemberitahuanService = {
         `
         no_fail_jpl,
         nama_pemaju_pemilik,
-        alamat_pemohon,
         tajuk_permohonan,
-        consultant_name,
-        consultant_address,
         osc_decisions!inner (
           decision_type,
           meeting_number,
           meeting_date,
-          yang_dipertua_name
+          yang_dipertua_name,
+          alamat_pemohon
         )
       `
       )
@@ -50,15 +48,15 @@ export const suratPemberitahuanService = {
       ? app.osc_decisions[0]
       : app.osc_decisions;
 
-    // Prefer consultant if available, otherwise use applicant
-    const penerima = app.consultant_name || app.nama_pemaju_pemilik;
-    const alamatPenerima = app.consultant_address || app.alamat_pemohon;
+    // Use applicant name and address from osc_decisions
+    const penerima = app.nama_pemaju_pemilik || "";
+    const alamatPenerima = decision.alamat_pemohon || "";
 
     return {
       no_fail_jpl: app.no_fail_jpl || "",
       tarikh_surat: new Date().toISOString().split("T")[0],
-      nama_penerima: penerima || "",
-      alamat_penerima: alamatPenerima || "",
+      nama_penerima: penerima,
+      alamat_penerima: alamatPenerima,
       tajuk_permohonan: app.tajuk_permohonan || "",
       no_mesyuarat: decision.meeting_number || "",
       tarikh_mesyuarat_osc: decision.meeting_date || "",
@@ -66,7 +64,7 @@ export const suratPemberitahuanService = {
       yang_dipertua_name: decision.yang_dipertua_name || "YB. Dato' Haji Ahmad bin Abdullah",
       initial_pegawai: "HMH",
       nama_pemohon: app.nama_pemaju_pemilik,
-      alamat_pemohon: app.alamat_pemohon,
+      alamat_pemohon: decision.alamat_pemohon,
     };
   },
 
