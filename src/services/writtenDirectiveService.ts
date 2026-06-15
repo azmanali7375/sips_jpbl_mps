@@ -1,143 +1,195 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import { Database } from "@/integrations/supabase/types";
 
-export type WrittenDirective = Tables<"written_directives">;
-export type DirectiveStatus = "draft" | "pending_review" | "pending_signature" | "signed" | "sent_to_applicant";
+type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
+type WrittenDirectiveInsert = Database["public"]["Tables"]["written_directives"]["Insert"];
 
-export interface CreateWrittenDirectiveData {
+export interface WrittenDirectiveFormData {
   application_id: string;
-  directive_number?: string;
-  directive_content: string;
+  jenis_borang: string;
+  tarikh_dikeluarkan: string;
+  arahan: string;
+  tarikh_pematuhan_dikehendaki: string;
+  tarikh_pematuhan_diterima?: string;
+  status_pematuhan: string;
+  catatan?: string;
 }
 
-export const writtenDirectiveService = {
-  async createDirective(data: CreateWrittenDirectiveData): Promise<WrittenDirective | null> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+export const JENIS_BORANG_OPTIONS = [
+  "Borang A1 KPPA – Arahan Bertulis",
+  "Borang A2 KPPA – Pematuhan Arahan",
+] as const;
 
-    const { data: directive, error } = await supabase
-      .from("written_directives")
-      .insert({
-        ...data,
-        prepared_by: user.id,
-        status: "draft",
-      })
-      .select()
-      .single();
+export const STATUS_PEMATUHAN_OPTIONS = [
+  "Menunggu",
+  "Patuh",
+  "Gagal Patuh",
+] as const;
 
-    if (error) {
-      console.error("Error creating written directive:", error);
-      return null;
+/**
+ * Create a new written directive
+ */
+export async function createWrittenDirective(
+  formData: WrittenDirectiveFormData,
+  userId: string
+): Promise<WrittenDirective> {
+  // Generate directive number (format: AB/[YEAR]/[sequence])
+  const year = new Date().getFullYear();
+  
+  // Get last directive number for this year
+  const { data: existing } = await supabase
+    .from("written_directives")
+    .select("directive_number")
+    .like("directive_number", `AB/${year}/%`)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  let sequence = 1;
+  if (existing && existing.length > 0) {
+    const lastNumber = existing[0].directive_number;
+    const match = lastNumber?.match(/AB\/\d+\/(\d+)/);
+    if (match) {
+      sequence = parseInt(match[1]) + 1;
     }
-
-    return directive;
-  },
-
-  async getDirectiveByApplicationId(applicationId: string): Promise<WrittenDirective | null> {
-    const { data, error } = await supabase
-      .from("written_directives")
-      .select("*")
-      .eq("application_id", applicationId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error fetching written directive:", error);
-      return null;
-    }
-
-    return data;
-  },
-
-  async getAllDirectives(filters?: { status?: DirectiveStatus }): Promise<WrittenDirective[]> {
-    let query = supabase
-      .from("written_directives")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (filters?.status) {
-      query = query.eq("status", filters.status);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error fetching written directives:", error);
-      return [];
-    }
-
-    return data || [];
-  },
-
-  async updateDirectiveStatus(
-    id: string,
-    status: DirectiveStatus,
-    additionalData?: {
-      reviewed_by?: string;
-      signed_by?: string;
-      signed_date?: string;
-      sent_date?: string;
-    }
-  ): Promise<WrittenDirective | null> {
-    const updates: any = {
-      status,
-      updated_at: new Date().toISOString(),
-      ...additionalData,
-    };
-
-    const { data, error } = await supabase
-      .from("written_directives")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating written directive:", error);
-      return null;
-    }
-
-    return data;
-  },
-
-  async submitForReview(id: string): Promise<WrittenDirective | null> {
-    return this.updateDirectiveStatus(id, "pending_review");
-  },
-
-  async submitForSignature(id: string, reviewedBy: string): Promise<WrittenDirective | null> {
-    return this.updateDirectiveStatus(id, "pending_signature", { reviewed_by: reviewedBy });
-  },
-
-  async signDirective(id: string, signedBy: string): Promise<WrittenDirective | null> {
-    return this.updateDirectiveStatus(id, "signed", {
-      signed_by: signedBy,
-      signed_date: new Date().toISOString(),
-    });
-  },
-
-  async sendToApplicant(id: string): Promise<WrittenDirective | null> {
-    return this.updateDirectiveStatus(id, "sent_to_applicant", {
-      sent_date: new Date().toISOString(),
-    });
-  },
-
-  async updateDirectiveContent(id: string, content: string): Promise<WrittenDirective | null> {
-    const { data, error } = await supabase
-      .from("written_directives")
-      .update({
-        directive_content: content,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating directive content:", error);
-      return null;
-    }
-
-    return data;
   }
-};
+
+  const directiveNumber = `AB/${year}/${String(sequence).padStart(3, "0")}`;
+
+  const directiveData: WrittenDirectiveInsert = {
+    application_id: formData.application_id,
+    directive_number: directiveNumber,
+    jenis_borang: formData.jenis_borang,
+    tarikh_dikeluarkan: formData.tarikh_dikeluarkan,
+    arahan: formData.arahan,
+    directive_content: formData.arahan, // Store in both fields for compatibility
+    tarikh_pematuhan_dikehendaki: formData.tarikh_pematuhan_dikehendaki,
+    tarikh_pematuhan_diterima: formData.tarikh_pematuhan_diterima || null,
+    status_pematuhan: formData.status_pematuhan,
+    catatan: formData.catatan || null,
+    prepared_by: userId,
+    status: "draft",
+    prepared_date: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("written_directives")
+    .insert(directiveData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating written directive:", error);
+    throw error;
+  }
+
+  // Insert workflow history
+  await supabase.from("workflow_history").insert({
+    application_id: formData.application_id,
+    to_status: "Arahan Bertulis Dikeluarkan",
+    changed_by: userId,
+    comment: `${formData.jenis_borang} - No. ${directiveNumber}`,
+  });
+
+  return data;
+}
+
+/**
+ * Update an existing written directive
+ */
+export async function updateWrittenDirective(
+  directiveId: string,
+  formData: Partial<WrittenDirectiveFormData>,
+  userId: string
+): Promise<WrittenDirective> {
+  const updateData: any = {
+    ...formData,
+    directive_content: formData.arahan, // Sync both fields
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("written_directives")
+    .update(updateData)
+    .eq("id", directiveId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating written directive:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Get all written directives for an application
+ */
+export async function getWrittenDirectives(
+  applicationId: string
+): Promise<WrittenDirective[]> {
+  const { data, error } = await supabase
+    .from("written_directives")
+    .select("*")
+    .eq("application_id", applicationId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching written directives:", error);
+    throw error;
+  }
+
+  return data || [];
+}
+
+/**
+ * Get a single written directive by ID
+ */
+export async function getWrittenDirective(
+  directiveId: string
+): Promise<WrittenDirective | null> {
+  const { data, error } = await supabase
+    .from("written_directives")
+    .select("*")
+    .eq("id", directiveId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching written directive:", error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Delete a written directive
+ */
+export async function deleteWrittenDirective(
+  directiveId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("written_directives")
+    .delete()
+    .eq("id", directiveId);
+
+  if (error) {
+    console.error("Error deleting written directive:", error);
+    throw error;
+  }
+}
+
+/**
+ * Check if a directive is overdue (today > tarikh_pematuhan_dikehendaki and status = Menunggu)
+ */
+export function isDirectiveOverdue(directive: WrittenDirective): boolean {
+  if (!directive.tarikh_pematuhan_dikehendaki || directive.status_pematuhan !== "Menunggu") {
+    return false;
+  }
+
+  const deadline = new Date(directive.tarikh_pematuhan_dikehendaki);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+
+  return today > deadline;
+}

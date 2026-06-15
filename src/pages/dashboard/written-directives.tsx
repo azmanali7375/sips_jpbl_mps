@@ -1,313 +1,324 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { FileText, PenSquare, CheckCircle, Send } from "lucide-react";
-import { writtenDirectiveService, type WrittenDirective, type DirectiveStatus } from "@/services/writtenDirectiveService";
-import { applicationService } from "@/services/applicationService";
-import { profileService } from "@/services/profileService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, Save } from "lucide-react";
+import {
+  createWrittenDirective,
+  updateWrittenDirective,
+  getWrittenDirective,
+  JENIS_BORANG_OPTIONS,
+  STATUS_PEMATUHAN_OPTIONS,
+  type WrittenDirectiveFormData,
+} from "@/services/writtenDirectiveService";
 
-export default function WrittenDirectivesPage() {
+export default function WrittenDirectivePage() {
   const router = useRouter();
+  const { application_id, id } = router.query;
   const { toast } = useToast();
-  const [directives, setDirectives] = useState<WrittenDirective[]>([]);
-  const [selectedDirective, setSelectedDirective] = useState<WrittenDirective | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editedContent, setEditedContent] = useState("");
-  const [currentUserRole, setCurrentUserRole] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [application, setApplication] = useState<any>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // Form state
+  const [jenisBo rang, setJenisBorang] = useState("");
+  const [tarikhDikeluarkan, setTarikhDikeluarkan] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [arahan, setArahan] = useState("");
+  const [tarikhPematuhanDikehendaki, setTarikhPematuhanDikehendaki] = useState("");
+  const [tarikhPematuhanDiterima, setTarikhPematuhanDiterima] = useState("");
+  const [statusPematuhan, setStatusPematuhan] = useState("Menunggu");
+  const [catatan, setCatatan] = useState("");
 
   useEffect(() => {
-    loadDirectives();
-    loadUserRole();
-  }, []);
+    if (!application_id) return;
+    loadData();
+  }, [application_id, id]);
 
-  const loadUserRole = async () => {
-    const profile = await profileService.getCurrentProfile();
-    setCurrentUserRole(profile?.role || "");
-  };
+  async function loadData() {
+    try {
+      setLoading(true);
 
-  const loadDirectives = async () => {
-    setLoading(true);
-    const data = await writtenDirectiveService.getAllDirectives();
-    setDirectives(data);
-    setLoading(false);
-  };
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
 
-  const handleSelectDirective = (directive: WrittenDirective) => {
-    setSelectedDirective(directive);
-    setEditedContent(directive.directive_content);
-    setEditMode(false);
-  };
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
-  const handleSaveContent = async () => {
-    if (!selectedDirective) return;
+      setCurrentUser(profile);
 
-    const updated = await writtenDirectiveService.updateDirectiveContent(
-      selectedDirective.id,
-      editedContent
+      // Convert application_id to string
+      const appId = Array.isArray(application_id) ? application_id[0] : application_id;
+      if (!appId) return;
+
+      // Get application details
+      const { data: appData } = await supabase
+        .from("applications")
+        .select("*")
+        .eq("id", appId)
+        .single();
+
+      setApplication(appData);
+
+      // If editing, load existing directive
+      if (id) {
+        setIsEditMode(true);
+        const directiveId = Array.isArray(id) ? id[0] : id;
+        const directive = await getWrittenDirective(directiveId);
+        
+        if (directive) {
+          setJenisBorang(directive.jenis_borang || "");
+          setTarikhDikeluarkan(directive.tarikh_dikeluarkan || "");
+          setArahan(directive.arahan || directive.directive_content || "");
+          setTarikhPematuhanDikehendaki(directive.tarikh_pematuhan_dikehendaki || "");
+          setTarikhPematuhanDiterima(directive.tarikh_pematuhan_diterima || "");
+          setStatusPematuhan(directive.status_pematuhan || "Menunggu");
+          setCatatan(directive.catatan || "");
+        }
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memuatkan data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!application_id || !currentUser) return;
+
+    // Validation
+    if (!jenisBorang || !tarikhDikeluarkan || !arahan.trim() || !tarikhPematuhanDikehendaki) {
+      toast({
+        title: "Ralat",
+        description: "Sila lengkapkan medan wajib: Jenis Borang, Tarikh Dikeluarkan, Arahan, dan Tarikh Pematuhan Dikehendaki",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const formData: WrittenDirectiveFormData = {
+        application_id: application_id as string,
+        jenis_borang: jenisBorang,
+        tarikh_dikeluarkan: tarikhDikeluarkan,
+        arahan: arahan,
+        tarikh_pematuhan_dikehendaki: tarikhPematuhanDikehendaki,
+        tarikh_pematuhan_diterima: tarikhPematuhanDiterima || undefined,
+        status_pematuhan: statusPematuhan,
+        catatan: catatan || undefined,
+      };
+
+      if (isEditMode && id) {
+        const directiveId = Array.isArray(id) ? id[0] : id;
+        await updateWrittenDirective(directiveId, formData, currentUser.id);
+        toast({
+          title: "Berjaya",
+          description: "Arahan Bertulis berjaya dikemaskini",
+        });
+      } else {
+        await createWrittenDirective(formData, currentUser.id);
+        toast({
+          title: "Berjaya",
+          description: "Arahan Bertulis berjaya didaftarkan",
+        });
+      }
+
+      // Redirect back to application detail
+      router.push(`/dashboard/permohonan/${application_id}`);
+    } catch (error) {
+      console.error("Error submitting written directive:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menyimpan Arahan Bertulis",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-muted-foreground">Memuatkan...</div>
+        </div>
+      </Layout>
     );
+  }
 
-    if (updated) {
-      toast({ title: "Saved", description: "Directive content updated" });
-      setSelectedDirective(updated);
-      setEditMode(false);
-      loadDirectives();
-    }
-  };
-
-  const handleSubmitForReview = async () => {
-    if (!selectedDirective) return;
-
-    const updated = await writtenDirectiveService.submitForReview(selectedDirective.id);
-    if (updated) {
-      toast({ title: "Submitted", description: "Directive submitted for review" });
-      setSelectedDirective(updated);
-      loadDirectives();
-    }
-  };
-
-  const handleSubmitForSignature = async () => {
-    if (!selectedDirective) return;
-
-    const profile = await profileService.getCurrentProfile();
-    const updated = await writtenDirectiveService.submitForSignature(
-      selectedDirective.id,
-      profile?.id || ""
+  if (!application) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
+          <div className="text-muted-foreground">Permohonan tidak dijumpai</div>
+          <Button onClick={() => router.push("/dashboard")}>
+            Kembali ke Dashboard
+          </Button>
+        </div>
+      </Layout>
     );
-
-    if (updated) {
-      toast({ title: "Forwarded", description: "Directive forwarded for YDP signature" });
-      setSelectedDirective(updated);
-      loadDirectives();
-    }
-  };
-
-  const handleSign = async () => {
-    if (!selectedDirective) return;
-
-    const profile = await profileService.getCurrentProfile();
-    const updated = await writtenDirectiveService.signDirective(
-      selectedDirective.id,
-      profile?.id || ""
-    );
-
-    if (updated) {
-      toast({ title: "Signed", description: "Directive signed successfully" });
-      setSelectedDirective(updated);
-      loadDirectives();
-    }
-  };
-
-  const handleSendToApplicant = async () => {
-    if (!selectedDirective) return;
-
-    const updated = await writtenDirectiveService.sendToApplicant(selectedDirective.id);
-    if (updated) {
-      toast({ title: "Sent", description: "Directive sent to applicant" });
-      setSelectedDirective(updated);
-      loadDirectives();
-    }
-  };
-
-  const getStatusBadge = (status: DirectiveStatus) => {
-    const variants: Record<DirectiveStatus, { variant: any; label: string }> = {
-      draft: { variant: "secondary", label: "Draf" },
-      pending_review: { variant: "default", label: "Menunggu Semakan" },
-      pending_signature: { variant: "default", label: "Menunggu Tandatangan YDP" },
-      signed: { variant: "default", label: "Telah Ditandatangan" },
-      sent_to_applicant: { variant: "default", label: "Telah Dihantar" },
-    };
-
-    const config = variants[status];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const canEdit = (directive: WrittenDirective) => {
-    return directive.status === "draft" && 
-           (currentUserRole === "assistant_planner_j5" || currentUserRole === "unit_head");
-  };
-
-  const canReview = (directive: WrittenDirective) => {
-    return directive.status === "pending_review" && 
-           (currentUserRole === "unit_head" || currentUserRole === "department_head");
-  };
-
-  const canSign = (directive: WrittenDirective) => {
-    return directive.status === "pending_signature" && currentUserRole === "department_head";
-  };
-
-  const canSend = (directive: WrittenDirective) => {
-    return directive.status === "signed" && 
-           (currentUserRole === "admin_assistant" || currentUserRole === "admin");
-  };
+  }
 
   return (
     <Layout>
-      <div className="container mx-auto py-8 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-serif font-bold text-[#19283a]">Written Directives</h1>
-          <p className="text-slate-600 mt-2">Arahan Bertulis untuk Pindaan Pelan - YDP Signature Workflow</p>
+      <div className="space-y-6 max-w-4xl">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/dashboard/permohonan/${application_id}`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Kembali
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold font-serif">
+                {isEditMode ? "Edit Arahan Bertulis" : "Daftar Arahan Bertulis"}
+              </h1>
+              <p className="text-muted-foreground">
+                {application.no_fail_jpl} - {application.nama_pemaju_pemilik}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>All Directives</CardTitle>
-              <CardDescription>Select a directive to view details</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <p className="text-sm text-slate-500">Loading...</p>
-              ) : directives.length === 0 ? (
-                <p className="text-sm text-slate-500">No written directives found</p>
-              ) : (
-                <div className="space-y-2">
-                  {directives.map((directive) => (
-                    <Button
-                      key={directive.id}
-                      variant={selectedDirective?.id === directive.id ? "default" : "outline"}
-                      className="w-full justify-start text-left"
-                      onClick={() => handleSelectDirective(directive)}
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">
-                          {directive.directive_number || "Draft"}
-                        </div>
-                        <div className="text-xs opacity-75 mt-1">
-                          {getStatusBadge(directive.status as DirectiveStatus)}
-                        </div>
-                      </div>
-                    </Button>
+        {/* Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif">Maklumat Arahan Bertulis</CardTitle>
+            <CardDescription>
+              Borang KPPA untuk arahan bertulis dan pematuhan
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">No. Fail (Rujukan)</label>
+              <Input value={application.no_fail_jpl} disabled />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Jenis Borang *</label>
+              <Select value={jenisBorang} onValueChange={setJenisBorang}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih jenis borang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {JENIS_BORANG_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
                   ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Directive Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!selectedDirective ? (
-                <div className="text-center py-12 text-slate-500">
-                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Select a directive to view details</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="bg-slate-50 p-4 rounded-lg space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold">
-                          {selectedDirective.directive_number || "Draft Directive"}
-                        </h3>
-                        <p className="text-sm text-slate-600 mt-1">
-                          Application ID: {selectedDirective.application_id}
-                        </p>
-                      </div>
-                      {getStatusBadge(selectedDirective.status as DirectiveStatus)}
-                    </div>
-                    {selectedDirective.signed_date && (
-                      <p className="text-sm text-slate-600">
-                        Signed: {new Date(selectedDirective.signed_date).toLocaleDateString("ms-MY")}
-                      </p>
-                    )}
-                    {selectedDirective.sent_date && (
-                      <p className="text-sm text-slate-600">
-                        Sent: {new Date(selectedDirective.sent_date).toLocaleDateString("ms-MY")}
-                      </p>
-                    )}
-                  </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Tarikh Dikeluarkan *</label>
+                <Input
+                  type="date"
+                  value={tarikhDikeluarkan}
+                  onChange={(e) => setTarikhDikeluarkan(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tarikh Pematuhan Dikehendaki *</label>
+                <Input
+                  type="date"
+                  value={tarikhPematuhanDikehendaki}
+                  onChange={(e) => setTarikhPematuhanDikehendaki(e.target.value)}
+                />
+              </div>
+            </div>
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label>Directive Content</Label>
-                      {canEdit(selectedDirective) && !editMode && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditMode(true)}
-                        >
-                          <PenSquare className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                      )}
-                    </div>
+            <div>
+              <label className="text-sm font-medium">Arahan / Pematuhan Diperlukan *</label>
+              <Textarea
+                rows={8}
+                placeholder="Masukkan arahan bertulis / pematuhan yang diperlukan..."
+                value={arahan}
+                onChange={(e) => setArahan(e.target.value)}
+              />
+            </div>
 
-                    {editMode ? (
-                      <>
-                        <Textarea
-                          value={editedContent}
-                          onChange={(e) => setEditedContent(e.target.value)}
-                          rows={20}
-                          className="font-mono text-sm"
-                        />
-                        <div className="flex gap-2">
-                          <Button onClick={handleSaveContent}>
-                            Save Changes
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setEditMode(false);
-                              setEditedContent(selectedDirective.directive_content);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="bg-white border rounded-lg p-4 whitespace-pre-wrap font-mono text-sm max-h-96 overflow-y-auto">
-                        {selectedDirective.directive_content}
-                      </div>
-                    )}
-                  </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Tarikh Pematuhan Diterima</label>
+                <Input
+                  type="date"
+                  value={tarikhPematuhanDiterima}
+                  onChange={(e) => setTarikhPematuhanDiterima(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Status Pematuhan</label>
+                <Select value={statusPematuhan} onValueChange={setStatusPematuhan}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_PEMATUHAN_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-                  {/* Workflow Actions */}
-                  <div className="flex flex-wrap gap-3 pt-4 border-t">
-                    {selectedDirective.status === "draft" && canEdit(selectedDirective) && (
-                      <Button onClick={handleSubmitForReview}>
-                        Submit for Review
-                      </Button>
-                    )}
+            <div>
+              <label className="text-sm font-medium">Catatan</label>
+              <Textarea
+                rows={3}
+                placeholder="Catatan tambahan..."
+                value={catatan}
+                onChange={(e) => setCatatan(e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-                    {canReview(selectedDirective) && (
-                      <Button onClick={handleSubmitForSignature} variant="default">
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Forward for YDP Signature
-                      </Button>
-                    )}
-
-                    {canSign(selectedDirective) && (
-                      <Button onClick={handleSign} variant="default">
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Sign Directive (YDP)
-                      </Button>
-                    )}
-
-                    {canSend(selectedDirective) && (
-                      <Button onClick={handleSendToApplicant} variant="default">
-                        <Send className="h-4 w-4 mr-2" />
-                        Send to Applicant
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Submit Button */}
+        <div className="flex justify-end gap-4">
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/permohonan/${application_id}`)}
+            disabled={submitting}
+          >
+            Batal
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            <Save className="h-4 w-4 mr-2" />
+            {submitting ? "Menyimpan..." : isEditMode ? "Kemaskini" : "Simpan"}
+          </Button>
         </div>
       </div>
     </Layout>

@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -859,10 +859,13 @@ export type Database = {
       written_directives: {
         Row: {
           application_id: string
+          arahan: string | null
+          catatan: string | null
           created_at: string | null
           directive_content: string
           directive_number: string | null
           id: string
+          jenis_borang: string | null
           prepared_by: string
           prepared_date: string | null
           reviewed_by: string | null
@@ -870,14 +873,21 @@ export type Database = {
           signed_by: string | null
           signed_date: string | null
           status: string | null
+          status_pematuhan: string | null
+          tarikh_dikeluarkan: string | null
+          tarikh_pematuhan_dikehendaki: string | null
+          tarikh_pematuhan_diterima: string | null
           updated_at: string | null
         }
         Insert: {
           application_id: string
+          arahan?: string | null
+          catatan?: string | null
           created_at?: string | null
           directive_content: string
           directive_number?: string | null
           id?: string
+          jenis_borang?: string | null
           prepared_by: string
           prepared_date?: string | null
           reviewed_by?: string | null
@@ -885,14 +895,21 @@ export type Database = {
           signed_by?: string | null
           signed_date?: string | null
           status?: string | null
+          status_pematuhan?: string | null
+          tarikh_dikeluarkan?: string | null
+          tarikh_pematuhan_dikehendaki?: string | null
+          tarikh_pematuhan_diterima?: string | null
           updated_at?: string | null
         }
         Update: {
           application_id?: string
+          arahan?: string | null
+          catatan?: string | null
           created_at?: string | null
           directive_content?: string
           directive_number?: string | null
           id?: string
+          jenis_borang?: string | null
           prepared_by?: string
           prepared_date?: string | null
           reviewed_by?: string | null
@@ -900,6 +917,10 @@ export type Database = {
           signed_by?: string | null
           signed_date?: string | null
           status?: string | null
+          status_pematuhan?: string | null
+          tarikh_dikeluarkan?: string | null
+          tarikh_pematuhan_dikehendaki?: string | null
+          tarikh_pematuhan_diterima?: string | null
           updated_at?: string | null
         }
         Relationships: [
