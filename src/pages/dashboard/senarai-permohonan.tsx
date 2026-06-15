@@ -140,7 +140,7 @@ export default function SenaraiPermohonan() {
   };
 
   const handleRowClick = (applicationId: string) => {
-    router.push(`/dashboard/reports/${applicationId}`);
+    router.push(`/dashboard/permohonan/${applicationId}`);
   };
 
   return (
