@@ -6,36 +6,37 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 210 25% 15%;
+    /* SIPS Color Scheme */
+    --background: 240 17% 97%; /* #F5F6FA light grey */
+    --foreground: 210 25% 15%; /* dark slate text */
     
-    --primary: 210 100% 25%;
-    --primary-foreground: 0 0% 100%;
-    
-    --secondary: 210 20% 35%;
-    --secondary-foreground: 0 0% 100%;
-    
-    --accent: 35 100% 45%;
-    --accent-foreground: 210 25% 15%;
-    
-    --muted: 210 10% 92%;
-    --muted-foreground: 210 15% 40%;
-    
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-    
-    --destructive: 0 85% 45%;
-    --destructive-foreground: 0 0% 100%;
-    
-    --card: 0 0% 100%;
+    --card: 0 0% 100%; /* white */
     --card-foreground: 210 25% 15%;
     
     --popover: 0 0% 100%;
     --popover-foreground: 210 25% 15%;
     
-    --border: 210 15% 85%;
-    --input: 210 15% 85%;
-    --ring: 210 100% 25%;
+    --primary: 210 53% 23%; /* #1B3A5C deep navy */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 210 20% 35%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --accent: 43 89% 46%; /* #D4A017 gold/amber */
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 210 10% 92%;
+    --muted-foreground: 210 10% 45%;
+    
+    --destructive: 0 70% 47%; /* #C62828 red */
+    --destructive-foreground: 0 0% 100%;
+    
+    --success: 142 67% 33%; /* #2E7D32 green */
+    --warning: 14 100% 45%; /* #E65100 orange */
+    
+    --border: 210 15% 88%;
+    --input: 210 15% 88%;
+    --ring: 210 53% 23%;
     
     --radius: 0.5rem;
   }

@@ -40,10 +40,27 @@ export function SEOElements({
 }
 
 // SEO component for use in pages/_app.tsx or individual pages (uses next/head)
-export function SEO(props: SEOProps) {
+export function SEO({
+  title = "SIPS – Smart Internal Processing System",
+  description = "Sistem pintar pengurusan kawalan pembangunan bagi Jabatan Perancang Bandar dan Landskap, Majlis Perbandaran Segamat",
+  image = "/og-image.png",
+  url,
+}: SEOProps) {
+  const siteUrl = url || (typeof window !== "undefined" ? window.location.href : "");
+  const pageTitle = title === "SIPS – Smart Internal Processing System" ? title : `${title} | SIPS`;
+
   return (
     <Head>
-      <SEOElements {...props} />
+      <title>{pageTitle}</title>
+      <meta name="description" content={description} />
+      <meta property="og:title" content={pageTitle} />
+      <meta property="og:description" content={description} />
+      <meta property="og:image" content={image} />
+      {siteUrl && <meta property="og:url" content={siteUrl} />}
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={pageTitle} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={image} />
     </Head>
   );
 }
