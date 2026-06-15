@@ -32,6 +32,8 @@ export default function CajPemajanPage() {
   const [tarikhNotis, setTarikhNotis] = useState(new Date().toISOString().split("T")[0]);
   const [tarikhLuputBayar, setTarikhLuputBayar] = useState("");
   const [catatan, setCatatan] = useState("");
+  const [isExempt, setIsExempt] = useState(false);
+  const [allowInstalment, setAllowInstalment] = useState(false);
   const [dikecualikan, setDikecualikan] = useState(false);
 
   // Payment recording state
@@ -99,15 +101,24 @@ export default function CajPemajanPage() {
     setSubmitting(true);
 
     try {
-      await cajPemajanService.submitCajAmount({
-        cajId: cajData!.id!,
-        applicationId: id as string,
+      // Determine status based on exemption or instalment
+      let finalStatus: "Belum Dikira" | "Menunggu Bayaran" | "Dikecualikan" | "Ansuran Diluluskan" = "Menunggu Bayaran";
+      
+      if (isExempt && parseFloat(jumlahCaj) <= 30000) {
+        finalStatus = "Dikecualikan";
+      } else if (parseFloat(jumlahCaj) > 30000 && allowInstalment) {
+        finalStatus = "Ansuran Diluluskan";
+      } else if (isExempt) {
+        finalStatus = "Dikecualikan";
+      }
+
+      const result = await cajPemajanService.updateCajPemajan(cajData.id, {
         jumlah_caj: parseFloat(jumlahCaj),
         dikira_oleh: dikiraOleh,
         tarikh_notis: tarikhNotis,
         tarikh_luput_bayar: tarikhLuputBayar,
-        catatan: catatan || undefined,
-        dikecualikan,
+        catatan: catatan || null,
+        status_caj: finalStatus,
       });
 
       toast({
@@ -366,25 +377,62 @@ export default function CajPemajanPage() {
                       <Textarea
                         value={catatan}
                         onChange={(e) => setCatatan(e.target.value)}
+                        placeholder="Catatan tambahan"
                         rows={3}
-                        placeholder="Nota tambahan..."
                       />
                     </div>
+
+                    {/* Instalment Option */}
+                    {parseFloat(jumlahCaj) > 30000 && (
+                      <div className="space-y-3">
+                        <Alert className="bg-blue-50 border-blue-200">
+                          <AlertCircle className="h-4 w-4 text-blue-600" />
+                          <AlertDescription className="text-blue-900 text-sm">
+                            <strong>Jumlah caj melebihi RM30,000.</strong> Pemohon boleh memohon bayaran ansuran
+                            melalui Borang B Jadual Kedua.
+                          </AlertDescription>
+                        </Alert>
+
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="allow-instalment"
+                            checked={allowInstalment}
+                            onCheckedChange={(checked) => setAllowInstalment(checked as boolean)}
+                          />
+                          <label htmlFor="allow-instalment" className="text-sm cursor-pointer">
+                            Pemohon memohon bayaran ansuran (permohonan akan ditanda "Ansuran Diluluskan")
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {parseFloat(jumlahCaj) <= 30000 && (
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="exempt"
+                          checked={isExempt}
+                          onCheckedChange={(checked) => setIsExempt(checked as boolean)}
+                        />
+                        <label htmlFor="exempt" className="text-sm cursor-pointer">
+                          Dikecualikan dari Caj Pemajuan
+                        </label>
+                      </div>
+                    )}
+
+                    <Button type="submit" disabled={submitting} className="w-full">
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Menyimpan...
+                        </>
+                      ) : dikecualikan ? (
+                        "Tandakan Dikecualikan"
+                      ) : (
+                        "Simpan & Jana Notis"
+                      )}
+                    </Button>
                   </>
                 )}
-
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Menyimpan...
-                    </>
-                  ) : dikecualikan ? (
-                    "Tandakan Dikecualikan"
-                  ) : (
-                    "Simpan & Jana Notis"
-                  )}
-                </Button>
               </form>
             </CardContent>
           </Card>

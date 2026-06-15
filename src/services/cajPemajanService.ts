@@ -110,18 +110,46 @@ export const cajPemajanService = {
     if (error) throw error;
   },
 
-  async recordPayment(cajId: string, tarikh_bayar: string, no_resit: string): Promise<void> {
-    const { error } = await supabase
+  async recordPayment(
+    cajId: string,
+    tarikhBayar: string,
+    noResit: string,
+    catatan?: string
+  ): Promise<CajPemajanData> {
+    const { data, error } = await supabase
       .from("caj_pemajuan")
       .update({
-        tarikh_bayar,
-        no_resit,
+        tarikh_bayar: tarikhBayar,
+        no_resit: noResit,
         status_caj: "Dibayar",
-        updated_at: new Date().toISOString(),
+        catatan: catatan || null,
       })
-      .eq("id", cajId);
+      .eq("id", cajId)
+      .select()
+      .single();
 
     if (error) throw error;
+    return {
+      ...data,
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+    };
+  },
+
+  async updateInstalmentStatus(cajId: string, isApproved: boolean): Promise<CajPemajanData> {
+    const { data, error } = await supabase
+      .from("caj_pemajuan")
+      .update({
+        status_caj: isApproved ? "Ansuran Diluluskan" : "Menunggu Bayaran",
+      })
+      .eq("id", cajId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      ...data,
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+    };
   },
 
   async getNotisCajData(applicationId: string): Promise<NotisCajData | null> {

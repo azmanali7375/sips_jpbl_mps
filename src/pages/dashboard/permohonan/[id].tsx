@@ -108,6 +108,13 @@ export default function ApplicationDetailPage() {
   const [application, setApplication] = useState<ApplicationDetailData | null>(null);
   const [cajData, setCajData] = useState<CajPemajanData | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    tarikh_bayar: new Date().toISOString().split("T")[0],
+    no_resit: "",
+    catatan: "",
+  });
+  const [savingPayment, setSavingPayment] = useState(false);
   const [workflowHistory, setWorkflowHistory] = useState<WorkflowHistoryWithProfile[]>([]);
   const [officers, setOfficers] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -361,6 +368,98 @@ export default function ApplicationDetailPage() {
       setLoading(false);
     }
   }
+
+  const calculateDaysRemaining = (deadline: string) => {
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const isOverdue = (deadline: string, status: string) => {
+    return status === "Menunggu Bayaran" && calculateDaysRemaining(deadline) < 0;
+  };
+
+  const handleRecordPayment = async () => {
+    if (!paymentFormData.tarikh_bayar || !paymentFormData.no_resit) {
+      toast({
+        title: "Ralat",
+        description: "Sila lengkapkan tarikh bayaran dan no. resit",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingPayment(true);
+
+    try {
+      const updated = await cajPemajanService.recordPayment(
+        cajData!.id,
+        paymentFormData.tarikh_bayar,
+        paymentFormData.no_resit,
+        paymentFormData.catatan
+      );
+
+      // Insert workflow history
+      await supabase.from("workflow_history").insert({
+        application_id: application!.id,
+        to_status: "Caj Pemajuan Dibayar",
+        changed_by: currentUser.id,
+        comment: `No. Resit: ${paymentFormData.no_resit}, RM${cajData!.jumlah_caj?.toFixed(2) || "0.00"}`,
+      });
+
+      setCajData(updated);
+      setShowPaymentModal(false);
+      setPaymentFormData({
+        tarikh_bayar: new Date().toISOString().split("T")[0],
+        no_resit: "",
+        catatan: "",
+      });
+
+      toast({
+        title: "Berjaya",
+        description: "Caj Pemajuan berjaya direkodkan. Borang C(1) kini boleh dijana.",
+      });
+
+      // Reload data to refresh status
+      await loadData();
+    } catch (error) {
+      console.error("Error recording payment:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal merekod pembayaran",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const canGenerateC1 = () => {
+    if (!application || !cajData) return { can: false, message: "Data tidak lengkap" };
+    
+    // Check 1: OSC approved?
+    if (application.status !== "approved") {
+      return { can: false, message: "Permohonan belum diluluskan OSC" };
+    }
+
+    // Check 2: Caj Pemajuan exists?
+    if (!cajData) {
+      return { can: false, message: "Jana Notis Caj Pemajuan dahulu" };
+    }
+
+    // Check 3: Paid or exempt?
+    if (cajData.status_caj === "Dibayar" || cajData.status_caj === "Dikecualikan") {
+      return { can: true, message: "" };
+    }
+
+    if (cajData.status_caj === "Belum Dikira") {
+      return { can: false, message: "Caj Pemajuan belum dikira" };
+    }
+
+    return { can: false, message: "Tunggu pengesahan bayaran Caj Pemajuan" };
+  };
 
   async function handleAddLot() {
     if (!application || !newLot.jenis_lot || !newLot.no_lot) {
@@ -2223,9 +2322,23 @@ export default function ApplicationDetailPage() {
                 {cajData.status_caj === "Dikecualikan" && (
                   <Badge className="bg-blue-600">Dikecualikan</Badge>
                 )}
+                {cajData.status_caj === "Ansuran Diluluskan" && (
+                  <Badge className="bg-purple-600">Ansuran Diluluskan</Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Overdue Alert */}
+              {cajData.tarikh_luput_bayar && isOverdue(cajData.tarikh_luput_bayar, cajData.status_caj) && (
+                <Alert className="bg-red-50 border-red-200">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-900">
+                    <strong>Caj Pemajuan belum dibayar.</strong> Tarikh luput:{" "}
+                    {new Date(cajData.tarikh_luput_bayar).toLocaleDateString("ms-MY")}. Borang C(1) tidak boleh dijana.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {cajData.jumlah_caj && (
                 <div>
                   <div className="text-sm text-muted-foreground">Jumlah Caj</div>
@@ -2239,12 +2352,25 @@ export default function ApplicationDetailPage() {
               )}
 
               <div className="grid grid-cols-2 gap-4 text-sm">
+                {cajData.tarikh_notis && (
+                  <div>
+                    <div className="text-muted-foreground">Tarikh Notis</div>
+                    <div className="font-medium">
+                      {new Date(cajData.tarikh_notis).toLocaleDateString("ms-MY")}
+                    </div>
+                  </div>
+                )}
                 {cajData.tarikh_luput_bayar && (
                   <div>
                     <div className="text-muted-foreground">Tarikh Luput Bayar</div>
                     <div className="font-medium">
                       {new Date(cajData.tarikh_luput_bayar).toLocaleDateString("ms-MY")}
                     </div>
+                    {cajData.status_caj === "Menunggu Bayaran" && (
+                      <div className={`text-xs mt-1 ${calculateDaysRemaining(cajData.tarikh_luput_bayar) < 7 ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                        Baki: {calculateDaysRemaining(cajData.tarikh_luput_bayar)} hari
+                      </div>
+                    )}
                   </div>
                 )}
                 {cajData.tarikh_bayar && (
@@ -2264,18 +2390,29 @@ export default function ApplicationDetailPage() {
                 {cajData.no_resit && (
                   <div>
                     <div className="text-muted-foreground">No. Resit</div>
-                    <div>{cajData.no_resit}</div>
+                    <div className="font-medium">{cajData.no_resit}</div>
                   </div>
                 )}
               </div>
 
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => router.push(`/dashboard/caj-pemajuan?id=${application.id}`)}
-              >
-                Urus Caj Pemajuan
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => router.push(`/dashboard/caj-pemajuan?id=${application.id}`)}
+                >
+                  Urus Caj Pemajuan
+                </Button>
+                
+                {cajData.status_caj === "Menunggu Bayaran" && (
+                  <Button
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={() => setShowPaymentModal(true)}
+                  >
+                    Rekod Pembayaran
+                  </Button>
+                )}
+              </div>
 
               {cajData.status_caj === "Belum Dikira" && (
                 <Alert className="bg-blue-50 border-blue-200">
@@ -2288,6 +2425,112 @@ export default function ApplicationDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Status Kelulusan Timeline */}
+        {application?.status === "approved" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Status Kelulusan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* OSC Lulus */}
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 flex items-center justify-center text-white text-xs">
+                    ✓
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium">OSC Lulus</div>
+                    <div className="text-sm text-muted-foreground">
+                      Tarikh: {application.updated_at ? new Date(application.updated_at).toLocaleDateString("ms-MY") : "-"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Caj Pemajuan */}
+                {cajData && (
+                  <div className="flex items-start gap-3">
+                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${
+                      cajData.status_caj === "Dibayar" || cajData.status_caj === "Dikecualikan"
+                        ? "bg-green-600"
+                        : "bg-orange-500"
+                    }`}>
+                      {cajData.status_caj === "Dibayar" || cajData.status_caj === "Dikecualikan" ? "✓" : "●"}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium">Caj Pemajuan</div>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        {cajData.status_caj} {cajData.jumlah_caj ? ` — RM${cajData.jumlah_caj.toFixed(2)}` : ""}
+                      </div>
+                      {cajData.status_caj === "Belum Dikira" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => router.push(`/dashboard/caj-pemajuan?id=${application.id}`)}
+                        >
+                          Masukkan Jumlah Caj
+                        </Button>
+                      )}
+                      {cajData.status_caj === "Menunggu Bayaran" && (
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => setShowPaymentModal(true)}
+                        >
+                          Rekod Bayaran
+                        </Button>
+                      )}
+                      {(cajData.status_caj === "Dibayar" || cajData.status_caj === "Dikecualikan") && (
+                        <div className="text-sm text-green-600">✓ Selesai</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Borang C1 */}
+                <div className="flex items-start gap-3">
+                  <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${
+                    canGenerateC1().can ? "bg-green-600" : "bg-gray-400"
+                  }`}>
+                    {canGenerateC1().can ? "✓" : " "}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium">Borang C(1)</div>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      {canGenerateC1().can ? "Boleh dijana" : canGenerateC1().message}
+                    </div>
+                    {canGenerateC1().can && (
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => router.push(`/dashboard/osc-decisions?highlight=${application.id}`)}
+                      >
+                        Jana Borang C(1)
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Surat Pemberitahuan */}
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs">
+                    
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium">Surat Pemberitahuan</div>
+                    <div className="text-sm text-muted-foreground">
+                      Belum dijana (automatik bersama Borang C1)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dokumen */}
+        <Card>
+        </Card>
       </div>
 
       {/* AI Semakan Panel */}
@@ -3282,6 +3525,76 @@ export default function ApplicationDetailPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Payment Recording Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rekod Pembayaran Caj Pemajuan</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {cajData && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-900 text-sm">
+                  Jumlah Caj: <strong>RM{cajData.jumlah_caj?.toFixed(2) || "0.00"}</strong>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div>
+              <Label>
+                Tarikh Bayaran <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                type="date"
+                value={paymentFormData.tarikh_bayar}
+                onChange={(e) =>
+                  setPaymentFormData({ ...paymentFormData, tarikh_bayar: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label>
+                No. Resit <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={paymentFormData.no_resit}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, no_resit: e.target.value })}
+                placeholder="Contoh: RST/2026/12345"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label>Catatan</Label>
+              <Textarea
+                value={paymentFormData.catatan}
+                onChange={(e) => setPaymentFormData({ ...paymentFormData, catatan: e.target.value })}
+                placeholder="Catatan tambahan (pilihan)"
+                rows={3}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleRecordPayment}
+              disabled={savingPayment || !paymentFormData.tarikh_bayar || !paymentFormData.no_resit}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {savingPayment ? "Menyimpan..." : "Rekod Pembayaran"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
