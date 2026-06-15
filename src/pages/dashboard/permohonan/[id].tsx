@@ -593,6 +593,14 @@ export default function ApplicationDetailPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => router.push(`/dashboard/laporan-teknikal/${application.id}`)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Laporan Teknikal
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => router.push(`/dashboard/reports/${application.id}`)}
             >
               <FileBarChart className="h-4 w-4 mr-2" />
