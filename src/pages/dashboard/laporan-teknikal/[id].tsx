@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { laporanTeknikalService, type BahagianBData } from "@/services/laporanTeknikalService";
-import { Loader2, Save, Plus, X, ArrowLeft } from "lucide-react";
+import { Loader2, Save, Plus, X, ArrowLeft, Download, Share2 } from "lucide-react";
 
 // Types for Bahagian C
 interface BahagianCRow {
@@ -326,6 +327,11 @@ export default function LaporanTeknikalPage() {
   // Current section (for progress indicator)
   const [currentSection, setCurrentSection] = useState("A");
 
+  // PDF generation
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+
   // Load data
   useEffect(() => {
     if (!id) return;
@@ -585,6 +591,59 @@ export default function LaporanTeknikalPage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    try {
+      setGeneratingPDF(true);
+
+      const { pdfLaporanTeknikalService } = await import("@/services/pdfLaporanTeknikalService");
+      
+      const pdfData = {
+        no_rujukan_fail: noRujukanFail,
+        is_kmt: isKmt,
+        bahagian_a: bahagianA,
+        bahagian_b: bahagianB,
+        bahagian_c: bahagianC,
+        bahagian_d: bahagianD,
+        bahagian_e: bahagianE,
+        bahagian_f: bahagianF,
+        bahagian_g: isKmt ? bahagianG : undefined,
+        ulasan_syor_f: ulasanSyorF,
+        ulasan_syor_g: isKmt ? ulasanSyorG : undefined,
+        disediakan_oleh: disediakanOleh,
+        jawatan_penyedia: jawatanPenyedia,
+        tarikh_disediakan: tarikhDisediakan,
+      };
+
+      const url = await pdfLaporanTeknikalService.generatePDF(pdfData, id as string);
+      setPdfUrl(url);
+      setShowPdfModal(true);
+
+      toast({
+        title: "Berjaya",
+        description: "PDF berjaya dijana. Fail sedang dimuat turun.",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        variant: "destructive",
+        title: "Ralat",
+        description: "Gagal menjana PDF",
+      });
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
+  const handleCopyPdfUrl = () => {
+    if (pdfUrl) {
+      navigator.clipboard.writeText(pdfUrl);
+      toast({
+        title: "URL Disalin",
+        description: "Sila muat naik fail PDF ini secara manual ke portal OSC 3.0 Plus.",
+      });
     }
   };
 
@@ -2811,10 +2870,21 @@ export default function LaporanTeknikalPage() {
               <Button
                 variant="outline"
                 className="bg-success text-white hover:bg-success/90"
-                disabled={hasUnsavedChanges}
+                disabled={hasUnsavedChanges || generatingPDF}
                 title={hasUnsavedChanges ? "Simpan draf dahulu" : ""}
+                onClick={handleGeneratePDF}
               >
-                Jana PDF
+                {generatingPDF ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Menjana PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Jana PDF
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -2822,6 +2892,41 @@ export default function LaporanTeknikalPage() {
 
         {/* Add padding to bottom to prevent content being hidden by fixed bar */}
         <div className="h-24"></div>
+
+        {/* PDF Preview Modal */}
+        <Dialog open={showPdfModal} onOpenChange={setShowPdfModal}>
+          <DialogContent className="max-w-4xl h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Pratonton PDF Laporan Teknikal</DialogTitle>
+            </DialogHeader>
+            
+            {pdfUrl && (
+              <div className="flex-1 overflow-hidden">
+                <iframe
+                  src={pdfUrl}
+                  className="w-full h-full border rounded-md"
+                  title="PDF Preview"
+                />
+              </div>
+            )}
+
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowPdfModal(false)}>
+                Tutup
+              </Button>
+              <Button variant="outline" onClick={handleCopyPdfUrl}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Kongsi ke OSC
+              </Button>
+              {pdfUrl && (
+                <Button onClick={() => window.open(pdfUrl, "_blank")}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Muat Turun
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
