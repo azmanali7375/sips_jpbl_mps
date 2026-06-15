@@ -70,6 +70,7 @@ import {
 import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
 import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { cajPemajanService, type CajPemajanData } from "@/services/cajPemajanService";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
 type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
@@ -105,6 +106,9 @@ export default function ApplicationDetailPage() {
   const { toast } = useToast();
 
   const [application, setApplication] = useState<ApplicationDetailData | null>(null);
+  const [documents, setDocuments] = useState<Record<string, Document[]>>({});
+  const [cajData, setCajData] = useState<CajPemajanData | null>(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [workflowHistory, setWorkflowHistory] = useState<WorkflowHistoryWithProfile[]>([]);
   const [officers, setOfficers] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -326,8 +330,17 @@ export default function ApplicationDetailPage() {
       setSiteVisits(visits);
 
       // Get documents
-      const docs = await getApplicationDocuments(id as string);
+      const docs = await documentService.getDocumentsByApplication(id);
       setDocuments(docs);
+
+      // Load Caj Pemajuan data if exists
+      try {
+        const caj = await cajPemajanService.getCajPemajan(id);
+        setCajData(caj);
+      } catch (error) {
+        // Caj Pemajuan may not exist yet - not an error
+        setCajData(null);
+      }
 
       // Get generated reports
       const reports = await reportGenerationService.getGeneratedReports(id as string);
@@ -339,7 +352,7 @@ export default function ApplicationDetailPage() {
         setOfficers(officerList);
       }
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("Error loading application:", error);
       toast({
         title: "Ralat",
         description: "Gagal memuatkan maklumat permohonan",
@@ -2192,6 +2205,90 @@ export default function ApplicationDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Caj Pemajuan Status */}
+        {cajData && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="text-lg">Caj Pemajuan</span>
+                {cajData.status_caj === "Belum Dikira" && (
+                  <Badge variant="secondary">Belum Dikira</Badge>
+                )}
+                {cajData.status_caj === "Menunggu Bayaran" && (
+                  <Badge className="bg-orange-500">Menunggu Bayaran</Badge>
+                )}
+                {cajData.status_caj === "Dibayar" && (
+                  <Badge className="bg-green-600">Dibayar</Badge>
+                )}
+                {cajData.status_caj === "Dikecualikan" && (
+                  <Badge className="bg-blue-600">Dikecualikan</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {cajData.jumlah_caj && (
+                <div>
+                  <div className="text-sm text-muted-foreground">Jumlah Caj</div>
+                  <div className="text-2xl font-bold">
+                    {new Intl.NumberFormat("ms-MY", {
+                      style: "currency",
+                      currency: "MYR",
+                    }).format(cajData.jumlah_caj)}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {cajData.tarikh_luput_bayar && (
+                  <div>
+                    <div className="text-muted-foreground">Tarikh Luput Bayar</div>
+                    <div className="font-medium">
+                      {new Date(cajData.tarikh_luput_bayar).toLocaleDateString("ms-MY")}
+                    </div>
+                  </div>
+                )}
+                {cajData.tarikh_bayar && (
+                  <div>
+                    <div className="text-muted-foreground">Tarikh Bayaran</div>
+                    <div className="font-medium">
+                      {new Date(cajData.tarikh_bayar).toLocaleDateString("ms-MY")}
+                    </div>
+                  </div>
+                )}
+                {cajData.dikira_oleh && (
+                  <div>
+                    <div className="text-muted-foreground">Dikira Oleh</div>
+                    <div>{cajData.dikira_oleh}</div>
+                  </div>
+                )}
+                {cajData.no_resit && (
+                  <div>
+                    <div className="text-muted-foreground">No. Resit</div>
+                    <div>{cajData.no_resit}</div>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push(`/dashboard/caj-pemajuan?id=${application.id}`)}
+              >
+                Urus Caj Pemajuan
+              </Button>
+
+              {cajData.status_caj === "Belum Dikira" && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-900 text-sm">
+                    Sila kemukakan kepada JPPH untuk pengiraan Caj Pemajuan sebelum Borang C(1) boleh dijana.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* AI Semakan Panel */}
