@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   registerNewApplication,
@@ -21,7 +22,7 @@ import {
   RegistrationFormData,
 } from "@/services/registrationService";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, User, MapPin, Building2, AlertCircle } from "lucide-react";
+import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X } from "lucide-react";
 
 export default function DaftarBaharu() {
   const router = useRouter();
@@ -30,6 +31,12 @@ export default function DaftarBaharu() {
   const [officers, setOfficers] = useState<{ id: string; full_name: string }[]>([]);
   const [userId, setUserId] = useState<string>("");
   const [calculatedKPIDate, setCalculatedKPIDate] = useState<string>("");
+
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileType, setFileType] = useState<"pdf" | "image" | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [formData, setFormData] = useState<RegistrationFormData>({
     no_permohonan_osc: "",
@@ -92,6 +99,72 @@ export default function DaftarBaharu() {
       setCalculatedKPIDate("");
     }
   }, [formData.tarikh_lengkap_diterima_osc]);
+
+  const handleFileSelect = (file: File) => {
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "Fail Terlalu Besar",
+        description: "Saiz fail maksimum ialah 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Jenis Fail Tidak Sah",
+        description: "Sila muat naik fail PDF, PNG, JPG, atau WEBP sahaja",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadedFile(file);
+    setFileType(file.type === "application/pdf" ? "pdf" : "image");
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    setFileType(null);
+  };
+
+  const handleAnalyzeDocument = () => {
+    // This will be implemented in the next prompt
+    toast({
+      title: "Fungsi Akan Datang",
+      description: "Analisis dokumen akan dilaksanakan dalam kemas kini seterusnya",
+    });
+    setShowImportModal(false);
+  };
 
   const handleInputChange = (
     field: keyof RegistrationFormData,
@@ -191,6 +264,30 @@ export default function DaftarBaharu() {
             </p>
           </div>
         </div>
+
+        {/* Import dari OSC Banner */}
+        <Alert className="bg-blue-50 border-blue-200">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-blue-900 font-medium">
+                Muat naik cetakan OSC 3.0 Plus untuk mengisi borang secara automatik
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Menerima PDF atau gambar PNG/JPG. Maks 10MB.
+              </p>
+            </div>
+            <Button
+              variant="default"
+              size="default"
+              onClick={() => setShowImportModal(true)}
+              className="ml-4 bg-blue-600 hover:bg-blue-700"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import dari OSC
+            </Button>
+          </AlertDescription>
+        </Alert>
 
         {/* Info Alert */}
         <Alert>
@@ -627,6 +724,129 @@ export default function DaftarBaharu() {
             </Button>
           </div>
         </form>
+
+        {/* Import Modal */}
+        <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Import Maklumat dari OSC 3.0 Plus</DialogTitle>
+            </DialogHeader>
+
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <p className="font-semibold text-blue-900 mb-2">Cara mendapatkan dokumen OSC:</p>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+                <li>Buka permohonan dalam OSC 3.0 Plus</li>
+                <li>Klik butang &apos;Cetak&apos; di bahagian kanan</li>
+                <li>Simpan sebagai PDF atau ambil tangkapan skrin</li>
+                <li>Muat naik fail di sini</li>
+              </ol>
+            </div>
+
+            {/* Upload Area */}
+            <div className="mt-4">
+              {!uploadedFile ? (
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    isDragging
+                      ? "border-primary bg-primary/5"
+                      : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                  }`}
+                >
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                    onChange={handleFileInputChange}
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    <Upload className="h-12 w-12 text-muted-foreground mb-3" />
+                    <p className="text-base font-medium text-foreground mb-1">
+                      Seret fail ke sini atau klik untuk pilih
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      PDF, PNG, JPG, WEBP • Maksimum 10MB
+                    </p>
+                  </label>
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {fileType === "pdf" ? (
+                        <FileIcon className="h-10 w-10 text-destructive" />
+                      ) : (
+                        <ImageIcon className="h-10 w-10 text-primary" />
+                      )}
+                      <div>
+                        <p className="font-medium">{uploadedFile.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveFile}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Preview for images */}
+                  {fileType === "image" && uploadedFile && (
+                    <div className="mt-3 border rounded-md overflow-hidden">
+                      <img
+                        src={URL.createObjectURL(uploadedFile)}
+                        alt="Preview"
+                        className="w-full h-auto max-h-64 object-contain"
+                      />
+                    </div>
+                  )}
+
+                  {/* Change file link */}
+                  <div className="mt-3 text-center">
+                    <label
+                      htmlFor="file-upload-replace"
+                      className="text-sm text-primary hover:underline cursor-pointer"
+                    >
+                      Tukar Fail
+                    </label>
+                    <input
+                      type="file"
+                      id="file-upload-replace"
+                      className="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp"
+                      onChange={handleFileInputChange}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowImportModal(false)}>
+                Batal
+              </Button>
+              <Button
+                onClick={handleAnalyzeDocument}
+                disabled={!uploadedFile}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Analisa Dokumen
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
