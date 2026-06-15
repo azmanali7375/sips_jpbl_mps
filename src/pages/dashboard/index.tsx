@@ -141,7 +141,7 @@ export default function SIPSDashboard() {
 
       // Category distribution
       const categoryCounts = apps.reduce((acc: Record<string, number>, app) => {
-        const category = app.km_category || "Tidak Dinyatakan";
+        const category = app.skala_pembangunan || "Tidak Dinyatakan";
         acc[category] = (acc[category] || 0) + 1;
         return acc;
       }, {});
@@ -385,12 +385,12 @@ export default function SIPSDashboard() {
                           onClick={() => router.push(`/dashboard/permohonan/${app.id}`)}
                         >
                           <TableCell className="font-mono text-sm">{app.tracking_number}</TableCell>
-                          <TableCell className="max-w-[200px] truncate">{app.applicant_name}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{app.nama_sp}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{app.km_category || "—"}</Badge>
+                            <Badge variant="outline">{app.skala_pembangunan || "—"}</Badge>
                           </TableCell>
                           <TableCell className="text-sm">
-                            {app.tarikh_terima ? new Date(app.tarikh_terima).toLocaleDateString("ms-MY") : "—"}
+                            {app.tarikh_lengkap_diterima_osc ? new Date(app.tarikh_lengkap_diterima_osc).toLocaleDateString("ms-MY") : "—"}
                           </TableCell>
                           <TableCell className="text-sm">
                             {app.tarikh_kpi ? new Date(app.tarikh_kpi).toLocaleDateString("ms-MY") : "—"}
