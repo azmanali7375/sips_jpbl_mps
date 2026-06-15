@@ -80,12 +80,11 @@ export const oscDecisionService = {
     // Send notification to assigned officer
     if (application?.assigned_officer_id) {
       await notificationService.create({
-        user_id: application.assigned_officer_id,
-        type: "osc_decision",
+        userId: application.assigned_officer_id,
+        type: "status_change",
         title: `Keputusan OSC: ${data.keputusan_osc}`,
         message: `Sila sediakan dan hantar surat rasmi kepada pemohon.`,
-        link: `/dashboard/permohonan/${data.application_id}`,
-        application_id: data.application_id,
+        applicationId: data.application_id,
       });
     }
 
