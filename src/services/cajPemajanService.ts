@@ -9,7 +9,7 @@ export interface CajPemajanData {
   tarikh_luput_bayar?: string;
   tarikh_bayar?: string;
   no_resit?: string;
-  status_caj: "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan";
+  status_caj: "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan" | "Ansuran Diluluskan";
   dikira_oleh?: string;
   catatan?: string;
   pdf_url?: string;
@@ -40,7 +40,7 @@ export const cajPemajanService = {
     if (error) throw error;
     return {
       ...data,
-      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan" | "Ansuran Diluluskan",
     };
   },
 
@@ -56,7 +56,7 @@ export const cajPemajanService = {
     
     return {
       ...data,
-      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan" | "Ansuran Diluluskan",
     };
   },
 
@@ -131,7 +131,7 @@ export const cajPemajanService = {
     if (error) throw error;
     return {
       ...data,
-      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan" | "Ansuran Diluluskan",
     };
   },
 
@@ -148,7 +148,7 @@ export const cajPemajanService = {
     if (error) throw error;
     return {
       ...data,
-      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan" | "Ansuran Diluluskan",
     };
   },
 
