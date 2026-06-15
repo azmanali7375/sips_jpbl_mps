@@ -194,7 +194,10 @@ export function isDirectiveOverdue(directive: WrittenDirective): boolean {
   return today > deadline;
 }
 
-generateDirectivePDF(directive: WrittenDirective): string {
+/**
+ * Generate Borang A(1) PDF HTML
+ */
+export function generateDirectivePDF(directive: WrittenDirective): string {
   const dateFormatted = new Date(directive.tarikh_arahan).toLocaleDateString("ms-MY", {
     day: "numeric",
     month: "long",
