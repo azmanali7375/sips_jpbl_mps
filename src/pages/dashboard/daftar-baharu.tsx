@@ -16,6 +16,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
   registerNewApplication,
@@ -51,6 +57,12 @@ export default function DaftarBaharu() {
   const [showImportSuccess, setShowImportSuccess] = useState(false);
   const [importedLotsCount, setImportedLotsCount] = useState(0);
   const [expandedTajuk, setExpandedTajuk] = useState(false);
+
+  // Auto-fill tracking state
+  const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set());
+  const [missingFields, setMissingFields] = useState<Set<string>>(new Set());
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
+  const [showPoorQualityWarning, setShowPoorQualityWarning] = useState(false);
 
   const [formData, setFormData] = useState<RegistrationFormData>({
     no_permohonan_osc: "",
@@ -115,24 +127,22 @@ export default function DaftarBaharu() {
   }, [formData.tarikh_lengkap_diterima_osc]);
 
   const handleFileSelect = (file: File) => {
+    setFileUploadError(null);
+
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "Fail Terlalu Besar",
-        description: "Saiz fail maksimum ialah 10MB",
-        variant: "destructive",
-      });
+      setFileUploadError(
+        "Fail terlalu besar. Sila muat naik fail di bawah 10MB. Cuba kompres PDF atau gunakan tangkapan skrin."
+      );
       return;
     }
 
     // Validate file type
     const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      toast({
-        title: "Jenis Fail Tidak Sah",
-        description: "Sila muat naik fail PDF, PNG, JPG, atau WEBP sahaja",
-        variant: "destructive",
-      });
+      setFileUploadError(
+        "Jenis fail tidak disokong. Sila muat naik PDF, PNG, JPG, atau WEBP sahaja."
+      );
       return;
     }
 
@@ -176,6 +186,11 @@ export default function DaftarBaharu() {
 
     setIsProcessing(true);
     setProcessingError(null);
+    setShowPoorQualityWarning(false);
+
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     try {
       // Convert file to base64
@@ -203,7 +218,7 @@ export default function DaftarBaharu() {
         throw new Error("Anthropic API key not configured");
       }
 
-      // Call Anthropic API
+      // Call Anthropic API with timeout
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -236,7 +251,10 @@ export default function DaftarBaharu() {
             },
           ],
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -269,16 +287,32 @@ export default function DaftarBaharu() {
       setMissingCount(missing.length);
       setLandLots(parsedData.maklumat_tanah || []);
 
-      // Success - move to review panel (will be implemented next)
+      // Check for poor document quality (more than 12 null fields)
+      if (missing.length > 12) {
+        setShowPoorQualityWarning(true);
+      }
+
       toast({
         title: "Analisis Berjaya",
         description: `${extracted.length} medan berjaya diekstrak`,
       });
     } catch (error) {
-      console.error("Error analyzing document:", error);
-      setProcessingError(
-        error instanceof Error ? error.message : "Gagal menganalisis dokumen"
-      );
+      clearTimeout(timeoutId);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        setProcessingError(
+          "Permintaan mengambil masa terlalu lama. Sila cuba lagi dengan fail yang lebih kecil."
+        );
+      } else if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('network'))) {
+        setProcessingError(
+          "Tidak dapat menghubungi perkhidmatan AI. Semak sambungan internet dan cuba lagi."
+        );
+      } else {
+        setProcessingError(
+          error instanceof Error ? error.message : "Gagal menganalisis dokumen"
+        );
+      }
+      
       toast({
         title: "Ralat Analisis",
         description: "Gagal menganalisis dokumen. Sila cuba lagi.",
@@ -298,6 +332,43 @@ export default function DaftarBaharu() {
 
   const handleUseExtractedData = () => {
     if (!extractedData) return;
+
+    const filled = new Set<string>();
+    const missing = new Set<string>();
+
+    // Track which fields were auto-filled and which were missing
+    const fieldMapping: Array<[string, keyof typeof extractedData]> = [
+      ["no_permohonan_osc", "no_permohonan_osc"],
+      ["kategori_permohonan", "kategori_permohonan"],
+      ["skala_pembangunan", "skala_pembangunan"],
+      ["nama_sp", "nama_sp"],
+      ["no_kp_sp", "no_kp_sp"],
+      ["jenis_proses_pr", "jenis_proses_pr"],
+      ["status_semakan_osc", "status_semakan_osc"],
+      ["tarikh_penghantaran", "tarikh_penghantaran"],
+      ["tarikh_lengkap_diterima_osc", "tarikh_lengkap_diterima_osc"],
+      ["nama_pemaju_pemilik", "nama_pemaju_pemilik"],
+      ["tajuk_permohonan", "tajuk_permohonan"],
+      ["lokasi_mercu_tanda", "lokasi_mercu_tanda"],
+      ["mukim", "mukim"],
+      ["daerah", "daerah"],
+      ["negeri", "negeri"],
+      ["rancangan_tempatan", "rancangan_tempatan"],
+      ["zoning", "zoning"],
+      ["longitud", "longitud"],
+      ["latitud", "latitud"],
+    ];
+
+    fieldMapping.forEach(([fieldKey, dataKey]) => {
+      if (extractedData[dataKey] !== null && extractedData[dataKey] !== undefined) {
+        filled.add(fieldKey);
+      } else {
+        missing.add(fieldKey);
+      }
+    });
+
+    setAutoFilledFields(filled);
+    setMissingFields(missing);
 
     // Fill form fields from extracted data
     setFormData((prev) => ({
@@ -337,6 +408,7 @@ export default function DaftarBaharu() {
       setExtractedData(null);
       setUploadedFile(null);
       setFileType(null);
+      setShowPoorQualityWarning(false);
     }, 500);
 
     toast({
@@ -349,10 +421,33 @@ export default function DaftarBaharu() {
     field: keyof RegistrationFormData,
     value: string | number | undefined
   ) => {
+    // Remove field from auto-filled set when user edits it
+    if (autoFilledFields.has(field)) {
+      setAutoFilledFields((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(field);
+        return newSet;
+      });
+    }
+
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const getFieldClassName = (fieldName: string, baseClassName: string = "") => {
+    const classes = [baseClassName];
+    
+    if (autoFilledFields.has(fieldName)) {
+      classes.push("bg-blue-50 transition-colors duration-500");
+    }
+    
+    if (missingFields.has(fieldName)) {
+      classes.push("border-orange-300");
+    }
+    
+    return classes.filter(Boolean).join(" ");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -411,14 +506,48 @@ export default function DaftarBaharu() {
     setLoading(false);
 
     if (result.success) {
-      toast({
-        title: "✓ Permohonan Berjaya Didaftar",
-        description: `No. Fail JPL: ${result.no_fail_jpl}\nTarikh Akhir KPI: ${result.tarikh_kpi}`,
-      });
+      // Save land lots if imported from OSC
+      if (landLots.length > 0 && result.application_id) {
+        try {
+          const { data: lotsData, error: lotsError } = await supabase
+            .from("maklumat_tanah")
+            .insert(
+              landLots.map((lot) => ({
+                application_id: result.application_id,
+                jenis_lot: lot.jenis_lot,
+                no_lot: lot.no_lot,
+                pemilik_tanah: lot.pemilik_tanah,
+                kategori: lot.kategori,
+                syarat_nyata: lot.syarat_nyata,
+                catatan: lot.catatan,
+              }))
+            );
+
+          if (lotsError) {
+            console.error("Error saving land lots:", lotsError);
+          }
+
+          toast({
+            title: "✓ Permohonan Berjaya Didaftar",
+            description: `No. Fail JPL: ${result.no_fail_jpl}\nTarikh Akhir KPI: ${result.tarikh_kpi}\n${landLots.length} lot tanah turut disimpan secara automatik.`,
+          });
+        } catch (error) {
+          console.error("Error saving land lots:", error);
+          toast({
+            title: "✓ Permohonan Berjaya Didaftar",
+            description: `No. Fail JPL: ${result.no_fail_jpl}\nTarikh Akhir KPI: ${result.tarikh_kpi}`,
+          });
+        }
+      } else {
+        toast({
+          title: "✓ Permohonan Berjaya Didaftar",
+          description: `No. Fail JPL: ${result.no_fail_jpl}\nTarikh Akhir KPI: ${result.tarikh_kpi}`,
+        });
+      }
 
       // Redirect to application detail page
       setTimeout(() => {
-        router.push(`/dashboard/reports/${result.application_id}`);
+        router.push(`/dashboard/permohonan/${result.application_id}`);
       }, 1500);
     } else {
       toast({
@@ -503,6 +632,11 @@ export default function DaftarBaharu() {
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
                 SECTION 1: RUJUKAN OSC
+                {autoFilledFields.size > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    Diisi oleh AI
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -510,15 +644,27 @@ export default function DaftarBaharu() {
                 <Label htmlFor="no_permohonan_osc">
                   No. Permohonan OSC <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="no_permohonan_osc"
-                  placeholder="Contoh: MPSEG-KM20260427-001"
-                  value={formData.no_permohonan_osc}
-                  onChange={(e) =>
-                    handleInputChange("no_permohonan_osc", e.target.value)
-                  }
-                  required
-                />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Input
+                        id="no_permohonan_osc"
+                        placeholder="Contoh: MPSEG-KM20260427-001"
+                        value={formData.no_permohonan_osc}
+                        onChange={(e) =>
+                          handleInputChange("no_permohonan_osc", e.target.value)
+                        }
+                        className={getFieldClassName("no_permohonan_osc")}
+                        required
+                      />
+                    </TooltipTrigger>
+                    {missingFields.has("no_permohonan_osc") && (
+                      <TooltipContent>
+                        <p className="text-xs">Medan ini tidak ditemui dalam dokumen OSC. Sila isi secara manual.</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
                 <p className="text-sm text-muted-foreground mt-1">
                   Salin daripada medan &apos;No. Permohonan&apos; dalam OSC 3.0 Plus
                 </p>
@@ -533,6 +679,7 @@ export default function DaftarBaharu() {
                   onChange={(e) =>
                     handleInputChange("kategori_permohonan", e.target.value)
                   }
+                  className={getFieldClassName("kategori_permohonan")}
                 />
               </div>
 
@@ -545,7 +692,7 @@ export default function DaftarBaharu() {
                       handleInputChange("skala_pembangunan", value as any)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={getFieldClassName("skala_pembangunan")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -565,7 +712,7 @@ export default function DaftarBaharu() {
                       handleInputChange("jenis_proses_pr", value as any)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={getFieldClassName("jenis_proses_pr")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -587,6 +734,7 @@ export default function DaftarBaharu() {
                   onChange={(e) =>
                     handleInputChange("status_semakan_osc", e.target.value)
                   }
+                  className={getFieldClassName("status_semakan_osc")}
                 />
                 <p className="text-sm text-muted-foreground mt-1">
                   Status ini tidak diubah suai oleh SIPS
@@ -948,21 +1096,47 @@ export default function DaftarBaharu() {
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    <p className="font-semibold mb-2">Ralat Analisis</p>
+                    <p className="font-semibold mb-2">
+                      {processingError.includes("terlalu lama") 
+                        ? "Ralat Masa Tamat" 
+                        : processingError.includes("menghubungi")
+                        ? "Ralat Rangkaian"
+                        : "Ralat Analisis"}
+                    </p>
                     <p className="text-sm">{processingError}</p>
                   </AlertDescription>
                 </Alert>
                 <div className="mt-6 flex justify-center gap-3">
-                  <Button variant="outline" onClick={() => {
-                    setProcessingError(null);
-                    setUploadedFile(null);
-                    setFileType(null);
-                  }}>
-                    Muat Naik Fail Lain
-                  </Button>
-                  <Button onClick={() => setShowImportModal(false)}>
-                    Tutup
-                  </Button>
+                  {processingError.includes("menghubungi") || processingError.includes("terlalu lama") ? (
+                    <>
+                      <Button variant="outline" onClick={() => {
+                        setProcessingError(null);
+                      }}>
+                        Cuba Lagi
+                      </Button>
+                      <Button onClick={() => {
+                        setShowImportModal(false);
+                        setProcessingError(null);
+                        setUploadedFile(null);
+                        setFileType(null);
+                      }}>
+                        Isi Manual
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={() => {
+                        setProcessingError(null);
+                        setUploadedFile(null);
+                        setFileType(null);
+                      }}>
+                        Muat Naik Fail Lain
+                      </Button>
+                      <Button onClick={() => setShowImportModal(false)}>
+                        Tutup
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             ) : extractedData ? (
@@ -971,6 +1145,23 @@ export default function DaftarBaharu() {
                 <div>
                   <h3 className="font-semibold text-lg mb-3">Semak Maklumat Diekstrak</h3>
                   
+                  {/* Poor Quality Warning */}
+                  {showPoorQualityWarning && (
+                    <Alert className="bg-orange-50 border-orange-200 mb-4">
+                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                      <AlertDescription className="text-orange-900">
+                        <p className="font-semibold mb-2">AI tidak dapat membaca dokumen dengan jelas.</p>
+                        <p className="text-sm mb-1">Kemungkinan sebab:</p>
+                        <ul className="text-sm list-disc list-inside space-y-1 ml-2">
+                          <li>Imej terlalu kecil atau kabur</li>
+                          <li>PDF dilindungi kata laluan</li>
+                          <li>Halaman yang salah dimuat naik</li>
+                        </ul>
+                        <p className="text-sm mt-2">Sila cuba tangkapan skrin resolusi tinggi.</p>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Data Table */}
                   <div className="border rounded-md overflow-hidden">
                     <table className="w-full">
@@ -1077,36 +1268,48 @@ export default function DaftarBaharu() {
                 {/* Upload Area */}
                 <div className="mt-4">
                   {!uploadedFile ? (
-                    <div
-                      onDrop={handleDrop}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                        isDragging
-                          ? "border-primary bg-primary/5"
-                          : "border-muted-foreground/25 hover:border-muted-foreground/50"
-                      }`}
-                    >
-                      <input
-                        type="file"
-                        id="file-upload"
-                        className="hidden"
-                        accept=".pdf,.png,.jpg,.jpeg,.webp"
-                        onChange={handleFileInputChange}
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="cursor-pointer flex flex-col items-center"
+                    <>
+                      <div
+                        onDrop={handleDrop}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                          isDragging
+                            ? "border-primary bg-primary/5"
+                            : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                        }`}
                       >
-                        <Upload className="h-12 w-12 text-muted-foreground mb-3" />
-                        <p className="text-base font-medium text-foreground mb-1">
-                          Seret fail ke sini atau klik untuk pilih
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          PDF, PNG, JPG, WEBP • Maksimum 10MB
-                        </p>
-                      </label>
-                    </div>
+                        <input
+                          type="file"
+                          id="file-upload"
+                          className="hidden"
+                          accept=".pdf,.png,.jpg,.jpeg,.webp"
+                          onChange={handleFileInputChange}
+                        />
+                        <label
+                          htmlFor="file-upload"
+                          className="cursor-pointer flex flex-col items-center"
+                        >
+                          <Upload className="h-12 w-12 text-muted-foreground mb-3" />
+                          <p className="text-base font-medium text-foreground mb-1">
+                            Seret fail ke sini atau klik untuk pilih
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            PDF, PNG, JPG, WEBP • Maksimum 10MB
+                          </p>
+                        </label>
+                      </div>
+                      
+                      {/* File Upload Error */}
+                      {fileUploadError && (
+                        <Alert variant="destructive" className="mt-3">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="text-sm">
+                            {fileUploadError}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
                   ) : (
                     <div className="border rounded-lg p-4 bg-muted/50">
                       <div className="flex items-center justify-between">
