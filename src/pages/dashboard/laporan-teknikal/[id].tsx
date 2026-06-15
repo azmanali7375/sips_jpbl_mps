@@ -78,7 +78,11 @@ export default function LaporanTeknikalPage() {
         setIsKmt(laporan.is_kmt || false);
         setStatusLaporan(laporan.status_laporan || "Draf");
         setBahagianA(laporan.bahagian_a || "");
-        setBahagianB(laporan.bahagian_b as BahagianBData || bahagianB);
+        
+        // Type assertion for bahagian_b from JSONB
+        if (laporan.bahagian_b && typeof laporan.bahagian_b === 'object') {
+          setBahagianB(laporan.bahagian_b as unknown as BahagianBData);
+        }
       } else {
         // Pre-fill from application data
         setNoRujukanFail(application.no_permohonan_osc || "");
@@ -87,7 +91,7 @@ export default function LaporanTeknikalPage() {
         const prefilled: BahagianBData = {
           ...bahagianB,
           b_a_i_lots: landLots.length > 0
-            ? landLots.map(lot => ({ no_lot: lot.lot_number || "", mukim: lot.mukim || "" }))
+            ? landLots.map(lot => ({ no_lot: lot.no_lot || "", mukim: lot.mukim || "" }))
             : [{ no_lot: "", mukim: "" }],
           b_a_ii_pemilik: application.nama_pemaju_pemilik || "",
           b_a_iii_pemohon: application.nama_sp || "",

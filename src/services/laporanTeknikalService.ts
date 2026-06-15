@@ -64,7 +64,7 @@ export const laporanTeknikalService = {
     // Get land lots
     const { data: landLots, error: lotError } = await supabase
       .from("land_lots")
-      .select("lot_number, mukim, syarat_nyata")
+      .select("no_lot, mukim, syarat_nyata")
       .eq("application_id", applicationId);
 
     if (lotError) {
@@ -111,7 +111,10 @@ export const laporanTeknikalService = {
       // Update existing
       const { data: updated, error } = await supabase
         .from("laporan_teknikal")
-        .update(data)
+        .update({
+          ...data,
+          bahagian_b: data.bahagian_b as any,
+        })
         .eq("id", existing.id)
         .select()
         .single();
@@ -128,6 +131,7 @@ export const laporanTeknikalService = {
         .insert({
           application_id: applicationId,
           ...data,
+          bahagian_b: data.bahagian_b as any,
         })
         .select()
         .single();
@@ -139,11 +143,11 @@ export const laporanTeknikalService = {
       result = created;
     }
 
-    // Create workflow history entry
-    await workflowService.createWorkflowEntry(
+    // Create workflow history entry using updateStatus
+    await workflowService.updateStatus(
       applicationId,
-      "Laporan Teknikal — Bahagian A & B Disimpan",
-      user.id
+      "technical_report" as any,
+      "Laporan Teknikal — Bahagian A & B Disimpan"
     );
 
     return result;
