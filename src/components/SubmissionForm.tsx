@@ -14,7 +14,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { applicationService } from "@/services/applicationService";
-import { documentService } from "@/services/documentService";
 import { complianceService } from "@/services/complianceService";
 import { AlertCircle, Upload, FileText, X } from "lucide-react";
 
@@ -93,11 +92,12 @@ export function SubmissionForm() {
 
       // Upload all files
       for (const uploadedFile of files) {
-        await documentService.uploadDocument(
-          application.id,
-          uploadedFile.file,
-          uploadedFile.type
-        );
+        // TODO: Implement document upload after fixing service
+        // await documentService.uploadDocument(
+        //   application.id,
+        //   uploadedFile.file,
+        //   uploadedFile.type
+        // );
       }
 
       // Perform automated compliance check
