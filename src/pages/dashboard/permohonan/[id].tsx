@@ -552,12 +552,12 @@ export default function ApplicationDetailPage() {
         .flat()
         .find((doc) => doc.id === selectedPlan);
 
-      if (!selectedDoc?.dokumen_url) {
+      if (!selectedDoc?.file_path) {
         throw new Error("URL dokumen tidak dijumpai");
       }
 
       // Fetch the PDF file
-      const response = await fetch(selectedDoc.dokumen_url);
+      const response = await fetch(selectedDoc.file_path);
       const blob = await response.blob();
       
       // Convert to base64
@@ -578,7 +578,7 @@ export default function ApplicationDetailPage() {
       const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
       if (!apiKey) throw new Error("Anthropic API key not configured");
 
-      const mediaType = selectedDoc.dokumen_url.toLowerCase().endsWith(".pdf")
+      const mediaType = selectedDoc.file_path.toLowerCase().endsWith(".pdf")
         ? "application/pdf"
         : "image/jpeg";
       const contentType = mediaType === "application/pdf" ? "document" : "image";
@@ -1895,12 +1895,12 @@ export default function ApplicationDetailPage() {
                   <SelectContent>
                     {documents["Pelan Susun Atur"]?.map((doc) => (
                       <SelectItem key={doc.id} value={doc.id}>
-                        {doc.nama_dokumen} {doc.versi ? `(${doc.versi})` : ""}
+                        {doc.file_name} {doc.versi ? `(${doc.versi})` : ""}
                       </SelectItem>
                     ))}
                     {documents["Pelan Bangunan"]?.map((doc) => (
                       <SelectItem key={doc.id} value={doc.id}>
-                        {doc.nama_dokumen} {doc.versi ? `(${doc.versi})` : ""}
+                        {doc.file_name} {doc.versi ? `(${doc.versi})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
