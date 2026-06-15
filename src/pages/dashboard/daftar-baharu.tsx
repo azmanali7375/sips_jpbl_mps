@@ -219,7 +219,7 @@ export default function DaftarBaharu() {
         setFormData((prev) => ({
           ...prev,
           no_permohonan_osc: am.no_permohonan_osc || prev.no_permohonan_osc,
-          skala_pembangunan: am.skala_pembangunan || prev.skala_pembangunan,
+          skala_pembangunan: (am.skala_pembangunan as "Kecil" | "Sederhana" | "Besar A" | "Besar B") || prev.skala_pembangunan,
           tarikh_penghantaran: am.tarikh_penghantaran || prev.tarikh_penghantaran,
           tarikh_lengkap_diterima_osc: am.tarikh_lengkap_diterima_osc || prev.tarikh_lengkap_diterima_osc,
           nama_sp: am.nama_sp || prev.nama_sp,
