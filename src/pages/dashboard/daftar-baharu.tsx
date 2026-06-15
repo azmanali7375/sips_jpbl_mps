@@ -37,18 +37,21 @@ export default function DaftarBaharu() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [officers, setOfficers] = useState<{ id: string; full_name: string }[]>([]);
-  const [userId, setUserId] = useState<string>("");
+  const [userId, setUserId] = useState("");
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [extractedData, setExtractedData] = useState<any>(null);
   const [calculatedKPIDate, setCalculatedKPIDate] = useState<string>("");
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileType, setFileType] = useState<"pdf" | "image" | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // AI processing state
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedData, setExtractedData] = useState<any>(null);
   const [extractedCount, setExtractedCount] = useState(0);
   const [missingCount, setMissingCount] = useState(0);
   const [landLots, setLandLots] = useState<any[]>([]);
@@ -193,142 +196,54 @@ export default function DaftarBaharu() {
   const handleAnalyzeDocument = async () => {
     if (!uploadedFile) return;
 
-    setIsProcessing(true);
-    setProcessingError(null);
-    setShowPoorQualityWarning(false);
-
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    setAiProcessing(true);
+    setAiError(null);
 
     try {
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          // Remove data URL prefix to get pure base64
-          const base64String = result.split(",")[1];
-          resolve(base64String);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(uploadedFile);
-      });
+      const { parseOSCDocument } = await import("@/services/oscDocumentParserService");
+      const result = await parseOSCDocument(uploadedFile);
 
-      // Determine media type
-      const mediaType = uploadedFile.type;
-
-      // Determine content type for API
-      const contentType = fileType === "pdf" ? "document" : "image";
-
-      // Get Anthropic API key from environment
-      const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error("Anthropic API key not configured");
+      if (!result.success) {
+        setAiError(result.error || "Gagal menganalisa dokumen");
+        setAiProcessing(false);
+        return;
       }
 
-      // Call Anthropic API with timeout
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system:
-            'You are a document parser for Malaysian planning applications. Extract fields from an OSC 3.0 Plus document and return ONLY valid JSON with no explanation. If a field is not visible return null. Never invent values. Return this exact structure: {"no_permohonan_osc":string,"kategori_permohonan":string,"skala_pembangunan":string,"nama_sp":string,"no_kp_sp":string,"jenis_proses_pr":string,"status_semakan_osc":string,"tarikh_penghantaran":string (YYYY-MM-DD),"tarikh_lengkap_diterima_osc":string (YYYY-MM-DD),"jabatan_memperaku":string,"negeri":string,"daerah":string,"mukim":string,"tajuk_permohonan":string,"nama_pemaju_pemilik":string,"lokasi_mercu_tanda":string,"longitud":number,"latitud":number,"rancangan_tempatan":string,"zoning":string,"maklumat_tanah":[{"jenis_lot":string,"no_lot":string,"pemilik_tanah":string,"kategori":string,"syarat_nyata":string,"catatan":string}]}',
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: contentType,
-                  source: {
-                    type: "base64",
-                    media_type: mediaType,
-                    data: base64,
-                  },
-                },
-                {
-                  type: "text",
-                  text: "Extract all fields from this OSC 3.0 Plus document and return as JSON only.",
-                },
-              ],
-            },
-          ],
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || "API request failed");
+      // Store extracted data and proceed to review
+      setExtractedData(result.data);
+      setAiProcessing(false);
+      
+      // Auto-populate form with extracted data
+      if (result.data?.maklumat_am) {
+        const am = result.data.maklumat_am;
+        setFormData((prev) => ({
+          ...prev,
+          no_permohonan_osc: am.no_permohonan_osc || prev.no_permohonan_osc,
+          skala_pembangunan: am.skala_pembangunan || prev.skala_pembangunan,
+          tarikh_penghantaran: am.tarikh_penghantaran || prev.tarikh_penghantaran,
+          tarikh_lengkap_diterima_osc: am.tarikh_lengkap_diterima_osc || prev.tarikh_lengkap_diterima_osc,
+          nama_sp: am.nama_sp || prev.nama_sp,
+          nama_pemaju_pemilik: am.nama_pemaju_pemilik || prev.nama_pemaju_pemilik,
+          tajuk_permohonan: am.tajuk_permohonan || prev.tajuk_permohonan,
+          mukim: am.mukim || prev.mukim,
+        }));
       }
 
-      const data = await response.json();
-
-      // Find text content block
-      const textBlock = data.content?.find((block: any) => block.type === "text");
-      if (!textBlock) {
-        throw new Error("No text content in API response");
-      }
-
-      // Parse JSON from response
-      let parsedData;
-      try {
-        parsedData = JSON.parse(textBlock.text);
-      } catch (e) {
-        throw new Error("Failed to parse extracted data as JSON");
-      }
-
-      // Count extracted and missing fields
-      const allFields = Object.keys(parsedData).filter((key) => key !== "maklumat_tanah");
-      const extracted = allFields.filter((key) => parsedData[key] !== null);
-      const missing = allFields.filter((key) => parsedData[key] === null);
-
-      setExtractedData(parsedData);
-      setExtractedCount(extracted.length);
-      setMissingCount(missing.length);
-      setLandLots(parsedData.maklumat_tanah || []);
-
-      // Check for poor document quality (more than 12 null fields)
-      if (missing.length > 12) {
-        setShowPoorQualityWarning(true);
+      // Store land lots data
+      if (result.data?.maklumat_tanah && result.data.maklumat_tanah.length > 0) {
+        setLandLots(result.data.maklumat_tanah);
       }
 
       toast({
-        title: "Analisis Berjaya",
-        description: `${extracted.length} medan berjaya diekstrak`,
+        title: "✓ Analisa Selesai",
+        description: `Jenis: ${result.jenis_aplikasi || "KM"} (KPI: ${result.kpi_hari} hari). Data telah diisi secara automatik.`,
       });
+
+      setShowUploadModal(false);
     } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if (error instanceof Error && error.name === 'AbortError') {
-        setProcessingError(
-          "Permintaan mengambil masa terlalu lama. Sila cuba lagi dengan fail yang lebih kecil."
-        );
-      } else if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('network'))) {
-        setProcessingError(
-          "Tidak dapat menghubungi perkhidmatan AI. Semak sambungan internet dan cuba lagi."
-        );
-      } else {
-        setProcessingError(
-          error instanceof Error ? error.message : "Gagal menganalisis dokumen"
-        );
-      }
-      
-      toast({
-        title: "Ralat Analisis",
-        description: "Gagal menganalisis dokumen. Sila cuba lagi.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
+      console.error("Error analyzing document:", error);
+      setAiError("Ralat tidak dijangka semasa menganalisa dokumen");
+      setAiProcessing(false);
     }
   };
 
