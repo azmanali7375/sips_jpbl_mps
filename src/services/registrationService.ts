@@ -105,7 +105,7 @@ export async function registerNewApplication(
       longitud: formData.longitud,
       latitud: formData.latitud,
       jabatan_memperaku: "Jabatan Perancangan Bandar & Desa (JPBL)",
-      assigned_to: formData.pegawai_bertanggungjawab || null,
+      assigned_officer_id: formData.pegawai_bertanggungjawab || null,
       status_dalaman: formData.status_dalaman,
       catatan_dalaman: formData.catatan_dalaman,
       status: "Pending",
@@ -131,9 +131,9 @@ export async function registerNewApplication(
     // Insert workflow history
     const workflowData: WorkflowHistoryInsert = {
       application_id: application.id,
-      action: "Permohonan Didaftar dalam SIPS",
-      performed_by: userId,
-      catatan: `No. OSC: ${formData.no_permohonan_osc}`,
+      to_status: "Diterima",
+      changed_by: userId,
+      comment: `Permohonan Didaftar dalam SIPS - No. OSC: ${formData.no_permohonan_osc}`,
     };
 
     const { error: workflowError } = await supabase
