@@ -127,7 +127,7 @@ export function Layout({ children }: LayoutProps) {
       subItems: [
         { label: "Pengguna", href: "/dashboard/manage-users" },
         { label: "Garis Panduan", href: "/dashboard/compliance-rules" },
-        { label: "Templat Laporan", href: "/dashboard/written-directives" },
+        { label: "Templat Laporan", href: "/dashboard/report-templates" },
       ],
     },
   ];

@@ -18,6 +18,9 @@ import {
   type WrittenDirectiveFormData,
 } from "@/services/writtenDirectiveService";
 
+// This file is actually for Written Directives (Arahan Bertulis - Borang A1)
+// For report templates, we need a separate page
+
 export default function WrittenDirectivePage() {
   const router = useRouter();
   const { application_id, id } = router.query;
