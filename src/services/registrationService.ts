@@ -91,46 +91,15 @@ export async function registerNewApplication(
 
     const no_fail_jpl = fileNumberData as string;
 
-    // Prepare application data
-    const applicationData: ApplicationInsert = {
-      no_fail_jpl,
-      applicant_id: userId, // Officer registering on behalf of applicant
-      project_name: formData.tajuk_permohonan,
-      location: formData.lokasi_mercu_tanda || formData.mukim || "Segamat",
-      no_permohonan_osc: formData.no_permohonan_osc,
-      kategori_permohonan: formData.kategori_permohonan,
-      skala_pembangunan: formData.skala_pembangunan,
-      jenis_proses_pr: formData.jenis_proses_pr,
-      status_semakan_osc: formData.status_semakan_osc,
-      tarikh_penghantaran: formData.tarikh_penghantaran,
-      tarikh_lengkap_diterima_osc: formData.tarikh_lengkap_diterima_osc,
-      tarikh_kpi,
-      nama_sp: formData.nama_sp,
-      no_kp_sp: formData.no_kp_sp,
-      nama_pemaju_pemilik: formData.nama_pemaju_pemilik,
-      tajuk_permohonan: formData.tajuk_permohonan,
-      lokasi_mercu_tanda: formData.lokasi_mercu_tanda,
-      mukim: formData.mukim,
-      daerah: formData.daerah || "Segamat",
-      negeri: formData.negeri || "Johor",
-      rancangan_tempatan: formData.rancangan_tempatan,
-      zoning: formData.zoning,
-      longitud: formData.longitud,
-      latitud: formData.latitud,
-      jabatan_memperaku: "Jabatan Perancangan Bandar & Desa (JPBL)",
-      assigned_officer_id: formData.pegawai_bertanggungjawab || null,
-      status_dalaman: formData.status_dalaman,
-      catatan_dalaman: formData.catatan_dalaman,
-      status: "Pending",
-      submitted_at: new Date().toISOString(),
-    };
-
     // Insert application record - jenis_aplikasi and kpi_hari will be auto-set by trigger
     const { data: appData, error: appError } = await supabase
       .from("applications")
       .insert({
+        applicant_id: userId,
         no_permohonan_osc: formData.no_permohonan_osc.trim(),
         no_fail_jpl: no_fail_jpl,
+        project_name: formData.tajuk_permohonan.trim(),
+        location: formData.lokasi_mercu_tanda || formData.mukim || "Segamat",
         tarikh_penghantaran: formData.tarikh_penghantaran,
         tarikh_lengkap_diterima_osc: formData.tarikh_lengkap_diterima_osc,
         tarikh_kpi: tarikh_kpi,

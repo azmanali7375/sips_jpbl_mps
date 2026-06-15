@@ -191,6 +191,16 @@ export default function ReportTemplates() {
     }
   }
 
+  const updateFormField = <K extends keyof TemplateFormData>(
+    field: K,
+    value: TemplateFormData[K]
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -307,14 +317,7 @@ export default function ReportTemplates() {
                 </Label>
                 <Input
                   value={formData.template_name}
-                  onChange={(e) => {
-                    setFormData({
-                      template_name: e.target.value,
-                      template_type: formData.template_type,
-                      template_content: formData.template_content,
-                      description: formData.description,
-                    });
-                  }}
+                  onChange={(e) => updateFormField("template_name", e.target.value)}
                   placeholder="Contoh: Ulasan Teknikal Standard"
                 />
               </div>
@@ -323,14 +326,7 @@ export default function ReportTemplates() {
                 <Label>Jenis Templat</Label>
                 <Select
                   value={formData.template_type}
-                  onValueChange={(value) => {
-                    setFormData({
-                      template_name: formData.template_name,
-                      template_type: value,
-                      template_content: formData.template_content,
-                      description: formData.description,
-                    });
-                  }}
+                  onValueChange={(value) => updateFormField("template_type", value)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -349,14 +345,7 @@ export default function ReportTemplates() {
                 <Label>Penerangan</Label>
                 <Input
                   value={formData.description}
-                  onChange={(e) => {
-                    setFormData({
-                      template_name: formData.template_name,
-                      template_type: formData.template_type,
-                      template_content: formData.template_content,
-                      description: e.target.value,
-                    });
-                  }}
+                  onChange={(e) => updateFormField("description", e.target.value)}
                   placeholder="Penerangan ringkas templat ini"
                 />
               </div>
@@ -367,14 +356,7 @@ export default function ReportTemplates() {
                 </Label>
                 <Textarea
                   value={formData.template_content}
-                  onChange={(e) => {
-                    setFormData({
-                      template_name: formData.template_name,
-                      template_type: formData.template_type,
-                      template_content: e.target.value,
-                      description: formData.description,
-                    });
-                  }}
+                  onChange={(e) => updateFormField("template_content", e.target.value)}
                   rows={15}
                   placeholder="Masukkan kandungan templat. Gunakan placeholder seperti {{no_fail_jpl}}, {{tajuk_permohonan}}, dll."
                   className="font-mono text-sm"
