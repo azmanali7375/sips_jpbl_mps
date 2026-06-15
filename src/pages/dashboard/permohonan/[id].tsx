@@ -46,10 +46,15 @@ import {
   bulkImportLandLots,
   KATEGORI_OPTIONS,
 } from "@/services/landLotService";
+import {
+  getWrittenDirectives,
+  isDirectiveOverdue,
+} from "@/services/writtenDirectiveService";
 import { Database } from "@/integrations/supabase/types";
-import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download } from "lucide-react";
+import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck } from "lucide-react";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
+type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
 
 const STATUS_COLORS: Record<string, string> = {
   "Diterima": "bg-blue-500",
@@ -107,6 +112,9 @@ export default function ApplicationDetailPage() {
     catatan: "",
   });
 
+  // Written directives state
+  const [writtenDirectives, setWrittenDirectives] = useState<WrittenDirective[]>([]);
+
   // Load data
   useEffect(() => {
     if (!id) return;
@@ -147,6 +155,10 @@ export default function ApplicationDetailPage() {
       // Get land lots
       const lots = await getLandLots(id as string);
       setLandLots(lots);
+
+      // Get written directives
+      const directives = await getWrittenDirectives(id as string);
+      setWrittenDirectives(directives);
 
       // Get officers (for admin only)
       if (profile?.role === "admin" || profile?.role === "department_head") {
@@ -439,6 +451,14 @@ export default function ApplicationDetailPage() {
             >
               <MapPin className="h-4 w-4 mr-2" />
               Lawatan Tapak
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/dashboard/written-directives?application_id=${application.id}`)}
+            >
+              <FileCheck className="h-4 w-4 mr-2" />
+              Arahan Bertulis
             </Button>
             <Button
               variant="outline"
@@ -878,6 +898,88 @@ export default function ApplicationDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* NEW SECTION: Arahan Bertulis */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-serif">Arahan Bertulis</CardTitle>
+                <CardDescription>
+                  Senarai arahan bertulis yang dikeluarkan untuk permohonan ini
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => router.push(`/dashboard/written-directives?application_id=${application.id}`)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Arahan
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {writtenDirectives.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Tiada arahan bertulis dikeluarkan
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No. Arahan</TableHead>
+                    <TableHead>Jenis Borang</TableHead>
+                    <TableHead>Tarikh Dikeluarkan</TableHead>
+                    <TableHead>Tarikh Pematuhan Dikehendaki</TableHead>
+                    <TableHead>Status Pematuhan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {writtenDirectives.map((directive) => {
+                    const overdue = isDirectiveOverdue(directive);
+                    return (
+                      <TableRow
+                        key={directive.id}
+                        className={overdue ? "bg-red-50 hover:bg-red-100" : ""}
+                        onClick={() => router.push(`/dashboard/written-directives?application_id=${application.id}&id=${directive.id}`)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <TableCell className="font-mono">
+                          {directive.directive_number}
+                        </TableCell>
+                        <TableCell>{directive.jenis_borang || "-"}</TableCell>
+                        <TableCell>
+                          {directive.tarikh_dikeluarkan
+                            ? new Date(directive.tarikh_dikeluarkan).toLocaleDateString("ms-MY")
+                            : "-"}
+                        </TableCell>
+                        <TableCell className={overdue ? "font-medium text-destructive" : ""}>
+                          {directive.tarikh_pematuhan_dikehendaki
+                            ? new Date(directive.tarikh_pematuhan_dikehendaki).toLocaleDateString("ms-MY")
+                            : "-"}
+                          {overdue && " (LEWAT)"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              directive.status_pematuhan === "Patuh"
+                                ? "default"
+                                : directive.status_pematuhan === "Gagal Patuh"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {directive.status_pematuhan}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Section 4: Semakan KPI */}
         {kpiProgress && (
