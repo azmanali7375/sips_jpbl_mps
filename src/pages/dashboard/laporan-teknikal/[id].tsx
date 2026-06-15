@@ -13,6 +13,61 @@ import { useToast } from "@/hooks/use-toast";
 import { laporanTeknikalService, type BahagianBData } from "@/services/laporanTeknikalService";
 import { Loader2, Save, Plus, X, ArrowLeft } from "lucide-react";
 
+// Types for Bahagian C
+interface BahagianCRow {
+  nilai: string;
+  selaras: "Selaras" | "Tidak" | null;
+}
+
+interface BahagianCData {
+  c_a_bp: string;
+  c_a_bpk: string;
+  c_b: BahagianCRow;
+  c_c: BahagianCRow;
+  c_d: BahagianCRow;
+  c_e: BahagianCRow;
+  c_f: BahagianCRow;
+  c_g: BahagianCRow;
+  c_h: string;
+}
+
+// Types for Bahagian D
+interface BahagianDRow {
+  piawaian: string;
+  pelan: string;
+  keselarasan: "Selaras" | "Tidak" | null;
+  nota: string;
+}
+
+interface BahagianDData {
+  kesediaan_tapak: {
+    lebar_tapak: BahagianDRow;
+    panjang_tapak: BahagianDRow;
+    saiz_lot: BahagianDRow;
+    aras_lot_jiran: BahagianDRow;
+    cerun: BahagianDRow;
+    saliran: BahagianDRow;
+  };
+  jalan_akses: {
+    jalan_utama: BahagianDRow;
+    jalan_pengumpul: BahagianDRow;
+    jalan_tempatan: BahagianDRow;
+    lorong_belakang: BahagianDRow;
+    pejalan_kaki: BahagianDRow;
+  };
+  anjakan_bangunan: {
+    hadapan: BahagianDRow;
+    tepi_kanan: BahagianDRow;
+    tepi_kiri: BahagianDRow;
+    belakang: BahagianDRow;
+    laluan_pejalan_kaki: BahagianDRow;
+    dari_rizab_jalan: BahagianDRow;
+    dari_pe: BahagianDRow;
+    dari_stp: BahagianDRow;
+    dari_kta: BahagianDRow;
+  };
+}
+
 export default function LaporanTeknikalPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -42,6 +97,49 @@ export default function LaporanTeknikalPage() {
     masa_lawatan: "",
   });
 
+  const [bahagianC, setBahagianC] = useState<BahagianCData>({
+    c_a_bp: "",
+    c_a_bpk: "",
+    c_b: { nilai: "", selaras: null },
+    c_c: { nilai: "", selaras: null },
+    c_d: { nilai: "", selaras: null },
+    c_e: { nilai: "", selaras: null },
+    c_f: { nilai: "", selaras: null },
+    c_g: { nilai: "", selaras: null },
+    c_h: "",
+  });
+
+  const emptyDRow = (): BahagianDRow => ({ piawaian: "", pelan: "", keselarasan: null, nota: "" });
+
+  const [bahagianD, setBahagianD] = useState<BahagianDData>({
+    kesediaan_tapak: {
+      lebar_tapak: emptyDRow(),
+      panjang_tapak: emptyDRow(),
+      saiz_lot: emptyDRow(),
+      aras_lot_jiran: emptyDRow(),
+      cerun: emptyDRow(),
+      saliran: emptyDRow(),
+    },
+    jalan_akses: {
+      jalan_utama: emptyDRow(),
+      jalan_pengumpul: emptyDRow(),
+      jalan_tempatan: emptyDRow(),
+      lorong_belakang: emptyDRow(),
+      pejalan_kaki: emptyDRow(),
+    },
+    anjakan_bangunan: {
+      hadapan: emptyDRow(),
+      tepi_kanan: emptyDRow(),
+      tepi_kiri: emptyDRow(),
+      belakang: emptyDRow(),
+      laluan_pejalan_kaki: emptyDRow(),
+      dari_rizab_jalan: emptyDRow(),
+      dari_pe: emptyDRow(),
+      dari_stp: emptyDRow(),
+      dari_kta: emptyDRow(),
+    },
+  });
+
   // Current section (for progress indicator)
   const [currentSection, setCurrentSection] = useState("A");
 
@@ -60,7 +158,7 @@ export default function LaporanTeknikalPage() {
     }, 60000); // 60 seconds
 
     return () => clearTimeout(timer);
-  }, [hasUnsavedChanges, bahagianA, bahagianB, noRujukanFail, isKmt]);
+  }, [hasUnsavedChanges, bahagianA, bahagianB, bahagianC, bahagianD, noRujukanFail, isKmt]);
 
   const loadData = async () => {
     try {
@@ -82,6 +180,16 @@ export default function LaporanTeknikalPage() {
         // Type assertion for bahagian_b from JSONB
         if (laporan.bahagian_b && typeof laporan.bahagian_b === 'object') {
           setBahagianB(laporan.bahagian_b as unknown as BahagianBData);
+        }
+
+        // Load Bahagian C
+        if (laporan.bahagian_c && typeof laporan.bahagian_c === 'object') {
+          setBahagianC(laporan.bahagian_c as unknown as BahagianCData);
+        }
+
+        // Load Bahagian D
+        if (laporan.bahagian_d && typeof laporan.bahagian_d === 'object') {
+          setBahagianD(laporan.bahagian_d as unknown as BahagianDData);
         }
       } else {
         // Pre-fill from application data
@@ -121,6 +229,8 @@ export default function LaporanTeknikalPage() {
         status_laporan: statusLaporan,
         bahagian_a: bahagianA,
         bahagian_b: bahagianB,
+        bahagian_c: bahagianC,
+        bahagian_d: bahagianD,
       });
 
       setHasUnsavedChanges(false);
@@ -189,8 +299,8 @@ export default function LaporanTeknikalPage() {
   const sections = [
     { id: "A", label: "A" },
     { id: "B", label: "B" },
-    { id: "C", label: "C", disabled: true },
-    { id: "D", label: "D", disabled: true },
+    { id: "C", label: "C", disabled: false },
+    { id: "D", label: "D", disabled: false },
     { id: "E", label: "E", disabled: true },
     { id: "F", label: "F", disabled: true },
     { id: "G", label: "G*", disabled: !isKmt },
@@ -520,6 +630,519 @@ export default function LaporanTeknikalPage() {
                         markChanged();
                       }}
                     />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* BAHAGIAN C */}
+            {currentSection === "C" && (
+              <div className="space-y-6">
+                <h2 className="text-lg font-bold">C. SEMAKAN TEKNIKAL PERANCANGAN</h2>
+
+                <div className="border rounded-md overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="border p-3 text-left font-semibold">Parameter</th>
+                        <th className="border p-3 text-left font-semibold">Nilai / Maklumat</th>
+                        <th className="border p-3 text-center font-semibold w-24">Selaras</th>
+                        <th className="border p-3 text-center font-semibold w-24">Tidak</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Row c_a - No radio buttons */}
+                      <tr>
+                        <td className="border p-3 font-medium">a. Blok Perancangan (BP)</td>
+                        <td className="border p-3" colSpan={3}>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="BP"
+                              value={bahagianC.c_a_bp}
+                              onChange={(e) => {
+                                setBahagianC({ ...bahagianC, c_a_bp: e.target.value });
+                                markChanged();
+                              }}
+                              className="w-32"
+                            />
+                            <Input
+                              placeholder="BPK"
+                              value={bahagianC.c_a_bpk}
+                              onChange={(e) => {
+                                setBahagianC({ ...bahagianC, c_a_bpk: e.target.value });
+                                markChanged();
+                              }}
+                              className="w-32"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Row c_b - Zon Perancangan */}
+                      <tr className={bahagianC.c_b.selaras === "Tidak" ? "bg-red-50" : ""}>
+                        <td className="border p-3 font-medium">b. Zon Perancangan</td>
+                        <td className="border p-3">
+                          <Input
+                            value={bahagianC.c_b.nilai}
+                            onChange={(e) => {
+                              setBahagianC({
+                                ...bahagianC,
+                                c_b: { ...bahagianC.c_b, nilai: e.target.value },
+                              });
+                              markChanged();
+                            }}
+                          />
+                        </td>
+                        <td className="border p-3 text-center">
+                          <RadioGroup
+                            value={bahagianC.c_b.selaras || ""}
+                            onValueChange={(value) => {
+                              setBahagianC({
+                                ...bahagianC,
+                                c_b: { ...bahagianC.c_b, selaras: value as "Selaras" | "Tidak" },
+                              });
+                              markChanged();
+                            }}
+                          >
+                            <RadioGroupItem value="Selaras" id="c_b_selaras" />
+                          </RadioGroup>
+                        </td>
+                        <td className="border p-3 text-center">
+                          <RadioGroup
+                            value={bahagianC.c_b.selaras || ""}
+                            onValueChange={(value) => {
+                              setBahagianC({
+                                ...bahagianC,
+                                c_b: { ...bahagianC.c_b, selaras: value as "Selaras" | "Tidak" },
+                              });
+                              markChanged();
+                            }}
+                          >
+                            <RadioGroupItem value="Tidak" id="c_b_tidak" />
+                          </RadioGroup>
+                        </td>
+                      </tr>
+
+                      {/* Rows c_c through c_g - same pattern */}
+                      {[
+                        { key: "c_c", label: "c. Kelas Kegunaan Tanah" },
+                        { key: "c_d", label: "d. Densiti Dibenarkan" },
+                        { key: "c_e", label: "e. Nisbah Plot Dibenarkan" },
+                        { key: "c_f", label: "f. Ketinggian Dibenarkan" },
+                        { key: "c_g", label: "g. Kawasan Plinth" },
+                      ].map((item) => {
+                        const rowKey = item.key as keyof Pick<BahagianCData, "c_c" | "c_d" | "c_e" | "c_f" | "c_g">;
+                        const rowData = bahagianC[rowKey] as BahagianCRow;
+                        return (
+                          <tr key={item.key} className={rowData.selaras === "Tidak" ? "bg-red-50" : ""}>
+                            <td className="border p-3 font-medium">{item.label}</td>
+                            <td className="border p-3">
+                              <Input
+                                value={rowData.nilai}
+                                onChange={(e) => {
+                                  setBahagianC({
+                                    ...bahagianC,
+                                    [rowKey]: { ...rowData, nilai: e.target.value },
+                                  });
+                                  markChanged();
+                                }}
+                              />
+                            </td>
+                            <td className="border p-3 text-center">
+                              <RadioGroup
+                                value={rowData.selaras || ""}
+                                onValueChange={(value) => {
+                                  setBahagianC({
+                                    ...bahagianC,
+                                    [rowKey]: { ...rowData, selaras: value as "Selaras" | "Tidak" },
+                                  });
+                                  markChanged();
+                                }}
+                              >
+                                <RadioGroupItem value="Selaras" id={`${item.key}_selaras`} />
+                              </RadioGroup>
+                            </td>
+                            <td className="border p-3 text-center">
+                              <RadioGroup
+                                value={rowData.selaras || ""}
+                                onValueChange={(value) => {
+                                  setBahagianC({
+                                    ...bahagianC,
+                                    [rowKey]: { ...rowData, selaras: value as "Selaras" | "Tidak" },
+                                  });
+                                  markChanged();
+                                }}
+                              >
+                                <RadioGroupItem value="Tidak" id={`${item.key}_tidak`} />
+                              </RadioGroup>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* Row c_h - No radio buttons */}
+                      <tr>
+                        <td className="border p-3 font-medium">h. Kesetaraan Penduduk (berdasarkan cadangan)</td>
+                        <td className="border p-3" colSpan={3}>
+                          <Input
+                            value={bahagianC.c_h}
+                            onChange={(e) => {
+                              setBahagianC({ ...bahagianC, c_h: e.target.value });
+                              markChanged();
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Summary */}
+                <div className="p-4 bg-muted rounded-md">
+                  <p className="font-semibold">
+                    Jumlah Tidak Selaras:{" "}
+                    {[bahagianC.c_b, bahagianC.c_c, bahagianC.c_d, bahagianC.c_e, bahagianC.c_f, bahagianC.c_g].filter(
+                      (row) => row.selaras === "Tidak"
+                    ).length}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* BAHAGIAN D */}
+            {currentSection === "D" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold">D. SEMAKAN PERINCIAN CADANGAN</h2>
+                  <p className="text-sm italic text-muted-foreground">(Lampirkan Kiraan-Kiraan Jika Berkaitan)</p>
+                </div>
+
+                {/* D-a: Kesediaan Tapak */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">a. Kesediaan Tapak</h3>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="border p-2 text-left font-semibold text-sm">Item</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Piawaian</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Pelan</th>
+                          <th className="border p-2 text-center font-semibold text-sm w-32">Keselarasan</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Nota</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { key: "lebar_tapak", label: "Lebar tapak" },
+                          { key: "panjang_tapak", label: "Panjang tapak" },
+                          { key: "saiz_lot", label: "Saiz lot" },
+                          { key: "aras_lot_jiran", label: "Aras dgn Lot Jiran" },
+                          { key: "cerun", label: "Cerun" },
+                          { key: "saliran", label: "Saliran" },
+                        ].map((item) => {
+                          const rowKey = item.key as keyof BahagianDData["kesediaan_tapak"];
+                          const rowData = bahagianD.kesediaan_tapak[rowKey];
+                          return (
+                            <tr key={item.key} className={rowData.keselarasan === "Tidak" ? "bg-red-50" : ""}>
+                              <td className="border p-2 text-sm">{item.label}</td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.piawaian}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      kesediaan_tapak: {
+                                        ...bahagianD.kesediaan_tapak,
+                                        [rowKey]: { ...rowData, piawaian: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.pelan}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      kesediaan_tapak: {
+                                        ...bahagianD.kesediaan_tapak,
+                                        [rowKey]: { ...rowData, pelan: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <RadioGroup
+                                  value={rowData.keselarasan || ""}
+                                  onValueChange={(value) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      kesediaan_tapak: {
+                                        ...bahagianD.kesediaan_tapak,
+                                        [rowKey]: { ...rowData, keselarasan: value as "Selaras" | "Tidak" },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="flex gap-2 justify-center"
+                                >
+                                  <div className="flex items-center space-x-1">
+                                    <RadioGroupItem value="Selaras" id={`${item.key}_selaras`} />
+                                    <Label htmlFor={`${item.key}_selaras`} className="text-xs">Selaras</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <RadioGroupItem value="Tidak" id={`${item.key}_tidak`} />
+                                    <Label htmlFor={`${item.key}_tidak`} className="text-xs">Tidak</Label>
+                                  </div>
+                                </RadioGroup>
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.nota}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      kesediaan_tapak: {
+                                        ...bahagianD.kesediaan_tapak,
+                                        [rowKey]: { ...rowData, nota: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* D-b: Jalan & Akses */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">b. Jalan & Akses</h3>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="border p-2 text-left font-semibold text-sm">Item</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Piawaian</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Pelan</th>
+                          <th className="border p-2 text-center font-semibold text-sm w-32">Keselarasan</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Nota</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { key: "jalan_utama", label: "Jalan Utama" },
+                          { key: "jalan_pengumpul", label: "Jalan Pengumpul" },
+                          { key: "jalan_tempatan", label: "Jalan Tempatan" },
+                          { key: "lorong_belakang", label: "Lorong Belakang" },
+                          { key: "pejalan_kaki", label: "Pejalan Kaki" },
+                        ].map((item) => {
+                          const rowKey = item.key as keyof BahagianDData["jalan_akses"];
+                          const rowData = bahagianD.jalan_akses[rowKey];
+                          return (
+                            <tr key={item.key} className={rowData.keselarasan === "Tidak" ? "bg-red-50" : ""}>
+                              <td className="border p-2 text-sm">{item.label}</td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.piawaian}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      jalan_akses: {
+                                        ...bahagianD.jalan_akses,
+                                        [rowKey]: { ...rowData, piawaian: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.pelan}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      jalan_akses: {
+                                        ...bahagianD.jalan_akses,
+                                        [rowKey]: { ...rowData, pelan: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <RadioGroup
+                                  value={rowData.keselarasan || ""}
+                                  onValueChange={(value) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      jalan_akses: {
+                                        ...bahagianD.jalan_akses,
+                                        [rowKey]: { ...rowData, keselarasan: value as "Selaras" | "Tidak" },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="flex gap-2 justify-center"
+                                >
+                                  <div className="flex items-center space-x-1">
+                                    <RadioGroupItem value="Selaras" id={`${item.key}_selaras`} />
+                                    <Label htmlFor={`${item.key}_selaras`} className="text-xs">Selaras</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <RadioGroupItem value="Tidak" id={`${item.key}_tidak`} />
+                                    <Label htmlFor={`${item.key}_tidak`} className="text-xs">Tidak</Label>
+                                  </div>
+                                </RadioGroup>
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.nota}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      jalan_akses: {
+                                        ...bahagianD.jalan_akses,
+                                        [rowKey]: { ...rowData, nota: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* D-c: Anjakan Bangunan */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold">c. Anjakan Bangunan</h3>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="border p-2 text-left font-semibold text-sm">Item</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Piawaian</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Pelan</th>
+                          <th className="border p-2 text-center font-semibold text-sm w-32">Keselarasan</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Nota</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { key: "hadapan", label: "Hadapan" },
+                          { key: "tepi_kanan", label: "Tepi Kanan" },
+                          { key: "tepi_kiri", label: "Tepi Kiri" },
+                          { key: "belakang", label: "Belakang" },
+                          { key: "laluan_pejalan_kaki", label: "Laluan Pejalan Kaki" },
+                          { key: "dari_rizab_jalan", label: "Dari Rizab Jalan" },
+                          { key: "dari_pe", label: "Dari PE" },
+                          { key: "dari_stp", label: "Dari STP" },
+                          { key: "dari_kta", label: "Dari KTA" },
+                        ].map((item) => {
+                          const rowKey = item.key as keyof BahagianDData["anjakan_bangunan"];
+                          const rowData = bahagianD.anjakan_bangunan[rowKey];
+                          return (
+                            <tr key={item.key} className={rowData.keselarasan === "Tidak" ? "bg-red-50" : ""}>
+                              <td className="border p-2 text-sm">{item.label}</td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.piawaian}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      anjakan_bangunan: {
+                                        ...bahagianD.anjakan_bangunan,
+                                        [rowKey]: { ...rowData, piawaian: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.pelan}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      anjakan_bangunan: {
+                                        ...bahagianD.anjakan_bangunan,
+                                        [rowKey]: { ...rowData, pelan: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <RadioGroup
+                                  value={rowData.keselarasan || ""}
+                                  onValueChange={(value) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      anjakan_bangunan: {
+                                        ...bahagianD.anjakan_bangunan,
+                                        [rowKey]: { ...rowData, keselarasan: value as "Selaras" | "Tidak" },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="flex gap-2 justify-center"
+                                >
+                                  <div className="flex items-center space-x-1">
+                                    <RadioGroupItem value="Selaras" id={`${item.key}_selaras`} />
+                                    <Label htmlFor={`${item.key}_selaras`} className="text-xs">Selaras</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <RadioGroupItem value="Tidak" id={`${item.key}_tidak`} />
+                                    <Label htmlFor={`${item.key}_tidak`} className="text-xs">Tidak</Label>
+                                  </div>
+                                </RadioGroup>
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={rowData.nota}
+                                  onChange={(e) => {
+                                    setBahagianD({
+                                      ...bahagianD,
+                                      anjakan_bangunan: {
+                                        ...bahagianD.anjakan_bangunan,
+                                        [rowKey]: { ...rowData, nota: e.target.value },
+                                      },
+                                    });
+                                    markChanged();
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
