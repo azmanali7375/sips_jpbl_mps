@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
+import { kpiWarningService } from "@/services/kpiWarningService";
 import type { Tables } from "@/integrations/supabase/types";
 import { 
   LayoutDashboard, 
@@ -44,6 +45,9 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     loadProfile();
     loadUser();
+    
+    // Run KPI warning check on page load
+    kpiWarningService.checkAndNotify();
   }, []);
 
   const loadProfile = async () => {

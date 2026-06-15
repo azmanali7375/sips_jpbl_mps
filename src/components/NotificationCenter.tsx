@@ -71,11 +71,11 @@ export function NotificationCenter() {
     loadNotifications();
   };
 
-  const handleNotificationClick = (notification: Tables<"notifications">) => {
+  const handleNotificationClick = (notification: any) => {
     handleMarkAsRead(notification.id);
     if (notification.application_id) {
       setIsOpen(false);
-      router.push(`/dashboard?app=${notification.application_id}`);
+      router.push(`/dashboard/permohonan/${notification.application_id}`);
     }
   };
 
@@ -156,6 +156,11 @@ export function NotificationCenter() {
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {notification.message}
                       </p>
+                      {(notification as any).applications?.tracking_number && (
+                        <p className="text-xs text-primary mt-1 font-mono">
+                          No. Fail: {(notification as any).applications.tracking_number}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(notification.created_at), {
