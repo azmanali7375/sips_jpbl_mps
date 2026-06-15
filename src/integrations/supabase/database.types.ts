@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -394,6 +394,8 @@ export type Database = {
           is_finalized: boolean | null
           report_content: string
           report_type: string
+          status: string | null
+          template_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -405,6 +407,8 @@ export type Database = {
           is_finalized?: boolean | null
           report_content: string
           report_type: string
+          status?: string | null
+          template_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -416,6 +420,8 @@ export type Database = {
           is_finalized?: boolean | null
           report_content?: string
           report_type?: string
+          status?: string | null
+          template_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -431,6 +437,13 @@ export type Database = {
             columns: ["generated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
             referencedColumns: ["id"]
           },
         ]
