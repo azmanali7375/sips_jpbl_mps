@@ -1361,6 +1361,14 @@ Return this exact JSON structure with ONLY the requested fields:
             <Button
               variant="outline"
               size="sm"
+              onClick={() => router.push(`/dashboard/ulasan-perancangan/${application.id}`)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Ulasan Perancangan
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => router.push(`/dashboard/reports/${application.id}`)}
             >
               <FileBarChart className="h-4 w-4 mr-2" />
