@@ -116,7 +116,7 @@ export default function ReportTemplates() {
 
     try {
       if (editingId) {
-        // Update existing
+        // Update existing template
         const { error } = await supabase
           .from("report_templates")
           .update({
