@@ -941,6 +941,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           avatar_url: string | null
           created_at: string | null
           department: string | null
@@ -948,13 +950,18 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          last_login: string | null
           organisation: string | null
           phone: string | null
+          rejection_reason: string | null
           role: string | null
           staff_id: string | null
+          status: string | null
           updated_at: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_url?: string | null
           created_at?: string | null
           department?: string | null
@@ -962,13 +969,18 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          last_login?: string | null
           organisation?: string | null
           phone?: string | null
+          rejection_reason?: string | null
           role?: string | null
           staff_id?: string | null
+          status?: string | null
           updated_at?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_url?: string | null
           created_at?: string | null
           department?: string | null
@@ -976,13 +988,24 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          last_login?: string | null
           organisation?: string | null
           phone?: string | null
+          rejection_reason?: string | null
           role?: string | null
           staff_id?: string | null
+          status?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_templates: {
         Row: {

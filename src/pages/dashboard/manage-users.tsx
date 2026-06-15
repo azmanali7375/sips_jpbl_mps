@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { auditLogService } from "@/services/auditLogService";
 import { Check, X, UserCog } from "lucide-react";
 
 interface UserProfile {
@@ -122,6 +123,18 @@ export default function ManageUsersPage() {
         description: `Akaun ${selectedUser.full_name} telah diluluskan`,
       });
 
+      // Log audit entry
+      await auditLogService.log({
+        user_id: currentUserId,
+        action: auditLogService.actions.USER_APPROVED,
+        target_user_id: selectedUser.id,
+        details: {
+          assigned_role: assignedRole,
+          user_name: selectedUser.full_name,
+          user_email: selectedUser.email,
+        },
+      });
+
       setShowApproveDialog(false);
       setSelectedUser(null);
       setAssignedRole("");
@@ -171,6 +184,18 @@ export default function ManageUsersPage() {
       toast({
         title: "Berjaya",
         description: `Akaun ${selectedUser.full_name} telah ditolak`,
+      });
+
+      // Log audit entry
+      await auditLogService.log({
+        user_id: currentUserId,
+        action: auditLogService.actions.USER_REJECTED,
+        target_user_id: selectedUser.id,
+        details: {
+          rejection_reason: rejectionReason,
+          user_name: selectedUser.full_name,
+          user_email: selectedUser.email,
+        },
       });
 
       setShowRejectDialog(false);
