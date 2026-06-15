@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { RoleGuard } from "@/components/RoleGuard";
 import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
 import { agencyUlasanService, type AgencyUlasan, type AgencyUlasanStats } from "@/services/agencyUlasanService";
 import {
@@ -1449,34 +1450,46 @@ Return this exact JSON structure with ONLY the requested fields:
               <FileCheck className="h-4 w-4 mr-2" />
               Arahan Bertulis
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/dashboard/laporan-teknikal/${application.id}`)}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Laporan Teknikal
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/dashboard/ulasan-perancangan/${application.id}`)}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Ulasan Perancangan
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/dashboard/reports/${application.id}`)}
-            >
-              <FileBarChart className="h-4 w-4 mr-2" />
-              Jana Ulasan
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowUploadModal(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Muat Naik Dokumen
-            </Button>
+            <RoleGuard roles={["admin", "ketua_unit", "pegawai", "penolong"]}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUploadDialog(true)}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Muat Naik Dokumen
+              </Button>
+            </RoleGuard>
+            <RoleGuard roles={["admin", "ketua_unit", "pegawai"]}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/laporan-teknikal/${application.id}`)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Laporan Teknikal
+              </Button>
+            </RoleGuard>
+            <RoleGuard roles={["admin", "ketua_unit", "pegawai"]}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/ulasan-perancangan/${application.id}`)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Ulasan Perancangan
+              </Button>
+            </RoleGuard>
+            <RoleGuard roles={["admin", "ketua_unit"]}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/reports/${application.id}`)}
+              >
+                <FileBarChart className="h-4 w-4 mr-2" />
+                Jana Ulasan
+              </Button>
+            </RoleGuard>
           </div>
         </div>
 
