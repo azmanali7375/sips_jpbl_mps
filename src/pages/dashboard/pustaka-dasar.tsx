@@ -63,7 +63,7 @@ export default function PustakaDasarPage() {
 
   // Quick reference PDF state
   const [generatingQuickRef, setGeneratingQuickRef] = useState(false);
-  const currentUser = authService.getCurrentUser();
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [searching, setSearching] = useState(false);
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
 
@@ -81,7 +81,7 @@ export default function PustakaDasarPage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("*")
         .eq("id", user.id)
         .single();
 
@@ -95,6 +95,7 @@ export default function PustakaDasarPage() {
         return;
       }
 
+      setCurrentUser({ id: user.id, profiles: profile });
       await loadDocuments();
     } catch (error) {
       console.error("Error checking access:", error);
