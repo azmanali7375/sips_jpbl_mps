@@ -198,24 +198,24 @@ export function isDirectiveOverdue(directive: WrittenDirective): boolean {
  * Generate Borang A(1) PDF HTML
  */
 export function generateDirectivePDF(directive: WrittenDirective): string {
-  const dateFormatted = new Date(directive.tarikh_arahan).toLocaleDateString("ms-MY", {
+  const dateFormatted = new Date(directive.tarikh_dikeluarkan).toLocaleDateString("ms-MY", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
   // Calculate 1 week deadline for plan return
-  const planReturnDate = new Date(directive.tarikh_arahan);
-  planReturnDate.setDate(planReturnDate.setDate(planReturnDate.getDate() + 7));
+  const planReturnDate = new Date(directive.tarikh_dikeluarkan);
+  planReturnDate.setDate(planReturnDate.getDate() + 7);
   const planReturnDateFormatted = planReturnDate.toLocaleDateString("ms-MY", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-  // Format compliance deadline (tarikh_pematuhan)
-  const complianceDeadline = directive.tarikh_pematuhan
-    ? new Date(directive.tarikh_pematuhan).toLocaleDateString("ms-MY", {
+  // Format compliance deadline (tarikh_pematuhan_dikehendaki)
+  const complianceDeadline = directive.tarikh_pematuhan_dikehendaki
+    ? new Date(directive.tarikh_pematuhan_dikehendaki).toLocaleDateString("ms-MY", {
         day: "numeric",
         month: "long",
         year: "numeric",
@@ -228,7 +228,8 @@ export function generateDirectivePDF(directive: WrittenDirective): string {
     : "";
 
   // Format directives as numbered list
-  const directivesList = directive.arahan_pindaan
+  const directiveContent = directive.arahan || directive.directive_content || "";
+  const directivesList = directiveContent
     .split("\n")
     .filter((line) => line.trim())
     .map((line, idx) => `<p>${idx + 1}. ${line}</p>`)
@@ -362,15 +363,15 @@ export function generateDirectivePDF(directive: WrittenDirective): string {
 
   <!-- Reference -->
   <div class="reference">
-    <strong>No. Rujukan:</strong> MPS/JPL.600-3/${directive.no_rujukan || ""}
+    <strong>No. Rujukan:</strong> MPS/JPL.600-3/${directive.directive_number || ""}
   </div>
 
   <!-- Address Block -->
   <div class="address-block">
     <div><strong>Kepada,</strong></div>
     <div style="margin-top: 10px;">
-      <strong>${directive.nama_pemaju_pemilik}</strong><br>
-      ${addressLines}
+      <strong>[NAMA PEMOHON]</strong><br>
+      ${addressLines || "[ALAMAT PEMOHON]"}
     </div>
   </div>
 
@@ -379,8 +380,8 @@ export function generateDirectivePDF(directive: WrittenDirective): string {
     <p>
       Setelah membuat semakan ke atas permohonan tuan dan mengambil kira perkara-perkara yang 
       dikehendaki oleh undang-undang, keperluan teknikal serta dokumen rancangan pemajuan yang ada, 
-      arahan bertulis seperti di Lampiran A dengan ini dikenakan kepada <strong>${directive.nama_pemaju_pemilik}</strong> 
-      beralamat ${directive.alamat_pemohon || ""} bagi tujuan <strong>${directive.tajuk_permohonan}</strong>
+      arahan bertulis seperti di Lampiran A dengan ini dikenakan kepada <strong>[NAMA PEMOHON]</strong> 
+      beralamat ${directive.alamat_pemohon || "[ALAMAT]"} bagi tujuan <strong>[TAJUK PERMOHONAN]</strong>
     </p>
 
     <p>
@@ -414,7 +415,7 @@ export function generateDirectivePDF(directive: WrittenDirective): string {
     <h2>LAMPIRAN A</h2>
     <div style="text-align: center; margin-bottom: 20px;">
       <strong>ARAHAN BERTULIS</strong><br>
-      (No. Rujukan: MPS/JPL.600-3/${directive.no_rujukan || ""})
+      (No. Rujukan: MPS/JPL.600-3/${directive.directive_number || ""})
     </div>
     
     <div class="lampiran-content">
