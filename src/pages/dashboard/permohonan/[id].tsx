@@ -157,6 +157,7 @@ export default function ApplicationDetailPage() {
   const [aiStatus, setAiStatus] = useState("");
   const [planParameters, setPlanParameters] = useState<any>(null);
   const [retrievedChunks, setRetrievedChunks] = useState<any[]>([]);
+  const [aiRecommendation, setAiRecommendation] = useState<any>(null);
 
   // Load data
   useEffect(() => {
@@ -669,9 +670,71 @@ export default function ApplicationDetailPage() {
 
       setAiStatus("Menyusun ulasan teknikal...");
 
+      // Stage 3: Generate AI recommendation
+      const policyContext = topChunks
+        .map(
+          (c) =>
+            `[${c.document_code} ${c.section_number || ""} — ${c.section_title || ""}]\n${c.content_text}`
+        )
+        .join("\n\n");
+
+      const recommendationPrompt = `PARAMETER PELAN:\n${JSON.stringify(
+        parameters,
+        null,
+        2
+      )}\n\nSEKSYEN DASAR RELEVAN:\n${policyContext}\n\nBandingkan dan kembalikan penilaian JSON.`;
+
+      const recommendationResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: `You are a senior urban planning officer at Majlis Perbandaran Segamat reviewing a KM application. Compare the proposed development against the policy sections provided. Return ONLY this JSON structure (all narrative in formal Bahasa Malaysia): {ringkasan_eksekutif: string, keputusan_ai: 'Disyorkan Lulus' or 'Disyorkan Lulus Bersyarat' or 'Disyorkan Tolak', keyakinan_ai: number 0-100, semakan_pematuhan:[{parameter, nilai_cadangan, nilai_piawai, dokumen_rujukan, status ('Patuh' or 'Tidak Patuh' or 'Perlu Pengesahan'), nota}], syarat_dicadangkan:[string], isu_utama:[string], rujukan_dasar:[{dokumen,seksyen,tajuk,relevansi}]}`,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: recommendationPrompt,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (!recommendationResponse.ok) {
+        const errorData = await recommendationResponse.json();
+        throw new Error(errorData.error?.message || "Failed to generate recommendation");
+      }
+
+      const recommendationData = await recommendationResponse.json();
+      const recommendationBlock = recommendationData.content?.find(
+        (block: any) => block.type === "text"
+      );
+      if (!recommendationBlock) throw new Error("No recommendation content in API response");
+
+      const recommendation = JSON.parse(recommendationBlock.text);
+      setAiRecommendation(recommendation);
+
+      // Save to generated_reports
+      await reportGenerationService.createReport({
+        application_id: application.id,
+        report_type: "AI_Policy_Analysis",
+        report_content: recommendation,
+        status: "Muktamad",
+        generated_by: currentUser.id,
+      });
+
       toast({
         title: "Analisis Selesai",
-        description: `${topChunks.length} peruntukan dasar dijumpai`,
+        description: `${topChunks.length} peruntukan dasar dijumpai. ${recommendation.keputusan_ai}.`,
       });
 
       setAiProcessing(false);
@@ -1822,64 +1885,205 @@ export default function ApplicationDetailPage() {
           ) : planParameters ? (
             /* Results View */
             <div className="space-y-6 mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Parameter Diekstrak</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="font-medium">Jenis Pembangunan:</div>
-                    <div>{planParameters.jenis_pembangunan || "-"}</div>
-                    <div className="font-medium">Zon Dicadang:</div>
-                    <div>{planParameters.zon_perancangan_dicadang || "-"}</div>
-                    <div className="font-medium">Bilangan Tingkat:</div>
-                    <div>{planParameters.bilangan_tingkat || "-"}</div>
-                    <div className="font-medium">Ketinggian (m):</div>
-                    <div>{planParameters.ketinggian_bangunan_m || "-"}</div>
-                    <div className="font-medium">Nisbah Plot:</div>
-                    <div>{planParameters.nisbah_plot || "-"}</div>
-                    <div className="font-medium">Densiti (unit/ekar):</div>
-                    <div>{planParameters.densiti_unit_per_ekar || "-"}</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div>
-                <h3 className="font-semibold mb-3">
-                  Peruntukan Dasar Relevan ({retrievedChunks.length})
-                </h3>
-                <div className="space-y-3">
-                  {retrievedChunks.map((chunk) => (
-                    <Card key={chunk.id}>
-                      <CardContent className="pt-4 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Badge>{chunk.document_code}</Badge>
-                          {chunk.section_number && (
-                            <Badge variant="outline">{chunk.section_number}</Badge>
-                          )}
+              {aiRecommendation ? (
+                <>
+                  {/* AI Decision Header */}
+                  <Card>
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Badge
+                          className={
+                            aiRecommendation.keputusan_ai === "Disyorkan Lulus"
+                              ? "bg-green-600"
+                              : aiRecommendation.keputusan_ai === "Disyorkan Lulus Bersyarat"
+                              ? "bg-orange-500"
+                              : "bg-destructive"
+                          }
+                        >
+                          {aiRecommendation.keputusan_ai}
+                        </Badge>
+                        <div className="text-sm">
+                          Keyakinan AI: <span className="font-bold">{aiRecommendation.keyakinan_ai}%</span>
                         </div>
-                        {chunk.section_title && (
-                          <h4 className="font-semibold text-sm">{chunk.section_title}</h4>
+                      </div>
+                      <p className="text-sm">{aiRecommendation.ringkasan_eksekutif}</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Compliance Table */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Semakan Pematuhan</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="border rounded-md overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted">
+                              <TableHead className="text-xs">Parameter</TableHead>
+                              <TableHead className="text-xs">Cadangan</TableHead>
+                              <TableHead className="text-xs">Piawai</TableHead>
+                              <TableHead className="text-xs">Rujukan</TableHead>
+                              <TableHead className="text-xs w-24">Status</TableHead>
+                              <TableHead className="text-xs">Nota</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {aiRecommendation.semakan_pematuhan.map((item: any, idx: number) => (
+                              <TableRow
+                                key={idx}
+                                className={
+                                  item.status === "Patuh"
+                                    ? "bg-green-50"
+                                    : item.status === "Tidak Patuh"
+                                    ? "bg-red-50"
+                                    : "bg-yellow-50"
+                                }
+                              >
+                                <TableCell className="text-xs font-medium">{item.parameter}</TableCell>
+                                <TableCell className="text-xs">{item.nilai_cadangan}</TableCell>
+                                <TableCell className="text-xs">{item.nilai_piawai}</TableCell>
+                                <TableCell className="text-xs">{item.dokumen_rujukan}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      item.status === "Patuh"
+                                        ? "default"
+                                        : item.status === "Tidak Patuh"
+                                        ? "destructive"
+                                        : "secondary"
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {item.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs">{item.nota}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3">
+                        {aiRecommendation.semakan_pematuhan.filter((i: any) => i.status === "Patuh").length}{" "}
+                        daripada {aiRecommendation.semakan_pematuhan.length} parameter patuh (
+                        {Math.round(
+                          (aiRecommendation.semakan_pematuhan.filter((i: any) => i.status === "Patuh").length /
+                            aiRecommendation.semakan_pematuhan.length) *
+                            100
                         )}
-                        <p className="text-sm text-muted-foreground line-clamp-3">
-                          {chunk.content_text}
-                        </p>
+                        %)
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Policy References */}
+                  {aiRecommendation.rujukan_dasar?.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Rujukan Dasar Digunakan</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {aiRecommendation.rujukan_dasar.map((ref: any, idx: number) => (
+                          <div key={idx} className="border-l-2 border-primary pl-3 py-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline">{ref.dokumen}</Badge>
+                              <span className="text-sm font-medium">{ref.seksyen}</span>
+                            </div>
+                            <p className="text-sm">{ref.tajuk}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Relevansi: {ref.relevansi}</p>
+                          </div>
+                        ))}
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
-              </div>
+                  )}
 
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setPlanParameters(null);
-                  setRetrievedChunks([]);
-                }}
-              >
-                Semak Pelan Lain
-              </Button>
+                  {/* Issues and Conditions */}
+                  {(aiRecommendation.isu_utama?.length > 0 || aiRecommendation.syarat_dicadangkan?.length > 0) && (
+                    <div className="grid gap-4">
+                      {aiRecommendation.isu_utama?.length > 0 && (
+                        <Card className="border-red-200">
+                          <CardHeader>
+                            <CardTitle className="text-base text-destructive">Isu Utama</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ul className="space-y-2">
+                              {aiRecommendation.isu_utama.map((isu: string, idx: number) => (
+                                <li key={idx} className="text-sm flex gap-2">
+                                  <span className="text-destructive">•</span>
+                                  <span>{isu}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {aiRecommendation.syarat_dicadangkan?.length > 0 && (
+                        <Card className="border-blue-200">
+                          <CardHeader>
+                            <CardTitle className="text-base text-blue-700">Syarat Dicadangkan</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ul className="space-y-2">
+                              {aiRecommendation.syarat_dicadangkan.map((syarat: string, idx: number) => (
+                                <li key={idx} className="text-sm flex gap-2">
+                                  <span className="text-blue-600">•</span>
+                                  <span>{syarat}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        router.push(`/dashboard/laporan-teknikal/${application.id}?ai_data=true`);
+                      }}
+                    >
+                      Gunakan untuk Laporan Teknikal
+                    </Button>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button variant="outline" className="w-full">
+                        Simpan sebagai Draf
+                      </Button>
+                      <Button variant="outline" className="w-full">
+                        Eksport PDF
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <p className="text-xs text-muted-foreground text-center px-4">
+                    Semakan AI adalah bantuan teknikal sahaja. Keputusan muktamad adalah tanggungjawab pegawai
+                    perancang bertauliah.
+                  </p>
+
+                  <Button
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => {
+                      setPlanParameters(null);
+                      setRetrievedChunks([]);
+                      setAiRecommendation(null);
+                    }}
+                  >
+                    Semak Pelan Lain
+                  </Button>
+                </>
+              ) : (
+                /* Loading state between stages */
+                <div className="py-12 text-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+                  <p className="text-sm text-muted-foreground mt-4">Menjana cadangan AI...</p>
+                </div>
+              )}
             </div>
           ) : (
             /* Selection Form */
