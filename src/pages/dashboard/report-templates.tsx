@@ -119,7 +119,6 @@ export default function ReportTemplates() {
         template_name: formData.template_name,
         template_type: formData.template_type,
         template_content: formData.template_content,
-        description: formData.description.trim() || null,
       };
 
       if (editingId) {
