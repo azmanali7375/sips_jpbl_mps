@@ -154,7 +154,7 @@ export default function SIPSDashboard() {
       );
 
       // KPI Performance - active applications only
-      setKpiPerformance(activeApps as ApplicationWithDetails[]);
+      setKpiPerformance(activeApps as unknown as ApplicationWithDetails[]);
 
     } catch (error) {
       console.error("Error loading dashboard:", error);
