@@ -35,6 +35,13 @@ interface ReportTemplate {
   created_at: string;
 }
 
+interface FormData {
+  template_name: string;
+  template_type: string;
+  template_content: string;
+  description: string;
+}
+
 export default function ReportTemplates() {
   const router = useRouter();
   const { toast } = useToast();
@@ -42,7 +49,7 @@ export default function ReportTemplates() {
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     template_name: "",
     template_type: "Ulasan Teknikal",
     template_content: "",
