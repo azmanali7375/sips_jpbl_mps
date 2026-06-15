@@ -109,7 +109,6 @@ export async function registerNewApplication(
       status_dalaman: formData.status_dalaman,
       catatan_dalaman: formData.catatan_dalaman,
       status: "Pending",
-      submitted_by: userId,
       submitted_at: new Date().toISOString(),
     };
 
