@@ -19,7 +19,7 @@ export const auditLogService = {
    */
   async log(entry: AuditLogEntry): Promise<void> {
     try {
-      const { error } = await supabase.from("audit_log").insert({
+      const { error } = await (supabase as any).from("audit_log").insert({
         user_id: entry.user_id,
         action: entry.action,
         target_user_id: entry.target_user_id || null,
@@ -44,7 +44,7 @@ export const auditLogService = {
     limit?: number;
   }): Promise<any[]> {
     try {
-      let query = supabase
+      let query = (supabase as any)
         .from("audit_log")
         .select("*, profiles!audit_log_user_id_fkey(full_name)")
         .order("created_at", { ascending: false });
