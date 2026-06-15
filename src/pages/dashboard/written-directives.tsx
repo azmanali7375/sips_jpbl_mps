@@ -39,17 +39,7 @@ export default function WrittenDirectivePage() {
   const [tarikhPematuhanDiterima, setTarikhPematuhanDiterima] = useState("");
   const [statusPematuhan, setStatusPematuhan] = useState("Menunggu");
   const [catatan, setCatatan] = useState("");
-  const [formData, setFormData] = useState({
-    application_id: "",
-    nama_pemaju_pemilik: "",
-    alamat_pemohon: "",
-    tajuk_permohonan: "",
-    arahan_pindaan: "",
-    tarikh_arahan: new Date().toISOString().split("T")[0],
-    tarikh_pematuhan: "",
-    no_rujukan: "",
-    yang_dipertua_name: "YB. Dato' Haji Ahmad bin Abdullah",
-  });
+  const [yangDipertuaName, setYangDipertuaName] = useState("YB. Dato' Haji Ahmad bin Abdullah");
 
   useEffect(() => {
     if (!application_id) return;
@@ -102,6 +92,7 @@ export default function WrittenDirectivePage() {
           setTarikhPematuhanDiterima(directive.tarikh_pematuhan_diterima || "");
           setStatusPematuhan(directive.status_pematuhan || "Menunggu");
           setCatatan(directive.catatan || "");
+          setYangDipertuaName(directive.yang_dipertua_name || "YB. Dato' Haji Ahmad bin Abdullah");
         }
       }
     } catch (error) {
@@ -141,6 +132,10 @@ export default function WrittenDirectivePage() {
         tarikh_pematuhan_diterima: tarikhPematuhanDiterima || undefined,
         status_pematuhan: statusPematuhan,
         catatan: catatan || undefined,
+        nama_pemohon: application.nama_pemaju_pemilik,
+        tajuk_permohonan: application.tajuk_permohonan,
+        alamat_pemohon: application.alamat_pemohon || "",
+        yang_dipertua_name: yangDipertuaName,
       };
 
       if (isEditMode && id) {
@@ -313,6 +308,18 @@ export default function WrittenDirectivePage() {
                 value={catatan}
                 onChange={(e) => setCatatan(e.target.value)}
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Yang Dipertua (Tandatangan Borang A1)</label>
+              <Input
+                value={yangDipertuaName}
+                onChange={(e) => setYangDipertuaName(e.target.value)}
+                placeholder="Nama Yang Dipertua"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Nama penandatangan untuk Borang A(1)
+              </p>
             </div>
           </CardContent>
         </Card>

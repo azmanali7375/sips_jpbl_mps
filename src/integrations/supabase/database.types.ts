@@ -1113,6 +1113,7 @@ export type Database = {
           directive_number: string | null
           id: string
           jenis_borang: string | null
+          nama_pemohon: string | null
           prepared_by: string
           prepared_date: string | null
           reviewed_by: string | null
@@ -1121,6 +1122,7 @@ export type Database = {
           signed_date: string | null
           status: string | null
           status_pematuhan: string | null
+          tajuk_permohonan: string | null
           tarikh_dikeluarkan: string | null
           tarikh_pematuhan_dikehendaki: string | null
           tarikh_pematuhan_diterima: string | null
@@ -1137,6 +1139,7 @@ export type Database = {
           directive_number?: string | null
           id?: string
           jenis_borang?: string | null
+          nama_pemohon?: string | null
           prepared_by: string
           prepared_date?: string | null
           reviewed_by?: string | null
@@ -1145,6 +1148,7 @@ export type Database = {
           signed_date?: string | null
           status?: string | null
           status_pematuhan?: string | null
+          tajuk_permohonan?: string | null
           tarikh_dikeluarkan?: string | null
           tarikh_pematuhan_dikehendaki?: string | null
           tarikh_pematuhan_diterima?: string | null
@@ -1161,6 +1165,7 @@ export type Database = {
           directive_number?: string | null
           id?: string
           jenis_borang?: string | null
+          nama_pemohon?: string | null
           prepared_by?: string
           prepared_date?: string | null
           reviewed_by?: string | null
@@ -1169,6 +1174,7 @@ export type Database = {
           signed_date?: string | null
           status?: string | null
           status_pematuhan?: string | null
+          tajuk_permohonan?: string | null
           tarikh_dikeluarkan?: string | null
           tarikh_pematuhan_dikehendaki?: string | null
           tarikh_pematuhan_diterima?: string | null

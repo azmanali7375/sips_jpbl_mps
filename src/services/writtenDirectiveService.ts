@@ -13,6 +13,10 @@ export interface WrittenDirectiveFormData {
   tarikh_pematuhan_diterima?: string;
   status_pematuhan: string;
   catatan?: string;
+  nama_pemohon?: string;
+  tajuk_permohonan?: string;
+  alamat_pemohon?: string;
+  yang_dipertua_name?: string;
 }
 
 export const JENIS_BORANG_OPTIONS = [
@@ -66,6 +70,10 @@ export async function createWrittenDirective(
     tarikh_pematuhan_diterima: formData.tarikh_pematuhan_diterima || null,
     status_pematuhan: formData.status_pematuhan,
     catatan: formData.catatan || null,
+    nama_pemohon: formData.nama_pemohon || null,
+    tajuk_permohonan: formData.tajuk_permohonan || null,
+    alamat_pemohon: formData.alamat_pemohon || null,
+    yang_dipertua_name: formData.yang_dipertua_name || "YB. Dato' Haji Ahmad bin Abdullah",
     prepared_by: userId,
     status: "draft",
     prepared_date: new Date().toISOString(),
@@ -370,7 +378,7 @@ export function generateDirectivePDF(directive: WrittenDirective): string {
   <div class="address-block">
     <div><strong>Kepada,</strong></div>
     <div style="margin-top: 10px;">
-      <strong>[NAMA PEMOHON]</strong><br>
+      <strong>${directive.nama_pemohon || "[NAMA PEMOHON]"}</strong><br>
       ${addressLines || "[ALAMAT PEMOHON]"}
     </div>
   </div>
@@ -380,8 +388,8 @@ export function generateDirectivePDF(directive: WrittenDirective): string {
     <p>
       Setelah membuat semakan ke atas permohonan tuan dan mengambil kira perkara-perkara yang 
       dikehendaki oleh undang-undang, keperluan teknikal serta dokumen rancangan pemajuan yang ada, 
-      arahan bertulis seperti di Lampiran A dengan ini dikenakan kepada <strong>[NAMA PEMOHON]</strong> 
-      beralamat ${directive.alamat_pemohon || "[ALAMAT]"} bagi tujuan <strong>[TAJUK PERMOHONAN]</strong>
+      arahan bertulis seperti di Lampiran A dengan ini dikenakan kepada <strong>${directive.nama_pemohon || "[NAMA PEMOHON]"}</strong> 
+      beralamat ${directive.alamat_pemohon || "[ALAMAT]"} bagi tujuan <strong>${directive.tajuk_permohonan || "[TAJUK PERMOHONAN]"}</strong>
     </p>
 
     <p>
