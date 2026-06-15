@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -413,6 +413,53 @@ export type Database = {
             columns: ["generated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      land_lots: {
+        Row: {
+          application_id: string
+          catatan: string | null
+          created_at: string | null
+          id: string
+          jenis_lot: string
+          kategori: string | null
+          no_lot: string
+          pemilik_tanah: string | null
+          syarat_nyata: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id: string
+          catatan?: string | null
+          created_at?: string | null
+          id?: string
+          jenis_lot: string
+          kategori?: string | null
+          no_lot: string
+          pemilik_tanah?: string | null
+          syarat_nyata?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          catatan?: string | null
+          created_at?: string | null
+          id?: string
+          jenis_lot?: string
+          kategori?: string | null
+          no_lot?: string
+          pemilik_tanah?: string | null
+          syarat_nyata?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "land_lots_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
             referencedColumns: ["id"]
           },
         ]
