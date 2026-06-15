@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -511,6 +511,7 @@ export type Database = {
           is_kmt: boolean | null
           jawatan_penyedia: string | null
           no_rujukan_fail: string | null
+          pdf_url: string | null
           status_laporan: string | null
           tarikh_disediakan: string | null
           ulasan_syor_f: string | null
@@ -532,6 +533,7 @@ export type Database = {
           is_kmt?: boolean | null
           jawatan_penyedia?: string | null
           no_rujukan_fail?: string | null
+          pdf_url?: string | null
           status_laporan?: string | null
           tarikh_disediakan?: string | null
           ulasan_syor_f?: string | null
@@ -553,6 +555,7 @@ export type Database = {
           is_kmt?: boolean | null
           jawatan_penyedia?: string | null
           no_rujukan_fail?: string | null
+          pdf_url?: string | null
           status_laporan?: string | null
           tarikh_disediakan?: string | null
           ulasan_syor_f?: string | null
