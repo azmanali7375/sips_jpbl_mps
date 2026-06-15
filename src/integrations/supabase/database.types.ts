@@ -686,6 +686,96 @@ export type Database = {
           },
         ]
       }
+      planning_documents: {
+        Row: {
+          authority: string | null
+          created_at: string | null
+          document_code: string
+          document_full_name: string | null
+          document_name: string
+          file_url: string | null
+          id: string
+          last_processed_at: string | null
+          status: string | null
+          total_chunks: number | null
+          year: number | null
+        }
+        Insert: {
+          authority?: string | null
+          created_at?: string | null
+          document_code: string
+          document_full_name?: string | null
+          document_name: string
+          file_url?: string | null
+          id?: string
+          last_processed_at?: string | null
+          status?: string | null
+          total_chunks?: number | null
+          year?: number | null
+        }
+        Update: {
+          authority?: string | null
+          created_at?: string | null
+          document_code?: string
+          document_full_name?: string | null
+          document_name?: string
+          file_url?: string | null
+          id?: string
+          last_processed_at?: string | null
+          status?: string | null
+          total_chunks?: number | null
+          year?: number | null
+        }
+        Relationships: []
+      }
+      policy_chunks: {
+        Row: {
+          chapter_number: string | null
+          content_text: string
+          created_at: string | null
+          document_code: string
+          document_name: string
+          embedding: string | null
+          id: string
+          keywords_text: string | null
+          land_use_tags: string[] | null
+          page_number: number | null
+          section_number: string | null
+          section_title: string | null
+          topic_tags: string[] | null
+        }
+        Insert: {
+          chapter_number?: string | null
+          content_text: string
+          created_at?: string | null
+          document_code: string
+          document_name: string
+          embedding?: string | null
+          id?: string
+          keywords_text?: string | null
+          land_use_tags?: string[] | null
+          page_number?: number | null
+          section_number?: string | null
+          section_title?: string | null
+          topic_tags?: string[] | null
+        }
+        Update: {
+          chapter_number?: string | null
+          content_text?: string
+          created_at?: string | null
+          document_code?: string
+          document_name?: string
+          embedding?: string | null
+          id?: string
+          keywords_text?: string | null
+          land_use_tags?: string[] | null
+          page_number?: number | null
+          section_number?: string | null
+          section_title?: string | null
+          topic_tags?: string[] | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
