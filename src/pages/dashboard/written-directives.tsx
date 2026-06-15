@@ -30,7 +30,7 @@ export default function WrittenDirectivePage() {
   const [isEditMode, setIsEditMode] = useState(false);
 
   // Form state
-  const [jenisBo rang, setJenisBorang] = useState("");
+  const [jenisBorang, setJenisBorang] = useState("");
   const [tarikhDikeluarkan, setTarikhDikeluarkan] = useState(
     new Date().toISOString().split("T")[0]
   );
