@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -64,7 +66,7 @@ import {
 } from "@/services/documentService";
 import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
-import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck } from "lucide-react";
+import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2 } from "lucide-react";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
 type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
@@ -145,6 +147,16 @@ export default function ApplicationDetailPage() {
 
   // Generated reports state
   const [generatedReports, setGeneratedReports] = useState<any[]>([]);
+
+  // AI Semakan state
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState("");
+  const [jenisPembangunan, setJenisPembangunan] = useState("");
+  const [selectedDocs, setSelectedDocs] = useState<string[]>(["GPJ", "RFN", "RSN", "RTD", "RKK"]);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiStatus, setAiStatus] = useState("");
+  const [planParameters, setPlanParameters] = useState<any>(null);
+  const [retrievedChunks, setRetrievedChunks] = useState<any[]>([]);
 
   // Load data
   useEffect(() => {
@@ -512,6 +524,168 @@ export default function ApplicationDetailPage() {
     }
   }
 
+  const toggleDocSelection = (code: string) => {
+    setSelectedDocs((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  };
+
+  const handleStartAiReview = async () => {
+    if (!selectedPlan || !jenisPembangunan) {
+      toast({
+        title: "Ralat",
+        description: "Sila pilih pelan dan jenis pembangunan",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAiProcessing(true);
+    setPlanParameters(null);
+    setRetrievedChunks([]);
+
+    try {
+      // Stage 1: Read the plan PDF
+      setAiStatus("Membaca pelan cadangan...");
+      
+      const selectedDoc = Object.values(documents)
+        .flat()
+        .find((doc) => doc.id === selectedPlan);
+
+      if (!selectedDoc?.dokumen_url) {
+        throw new Error("URL dokumen tidak dijumpai");
+      }
+
+      // Fetch the PDF file
+      const response = await fetch(selectedDoc.dokumen_url);
+      const blob = await response.blob();
+      
+      // Convert to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64String = result.split(",")[1];
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      setAiStatus("Mengekstrak parameter teknikal...");
+
+      // Call Claude API to extract parameters
+      const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
+      if (!apiKey) throw new Error("Anthropic API key not configured");
+
+      const mediaType = selectedDoc.dokumen_url.toLowerCase().endsWith(".pdf")
+        ? "application/pdf"
+        : "image/jpeg";
+      const contentType = mediaType === "application/pdf" ? "document" : "image";
+
+      const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: `Extract planning parameters from this Malaysian KM application plan. Return ONLY JSON: {jenis_pembangunan, zon_perancangan_dicadang, kegunaan_tanah_dicadang, bilangan_tingkat, ketinggian_bangunan_m, nisbah_plot, peratusan_kawasan_plinth, densiti_unit_per_ekar, anjakan:{hadapan_m, tepi_kanan_m, tepi_kiri_m, belakang_m}, parkir:{kereta, motorsikal, oku}, kawasan_lapang_peratus, keluasan_tapak_m2, keluasan_lantai_kasar_m2, bil_unit_kediaman, bil_unit_komersial, jalan_utama_lebar_m, infrastruktur_dicadang:[], kemudahan_awam_dicadang:[], penemuan_lain:[]}. Set null for any parameter not in the document.`,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: contentType,
+                  source: {
+                    type: "base64",
+                    media_type: mediaType,
+                    data: base64,
+                  },
+                },
+                {
+                  type: "text",
+                  text: "Extract all planning parameters as JSON.",
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (!claudeResponse.ok) {
+        const errorData = await claudeResponse.json();
+        throw new Error(errorData.error?.message || "Claude API request failed");
+      }
+
+      const claudeData = await claudeResponse.json();
+      const textBlock = claudeData.content?.find((block: any) => block.type === "text");
+      if (!textBlock) throw new Error("No text content in API response");
+
+      const parameters = JSON.parse(textBlock.text);
+      setPlanParameters(parameters);
+
+      // Stage 2: Search policy chunks
+      setAiStatus("Mencari peruntukan dasar yang relevan...");
+
+      const searchTerms = [
+        `anjakan bangunan ${jenisPembangunan}`,
+        `nisbah plot ${jenisPembangunan}`,
+        `ketinggian bangunan`,
+        `densiti ${jenisPembangunan}`,
+        `kawasan lapang`,
+        `tempat letak kereta ${jenisPembangunan}`,
+        `zon perancangan ${parameters.zon_perancangan_dicadang || ""}`,
+        `${jenisPembangunan} kegunaan tanah`,
+      ];
+
+      const allChunks: any[] = [];
+      const seenIds = new Set();
+
+      for (const term of searchTerms) {
+        const { data: chunks } = await supabase
+          .from("policy_chunks")
+          .select("*")
+          .or(`content_text.ilike.%${term}%,keywords_text.ilike.%${term}%`)
+          .in("document_code", selectedDocs)
+          .limit(3);
+
+        if (chunks) {
+          chunks.forEach((chunk) => {
+            if (!seenIds.has(chunk.id)) {
+              seenIds.add(chunk.id);
+              allChunks.push(chunk);
+            }
+          });
+        }
+      }
+
+      // Keep top 12 chunks
+      const topChunks = allChunks.slice(0, 12);
+      setRetrievedChunks(topChunks);
+
+      setAiStatus("Menyusun ulasan teknikal...");
+
+      toast({
+        title: "Analisis Selesai",
+        description: `${topChunks.length} peruntukan dasar dijumpai`,
+      });
+
+      setAiProcessing(false);
+    } catch (error) {
+      console.error("Error in AI review:", error);
+      toast({
+        title: "Ralat AI",
+        description: error instanceof Error ? error.message : "Gagal menganalisis pelan",
+        variant: "destructive",
+      });
+      setAiProcessing(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -566,6 +740,18 @@ export default function ApplicationDetailPage() {
               <Edit className="h-4 w-4 mr-2" />
               Edit Permohonan
             </Button>
+            {/* Show AI Semakan button if plans exist */}
+            {(documents["Pelan Susun Atur"]?.length > 0 || documents["Pelan Bangunan"]?.length > 0) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAiPanel(true)}
+                className="bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100"
+              >
+                <Sparkles className="h-4 w-4 mr-2 text-purple-600" />
+                Semakan AI
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -1608,6 +1794,179 @@ export default function ApplicationDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* AI Semakan Panel */}
+      <Sheet open={showAiPanel} onOpenChange={setShowAiPanel}>
+        <SheetContent side="right" className="w-[600px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              Semakan Teknikal AI
+            </SheetTitle>
+            <SheetDescription>
+              Analisis pelan berbanding dasar perancangan
+            </SheetDescription>
+          </SheetHeader>
+
+          {aiProcessing ? (
+            /* Processing Screen */
+            <div className="py-12 text-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+              <div>
+                <p className="text-lg font-medium">{aiStatus}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Mengambil masa 10–20 saat. Sila tunggu.
+                </p>
+              </div>
+            </div>
+          ) : planParameters ? (
+            /* Results View */
+            <div className="space-y-6 mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Parameter Diekstrak</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="font-medium">Jenis Pembangunan:</div>
+                    <div>{planParameters.jenis_pembangunan || "-"}</div>
+                    <div className="font-medium">Zon Dicadang:</div>
+                    <div>{planParameters.zon_perancangan_dicadang || "-"}</div>
+                    <div className="font-medium">Bilangan Tingkat:</div>
+                    <div>{planParameters.bilangan_tingkat || "-"}</div>
+                    <div className="font-medium">Ketinggian (m):</div>
+                    <div>{planParameters.ketinggian_bangunan_m || "-"}</div>
+                    <div className="font-medium">Nisbah Plot:</div>
+                    <div>{planParameters.nisbah_plot || "-"}</div>
+                    <div className="font-medium">Densiti (unit/ekar):</div>
+                    <div>{planParameters.densiti_unit_per_ekar || "-"}</div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div>
+                <h3 className="font-semibold mb-3">
+                  Peruntukan Dasar Relevan ({retrievedChunks.length})
+                </h3>
+                <div className="space-y-3">
+                  {retrievedChunks.map((chunk) => (
+                    <Card key={chunk.id}>
+                      <CardContent className="pt-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge>{chunk.document_code}</Badge>
+                          {chunk.section_number && (
+                            <Badge variant="outline">{chunk.section_number}</Badge>
+                          )}
+                        </div>
+                        {chunk.section_title && (
+                          <h4 className="font-semibold text-sm">{chunk.section_title}</h4>
+                        )}
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                          {chunk.content_text}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setPlanParameters(null);
+                  setRetrievedChunks([]);
+                }}
+              >
+                Semak Pelan Lain
+              </Button>
+            </div>
+          ) : (
+            /* Selection Form */
+            <div className="space-y-6 mt-6">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Pilih pelan untuk disemak
+                </label>
+                <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih pelan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {documents["Pelan Susun Atur"]?.map((doc) => (
+                      <SelectItem key={doc.id} value={doc.id}>
+                        {doc.nama_dokumen} {doc.versi ? `(${doc.versi})` : ""}
+                      </SelectItem>
+                    ))}
+                    {documents["Pelan Bangunan"]?.map((doc) => (
+                      <SelectItem key={doc.id} value={doc.id}>
+                        {doc.nama_dokumen} {doc.versi ? `(${doc.versi})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Jenis Pembangunan
+                </label>
+                <Select value={jenisPembangunan} onValueChange={setJenisPembangunan}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih jenis" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Kediaman">Kediaman</SelectItem>
+                    <SelectItem value="Komersial">Komersial</SelectItem>
+                    <SelectItem value="Perindustrian">Perindustrian</SelectItem>
+                    <SelectItem value="Institusi">Institusi</SelectItem>
+                    <SelectItem value="Campuran">Campuran</SelectItem>
+                    <SelectItem value="KMT">KMT</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-3 block">
+                  Dokumen Dasar untuk Disemak
+                </label>
+                <div className="space-y-2">
+                  {[
+                    { code: "GPJ", name: "Manual GPJ" },
+                    { code: "RFN", name: "Rancangan Fizikal Negara (RFN)" },
+                    { code: "RSN", name: "Rancangan Struktur Negeri Johor 2035 (RSN)" },
+                    { code: "RTD", name: "Rancangan Tempatan Daerah Segamat 2030 (RTD)" },
+                    { code: "RKK", name: "Rancangan Kawasan Khas Segamat 2035 (RKK)" },
+                  ].map((doc) => (
+                    <div key={doc.code} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`ai-doc-${doc.code}`}
+                        checked={selectedDocs.includes(doc.code)}
+                        onCheckedChange={() => toggleDocSelection(doc.code)}
+                      />
+                      <label
+                        htmlFor={`ai-doc-${doc.code}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {doc.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleStartAiReview}
+                disabled={!selectedPlan || !jenisPembangunan}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Mulakan Semakan AI
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 }
