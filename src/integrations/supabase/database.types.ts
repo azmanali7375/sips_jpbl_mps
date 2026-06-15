@@ -1155,6 +1155,71 @@ export type Database = {
           },
         ]
       }
+      ulasan_perancangan: {
+        Row: {
+          application_id: string
+          created_at: string | null
+          disediakan_oleh: string | null
+          id: string
+          jawatan: string | null
+          no_rujukan_fail: string
+          pdf_url: string | null
+          seksyen_a_mylcp_score: string | null
+          seksyen_b_semakan_ulasan: string | null
+          seksyen_c_isu_berkaitan: string | null
+          seksyen_d_pindaan_pelan: string | null
+          seksyen_e_ulasan_keseluruhan: string | null
+          status: string | null
+          syor_jabatan: string | null
+          tarikh: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string | null
+          disediakan_oleh?: string | null
+          id?: string
+          jawatan?: string | null
+          no_rujukan_fail: string
+          pdf_url?: string | null
+          seksyen_a_mylcp_score?: string | null
+          seksyen_b_semakan_ulasan?: string | null
+          seksyen_c_isu_berkaitan?: string | null
+          seksyen_d_pindaan_pelan?: string | null
+          seksyen_e_ulasan_keseluruhan?: string | null
+          status?: string | null
+          syor_jabatan?: string | null
+          tarikh?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string | null
+          disediakan_oleh?: string | null
+          id?: string
+          jawatan?: string | null
+          no_rujukan_fail?: string
+          pdf_url?: string | null
+          seksyen_a_mylcp_score?: string | null
+          seksyen_b_semakan_ulasan?: string | null
+          seksyen_c_isu_berkaitan?: string | null
+          seksyen_d_pindaan_pelan?: string | null
+          seksyen_e_ulasan_keseluruhan?: string | null
+          status?: string | null
+          syor_jabatan?: string | null
+          tarikh?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ulasan_perancangan_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflow_history: {
         Row: {
           application_id: string
