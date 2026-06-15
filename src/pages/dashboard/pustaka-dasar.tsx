@@ -61,6 +61,33 @@ export default function PustakaDasarPage() {
   const [searchResults, setSearchResults] = useState<PolicyChunk[]>([]);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
 
+  // Define available filter options
+  const allTopics = [
+    "anjakan",
+    "nisbah_plot",
+    "densiti",
+    "ketinggian",
+    "parkir",
+    "kawasan_lapang",
+    "zon_perancangan",
+    "kegunaan_tanah",
+    "infrastruktur",
+    "alam_sekitar",
+    "kemudahan_awam",
+    "lain",
+  ];
+
+  const landUseOptions = [
+    "komersial",
+    "kediaman",
+    "perindustrian",
+    "pertanian",
+    "institusi",
+    "rekreasi",
+    "campuran",
+    "semua",
+  ];
+
   // Quick reference PDF state
   const [generatingQuickRef, setGeneratingQuickRef] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -495,8 +522,11 @@ export default function PustakaDasarPage() {
         query = query.contains("land_use_tags", [selectedLandUse]);
       }
 
-      const results = await query.limit(50);
-      setSearchResults(results);
+      const { data, error } = await query.limit(50);
+      
+      if (error) throw error;
+      
+      setSearchResults(data || []);
     } catch (error) {
       console.error("Error searching:", error);
       toast({
@@ -507,12 +537,6 @@ export default function PustakaDasarPage() {
     } finally {
       setSearching(false);
     }
-  };
-
-  const toggleDocCode = (code: string) => {
-    setSelectedDocCodes((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
-    );
   };
 
   const toggleExpandChunk = (chunkId: string) => {
@@ -680,23 +704,19 @@ export default function PustakaDasarPage() {
             <div className="grid md:grid-cols-3 gap-4">
               <div>
                 <Label>Dokumen</Label>
-                <div className="space-y-2 mt-2">
-                  {documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`doc-${doc.document_code}`}
-                        checked={selectedDocCodes.includes(doc.document_code)}
-                        onCheckedChange={() => toggleDocCode(doc.document_code)}
-                      />
-                      <label
-                        htmlFor={`doc-${doc.document_code}`}
-                        className="text-sm cursor-pointer"
-                      >
-                        {doc.document_code}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+                <Select value={selectedDoc} onValueChange={setSelectedDoc}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih dokumen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Dokumen</SelectItem>
+                    {documents.map((doc) => (
+                      <SelectItem key={doc.id} value={doc.document_code}>
+                        {doc.document_code} - {doc.document_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

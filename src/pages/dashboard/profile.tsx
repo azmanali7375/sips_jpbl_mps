@@ -46,7 +46,7 @@ export default function ProfilePage() {
       if (profileData) {
         setProfile(profileData);
         setFullName(profileData.full_name || "");
-        setPhoneNumber(profileData.phone_number || "");
+        setPhoneNumber(profileData.phone || "");
         setDesignation(profileData.designation || "");
       }
     } catch (error) {
@@ -78,7 +78,7 @@ export default function ProfilePage() {
     try {
       await profileService.updateProfile({
         full_name: fullName.trim(),
-        phone_number: phoneNumber.trim() || null,
+        phone: phoneNumber.trim() || null,
         designation: designation.trim() || null,
       });
 
