@@ -191,10 +191,7 @@ export default function ReportTemplates() {
     }
   }
 
-  const updateFormField = <K extends keyof TemplateFormData>(
-    field: K,
-    value: TemplateFormData[K]
-  ) => {
+  const updateFormField = (field: keyof TemplateFormData, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
