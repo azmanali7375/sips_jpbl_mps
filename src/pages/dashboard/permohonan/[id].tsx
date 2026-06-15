@@ -74,9 +74,21 @@ export default function ApplicationDetailPage() {
     try {
       setLoading(true);
 
-      // Get current user
-      const user = await authService.getCurrentUser();
-      setCurrentUser(user);
+      // Get current user with profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth/login");
+        return;
+      }
+
+      // Get user profile for role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      setCurrentUser(profile);
 
       // Get application details
       const appData = await getApplicationDetail(id as string);
@@ -90,7 +102,7 @@ export default function ApplicationDetailPage() {
       setWorkflowHistory(history);
 
       // Get officers (for admin only)
-      if (user?.role === "admin" || user?.role === "department_head") {
+      if (profile?.role === "admin" || profile?.role === "department_head") {
         const officerList = await getAvailableOfficers();
         setOfficers(officerList);
       }

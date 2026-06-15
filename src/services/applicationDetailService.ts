@@ -37,7 +37,7 @@ export async function getApplicationDetail(
     throw error;
   }
 
-  return data as ApplicationDetailData;
+  return data as unknown as ApplicationDetailData;
 }
 
 /**
