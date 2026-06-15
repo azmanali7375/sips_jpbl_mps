@@ -4,13 +4,16 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -66,7 +69,7 @@ import {
 } from "@/services/documentService";
 import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
-import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2 } from "lucide-react";
+import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle } from "lucide-react";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
 type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
@@ -158,6 +161,35 @@ export default function ApplicationDetailPage() {
   const [planParameters, setPlanParameters] = useState<any>(null);
   const [retrievedChunks, setRetrievedChunks] = useState<any[]>([]);
   const [aiRecommendation, setAiRecommendation] = useState<any>(null);
+
+  // Manual review mode state
+  const [reviewMode, setReviewMode] = useState<"ai" | "manual">("ai");
+  const [manualParams, setManualParams] = useState({
+    jenis_pembangunan: "",
+    zon_perancangan_dicadang: "",
+    kegunaan_tanah_dicadang: "",
+    keluasan_tapak_m2: "",
+    keluasan_lantai_kasar_m2: "",
+    bilangan_tingkat: "",
+    ketinggian_bangunan_m: "",
+    nisbah_plot: "",
+    peratusan_kawasan_plinth: "",
+    densiti_unit_per_ekar: "",
+    anjakan_hadapan_m: "",
+    anjakan_belakang_m: "",
+    anjakan_tepi_kanan_m: "",
+    anjakan_tepi_kiri_m: "",
+    parkir_kereta: "",
+    parkir_motorsikal: "",
+    parkir_oku: "",
+    kawasan_lapang_peratus: "",
+    jalan_utama_lebar_m: "",
+    bil_unit_kediaman: "",
+    bil_unit_komersial: "",
+  });
+  const [manualReferences, setManualReferences] = useState<any[]>([]);
+  const [manualNotes, setManualNotes] = useState("");
+  const [manualSearching, setManualSearching] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -747,6 +779,99 @@ export default function ApplicationDetailPage() {
       });
       setAiProcessing(false);
     }
+  };
+
+  const handleManualParamChange = (field: string, value: string) => {
+    setManualParams((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSearchManualReferences = async () => {
+    setManualSearching(true);
+    setManualReferences([]);
+
+    try {
+      // Build search queries from manual parameters
+      const searchMap: Array<{ field: string; keywords: string }> = [
+        { field: "ketinggian_bangunan_m", keywords: "ketinggian bangunan" },
+        { field: "nisbah_plot", keywords: "nisbah plot" },
+        { field: "anjakan_hadapan_m", keywords: "anjakan bangunan" },
+        { field: "parkir_kereta", keywords: "tempat letak kereta" },
+        { field: "kawasan_lapang_peratus", keywords: "kawasan lapang" },
+        { field: "densiti_unit_per_ekar", keywords: "densiti" },
+        { field: "zon_perancangan_dicadang", keywords: "zon perancangan" },
+      ];
+
+      const allResults: any[] = [];
+      const seenIds = new Set();
+
+      for (const { field, keywords } of searchMap) {
+        if (manualParams[field as keyof typeof manualParams]) {
+          const { data: chunks } = await supabase
+            .from("policy_chunks")
+            .select("*")
+            .or(`content_text.ilike.%${keywords}%,keywords_text.ilike.%${keywords}%`)
+            .in("document_code", selectedDocs)
+            .limit(3);
+
+          if (chunks) {
+            chunks.forEach((chunk) => {
+              if (!seenIds.has(chunk.id)) {
+                seenIds.add(chunk.id);
+                allResults.push(chunk);
+              }
+            });
+          }
+        }
+      }
+
+      // Also search by jenis_pembangunan if set
+      if (manualParams.jenis_pembangunan) {
+        const { data: devTypeChunks } = await supabase
+          .from("policy_chunks")
+          .select("*")
+          .or(
+            `content_text.ilike.%${manualParams.jenis_pembangunan}%,keywords_text.ilike.%${manualParams.jenis_pembangunan}%`
+          )
+          .in("document_code", selectedDocs)
+          .limit(5);
+
+        if (devTypeChunks) {
+          devTypeChunks.forEach((chunk) => {
+            if (!seenIds.has(chunk.id)) {
+              seenIds.add(chunk.id);
+              allResults.push(chunk);
+            }
+          });
+        }
+      }
+
+      setManualReferences(allResults);
+
+      toast({
+        title: "Carian Selesai",
+        description: `${allResults.length} rujukan dasar dijumpai`,
+      });
+    } catch (error) {
+      console.error("Error searching manual references:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal mencari rujukan dasar",
+        variant: "destructive",
+      });
+    } finally {
+      setManualSearching(false);
+    }
+  };
+
+  const handleCopyStandard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Disalin",
+      description: "Teks telah disalin ke papan keratan",
+    });
   };
 
   if (loading) {
@@ -1871,7 +1996,409 @@ export default function ApplicationDetailPage() {
             </SheetDescription>
           </SheetHeader>
 
-          {aiProcessing ? (
+          {/* Mode Selector */}
+          <div className="mt-4 mb-6">
+            <label className="text-sm font-medium mb-2 block">Mod Semakan:</label>
+            <Tabs value={reviewMode} onValueChange={(v) => setReviewMode(v as "ai" | "manual")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="ai">Automatik (AI)</TabsTrigger>
+                <TabsTrigger value="manual">Manual</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {reviewMode === "manual" ? (
+            /* Manual Mode */
+            <div className="space-y-6">
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-900 text-sm">
+                  Mod Manual — Masukkan parameter secara manual. AI tidak diperlukan. Sesuai digunakan
+                  apabila tiada sambungan internet.
+                </AlertDescription>
+              </Alert>
+
+              {/* Document Selection */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">Rujukan Dasar</label>
+                <div className="space-y-2">
+                  {[
+                    { code: "GPJ", name: "Manual GPJ" },
+                    { code: "RFN", name: "Rancangan Fizikal Negara (RFN)" },
+                    { code: "RSN", name: "Rancangan Struktur Negeri Johor 2035 (RSN)" },
+                    { code: "RTD", name: "Rancangan Tempatan Daerah Segamat 2030 (RTD)" },
+                    { code: "RKK", name: "Rancangan Kawasan Khas Segamat 2035 (RKK)" },
+                  ].map((doc) => (
+                    <div key={doc.code} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`manual-doc-${doc.code}`}
+                        checked={selectedDocs.includes(doc.code)}
+                        onCheckedChange={() => toggleDocSelection(doc.code)}
+                      />
+                      <label htmlFor={`manual-doc-${doc.code}`} className="text-sm cursor-pointer">
+                        {doc.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Manual Parameter Entry Form */}
+              <div>
+                <h3 className="font-semibold mb-1">Langkah 1: Masukkan Parameter dari Pelan</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Baca pelan cadangan dan isi nilai di bawah
+                </p>
+
+                <div className="space-y-6">
+                  {/* Section A */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3">A. Maklumat Asas Cadangan</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Jenis Pembangunan</Label>
+                        <Select
+                          value={manualParams.jenis_pembangunan}
+                          onValueChange={(v) => handleManualParamChange("jenis_pembangunan", v)}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Pilih" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Kediaman">Kediaman</SelectItem>
+                            <SelectItem value="Komersial">Komersial</SelectItem>
+                            <SelectItem value="Perindustrian">Perindustrian</SelectItem>
+                            <SelectItem value="Institusi">Institusi</SelectItem>
+                            <SelectItem value="Campuran">Campuran</SelectItem>
+                            <SelectItem value="KMT">KMT</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Zon Perancangan Dicadang</Label>
+                        <Input
+                          value={manualParams.zon_perancangan_dicadang}
+                          onChange={(e) =>
+                            handleManualParamChange("zon_perancangan_dicadang", e.target.value)
+                          }
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Kegunaan Tanah Dicadang</Label>
+                        <Input
+                          value={manualParams.kegunaan_tanah_dicadang}
+                          onChange={(e) =>
+                            handleManualParamChange("kegunaan_tanah_dicadang", e.target.value)
+                          }
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Keluasan Tapak (m²)</Label>
+                          <Input
+                            type="number"
+                            value={manualParams.keluasan_tapak_m2}
+                            onChange={(e) => handleManualParamChange("keluasan_tapak_m2", e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Keluasan Lantai Kasar (m²)</Label>
+                          <Input
+                            type="number"
+                            value={manualParams.keluasan_lantai_kasar_m2}
+                            onChange={(e) =>
+                              handleManualParamChange("keluasan_lantai_kasar_m2", e.target.value)
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section B */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3">B. Parameter Bangunan</h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Bilangan Tingkat</Label>
+                          <Input
+                            type="number"
+                            value={manualParams.bilangan_tingkat}
+                            onChange={(e) => handleManualParamChange("bilangan_tingkat", e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Ketinggian Bangunan (m)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={manualParams.ketinggian_bangunan_m}
+                            onChange={(e) =>
+                              handleManualParamChange("ketinggian_bangunan_m", e.target.value)
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Nisbah Plot</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={manualParams.nisbah_plot}
+                            onChange={(e) => handleManualParamChange("nisbah_plot", e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Kawasan Plinth (%)</Label>
+                          <Input
+                            type="number"
+                            value={manualParams.peratusan_kawasan_plinth}
+                            onChange={(e) =>
+                              handleManualParamChange("peratusan_kawasan_plinth", e.target.value)
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Densiti (unit/ekar)</Label>
+                        <Input
+                          type="number"
+                          value={manualParams.densiti_unit_per_ekar}
+                          onChange={(e) => handleManualParamChange("densiti_unit_per_ekar", e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section C */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3">C. Anjakan Bangunan (meter)</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Hadapan</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={manualParams.anjakan_hadapan_m}
+                          onChange={(e) => handleManualParamChange("anjakan_hadapan_m", e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Belakang</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={manualParams.anjakan_belakang_m}
+                          onChange={(e) => handleManualParamChange("anjakan_belakang_m", e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Tepi Kanan</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={manualParams.anjakan_tepi_kanan_m}
+                          onChange={(e) =>
+                            handleManualParamChange("anjakan_tepi_kanan_m", e.target.value)
+                          }
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Tepi Kiri</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={manualParams.anjakan_tepi_kiri_m}
+                          onChange={(e) => handleManualParamChange("anjakan_tepi_kiri_m", e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section D */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3">D. Parkir (bilangan petak)</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Kereta</Label>
+                        <Input
+                          type="number"
+                          value={manualParams.parkir_kereta}
+                          onChange={(e) => handleManualParamChange("parkir_kereta", e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Motorsikal</Label>
+                        <Input
+                          type="number"
+                          value={manualParams.parkir_motorsikal}
+                          onChange={(e) => handleManualParamChange("parkir_motorsikal", e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">OKU</Label>
+                        <Input
+                          type="number"
+                          value={manualParams.parkir_oku}
+                          onChange={(e) => handleManualParamChange("parkir_oku", e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section E */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3">E. Lain-lain</h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Kawasan Lapang (%)</Label>
+                          <Input
+                            type="number"
+                            value={manualParams.kawasan_lapang_peratus}
+                            onChange={(e) =>
+                              handleManualParamChange("kawasan_lapang_peratus", e.target.value)
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Lebar Jalan Utama (m)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={manualParams.jalan_utama_lebar_m}
+                            onChange={(e) =>
+                              handleManualParamChange("jalan_utama_lebar_m", e.target.value)
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Bil. Unit Kediaman</Label>
+                          <Input
+                            type="number"
+                            value={manualParams.bil_unit_kediaman}
+                            onChange={(e) =>
+                              handleManualParamChange("bil_unit_kediaman", e.target.value)
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Bil. Unit Komersial</Label>
+                          <Input
+                            type="number"
+                            value={manualParams.bil_unit_komersial}
+                            onChange={(e) =>
+                              handleManualParamChange("bil_unit_komersial", e.target.value)
+                            }
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Search Button */}
+              <div>
+                <p className="text-sm font-medium mb-3">Langkah 2: Semak Piawai Perancangan →</p>
+                <Button
+                  onClick={handleSearchManualReferences}
+                  disabled={manualSearching || !manualParams.jenis_pembangunan}
+                  className="w-full"
+                >
+                  {manualSearching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Mencari...
+                    </>
+                  ) : (
+                    "Cari Piawai Berkaitan"
+                  )}
+                </Button>
+              </div>
+
+              {/* Manual References Display */}
+              {manualReferences.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="font-semibold mb-1">Rujukan Dasar Berkaitan</h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Rujukan ini diambil daripada pangkalan data tempatan MPS. Tiada sambungan internet
+                      diperlukan untuk carian ini.
+                    </p>
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {manualReferences.map((ref) => (
+                        <Card key={ref.id}>
+                          <CardContent className="pt-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge>{ref.document_code}</Badge>
+                                {ref.section_number && (
+                                  <Badge variant="outline">{ref.section_number}</Badge>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCopyStandard(ref.content_text)}
+                              >
+                                Salin Nilai Piawai
+                              </Button>
+                            </div>
+                            {ref.section_title && (
+                              <h4 className="font-semibold text-sm">{ref.section_title}</h4>
+                            )}
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                              {ref.content_text}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm">Nota Rujukan Pegawai (pilihan)</Label>
+                    <Textarea
+                      value={manualNotes}
+                      onChange={(e) => setManualNotes(e.target.value)}
+                      placeholder="Catat nombor seksyen atau nilai piawai yang dirujuk untuk rekod..."
+                      className="mt-2 min-h-24"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          ) : aiProcessing ? (
             /* Processing Screen */
             <div className="py-12 text-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
