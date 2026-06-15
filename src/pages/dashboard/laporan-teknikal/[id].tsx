@@ -87,12 +87,12 @@ export default function LaporanTeknikalPage() {
         // Pre-fill from application data
         setNoRujukanFail(application.no_permohonan_osc || "");
         
-        // Pre-fill Bahagian B
+        // Pre-fill Bahagian B - mukim comes from application, not land_lots
         const prefilled: BahagianBData = {
           ...bahagianB,
           b_a_i_lots: landLots.length > 0
-            ? landLots.map(lot => ({ no_lot: lot.no_lot || "", mukim: lot.mukim || "" }))
-            : [{ no_lot: "", mukim: "" }],
+            ? landLots.map(lot => ({ no_lot: lot.no_lot || "", mukim: application.mukim || "" }))
+            : [{ no_lot: "", mukim: application.mukim || "" }],
           b_a_ii_pemilik: application.nama_pemaju_pemilik || "",
           b_a_iii_pemohon: application.nama_sp || "",
           b_a_v_syarat_nyata: landLots[0]?.syarat_nyata || "",

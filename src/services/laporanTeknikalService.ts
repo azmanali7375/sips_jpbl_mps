@@ -52,7 +52,7 @@ export const laporanTeknikalService = {
   async getApplicationData(applicationId: string) {
     const { data: application, error: appError } = await supabase
       .from("applications")
-      .select("no_permohonan_osc, nama_pemaju_pemilik, nama_sp")
+      .select("no_permohonan_osc, nama_pemaju_pemilik, nama_sp, mukim")
       .eq("id", applicationId)
       .single();
 
@@ -61,10 +61,10 @@ export const laporanTeknikalService = {
       throw appError;
     }
 
-    // Get land lots
+    // Get land lots (without mukim - it's in applications table)
     const { data: landLots, error: lotError } = await supabase
       .from("land_lots")
-      .select("no_lot, mukim, syarat_nyata")
+      .select("no_lot, syarat_nyata")
       .eq("application_id", applicationId);
 
     if (lotError) {
