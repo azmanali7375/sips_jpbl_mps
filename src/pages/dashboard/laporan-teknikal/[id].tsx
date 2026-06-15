@@ -120,6 +120,54 @@ interface BahagianEData {
   telekomunikasi: BahagianERow;
 }
 
+// Types for Bahagian F
+interface BahagianFData {
+  f_a: string;
+  f_b: string;
+  f_c: string;
+  f_d: string;
+  f_e: string;
+  f_f: string;
+  f_g: string;
+}
+
+// Types for Bahagian G
+interface BahagianGDynamicRow extends BahagianDRow {
+  item: string;
+}
+
+interface BahagianGData {
+  g1_bangunan_struktur: {
+    jenis_bangunan: BahagianDRow;
+    keluasan_tapak: BahagianDRow;
+    ketinggian: BahagianDRow;
+    jarak_pembangunan: BahagianDRow;
+    pelan_pagar: BahagianDRow;
+    sistem_perparitan: BahagianDRow;
+    langkah_cerun: BahagianDRow;
+    binaan_9m: BahagianDRow;
+    binaan_lalulintas: BahagianDRow;
+    permit_khas: BahagianDRow;
+    binaan_sementara: BahagianDRow;
+  };
+  g1_additional: BahagianGDynamicRow[];
+  g2_taska: {
+    saiz_minimum: BahagianDRow;
+    ruang_permainan: BahagianDRow;
+    bilik_darjah: BahagianDRow;
+    tandas: BahagianDRow;
+    pengubahsuaian_fasad: BahagianDRow;
+    papan_iklan: BahagianDRow;
+    landskap_lembut: BahagianDRow;
+    kod_warna: BahagianDRow;
+    persetujuan_jiran: BahagianDRow;
+    sokongan_jkm: BahagianDRow;
+    sokongan_jbpm: BahagianDRow;
+    sokongan_pkd: BahagianDRow;
+  };
+  g2_additional: BahagianGDynamicRow[];
+}
+
 export default function LaporanTeknikalPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -225,6 +273,55 @@ export default function LaporanTeknikalPage() {
     telekomunikasi: { keselarasan: "TB", nota: "" },
   });
 
+  const [bahagianF, setBahagianF] = useState<BahagianFData>({
+    f_a: "",
+    f_b: "",
+    f_c: "",
+    f_d: "",
+    f_e: "",
+    f_f: "",
+    f_g: "",
+  });
+
+  const [ulasanSyorF, setUlasanSyorF] = useState("");
+  const [ulasanSyorG, setUlasanSyorG] = useState("");
+
+  const [bahagianG, setBahagianG] = useState<BahagianGData>({
+    g1_bangunan_struktur: {
+      jenis_bangunan: emptyDRow(),
+      keluasan_tapak: emptyDRow(),
+      ketinggian: emptyDRow(),
+      jarak_pembangunan: emptyDRow(),
+      pelan_pagar: emptyDRow(),
+      sistem_perparitan: emptyDRow(),
+      langkah_cerun: emptyDRow(),
+      binaan_9m: emptyDRow(),
+      binaan_lalulintas: emptyDRow(),
+      permit_khas: emptyDRow(),
+      binaan_sementara: emptyDRow(),
+    },
+    g1_additional: Array(3).fill(null).map(() => ({ item: "", ...emptyDRow() })),
+    g2_taska: {
+      saiz_minimum: emptyDRow(),
+      ruang_permainan: emptyDRow(),
+      bilik_darjah: emptyDRow(),
+      tandas: emptyDRow(),
+      pengubahsuaian_fasad: emptyDRow(),
+      papan_iklan: emptyDRow(),
+      landskap_lembut: emptyDRow(),
+      kod_warna: emptyDRow(),
+      persetujuan_jiran: emptyDRow(),
+      sokongan_jkm: emptyDRow(),
+      sokongan_jbpm: emptyDRow(),
+      sokongan_pkd: emptyDRow(),
+    },
+    g2_additional: Array(3).fill(null).map(() => ({ item: "", ...emptyDRow() })),
+  });
+
+  const [disediakanOleh, setDisediakanOleh] = useState("");
+  const [jawatanPenyedia, setJawatanPenyedia] = useState("");
+  const [tarikhDisediakan, setTarikhDisediakan] = useState(new Date().toISOString().split("T")[0]);
+
   // Current section (for progress indicator)
   const [currentSection, setCurrentSection] = useState("A");
 
@@ -243,7 +340,7 @@ export default function LaporanTeknikalPage() {
     }, 60000); // 60 seconds
 
     return () => clearTimeout(timer);
-  }, [hasUnsavedChanges, bahagianA, bahagianB, bahagianC, bahagianD, bahagianE, noRujukanFail, isKmt]);
+  }, [hasUnsavedChanges, bahagianA, bahagianB, bahagianC, bahagianD, bahagianE, bahagianF, bahagianG, ulasanSyorF, ulasanSyorG, noRujukanFail, isKmt]);
 
   const loadData = async () => {
     try {
@@ -281,21 +378,41 @@ export default function LaporanTeknikalPage() {
         if (laporan.bahagian_e && typeof laporan.bahagian_e === 'object') {
           setBahagianE(laporan.bahagian_e as unknown as BahagianEData);
         }
+
+        // Load Bahagian F
+        if (laporan.bahagian_f && typeof laporan.bahagian_f === 'object') {
+          setBahagianF(laporan.bahagian_f as unknown as BahagianFData);
+        }
+
+        // Load Bahagian G
+        if (laporan.bahagian_g && typeof laporan.bahagian_g === 'object') {
+          setBahagianG(laporan.bahagian_g as unknown as BahagianGData);
+        }
+
+        // Load ulasan and signature fields
+        setUlasanSyorF(laporan.ulasan_syor_f || "");
+        setUlasanSyorG(laporan.ulasan_syor_g || "");
+        setDisediakanOleh(laporan.disediakan_oleh || "");
+        setJawatanPenyedia(laporan.jawatan_penyedia || "");
+        setTarikhDisediakan(laporan.tarikh_disediakan || new Date().toISOString().split("T")[0]);
       } else {
         // Pre-fill from application data
         setNoRujukanFail(application.no_permohonan_osc || "");
         
-        // Pre-fill Bahagian B - mukim comes from application, not land_lots
-        const prefilled: BahagianBData = {
-          ...bahagianB,
-          b_a_i_lots: landLots.length > 0
-            ? landLots.map(lot => ({ no_lot: lot.no_lot || "", mukim: application.mukim || "" }))
-            : [{ no_lot: "", mukim: application.mukim || "" }],
-          b_a_ii_pemilik: application.nama_pemaju_pemilik || "",
-          b_a_iii_pemohon: application.nama_sp || "",
-          b_a_v_syarat_nyata: landLots[0]?.syarat_nyata || "",
-        };
-        setBahagianB(prefilled);
+        // Pre-fill user info
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, designation")
+            .eq("id", user.id)
+            .single();
+          
+          if (profile) {
+            setDisediakanOleh(profile.full_name || "");
+            setJawatanPenyedia(profile.designation || "");
+          }
+        }
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -322,6 +439,13 @@ export default function LaporanTeknikalPage() {
         bahagian_c: bahagianC,
         bahagian_d: bahagianD,
         bahagian_e: bahagianE,
+        bahagian_f: bahagianF,
+        bahagian_g: bahagianG,
+        ulasan_syor_f: ulasanSyorF,
+        ulasan_syor_g: ulasanSyorG,
+        disediakan_oleh: disediakanOleh,
+        jawatan_penyedia: jawatanPenyedia,
+        tarikh_disediakan: tarikhDisediakan,
       });
 
       setHasUnsavedChanges(false);
@@ -349,6 +473,117 @@ export default function LaporanTeknikalPage() {
   const markChanged = () => {
     if (!hasUnsavedChanges) {
       setHasUnsavedChanges(true);
+    }
+  };
+
+  const validateForm = (): boolean => {
+    // Check required sections
+    if (!bahagianA.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Bahagian A tidak lengkap",
+        description: "Sila lengkapkan Bahagian A terlebih dahulu",
+      });
+      setCurrentSection("A");
+      return false;
+    }
+
+    if (!bahagianB.b_a_i_lots[0]?.no_lot) {
+      toast({
+        variant: "destructive",
+        title: "Bahagian B tidak lengkap",
+        description: "Sila lengkapkan Bahagian B terlebih dahulu",
+      });
+      setCurrentSection("B");
+      return false;
+    }
+
+    if (!ulasanSyorF.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Bahagian F tidak lengkap",
+        description: "Sila lengkapkan Ulasan/Syor Bahagian F",
+      });
+      setCurrentSection("F");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setSaving(true);
+
+      // Save with status Dikemukakan
+      await laporanTeknikalService.saveLaporanTeknikal(id as string, {
+        no_rujukan_fail: noRujukanFail,
+        is_kmt: isKmt,
+        status_laporan: "Dikemukakan",
+        bahagian_a: bahagianA,
+        bahagian_b: bahagianB,
+        bahagian_c: bahagianC,
+        bahagian_d: bahagianD,
+        bahagian_e: bahagianE,
+        bahagian_f: bahagianF,
+        bahagian_g: bahagianG,
+        ulasan_syor_f: ulasanSyorF,
+        ulasan_syor_g: ulasanSyorG,
+        disediakan_oleh: disediakanOleh,
+        jawatan_penyedia: jawatanPenyedia,
+        tarikh_disediakan: tarikhDisediakan,
+      });
+
+      // Update workflow
+      const { workflowService } = await import("@/services/workflowService");
+      await workflowService.updateStatus(
+        id as string,
+        "technical_report" as any,
+        "Laporan Teknikal Dikemukakan kepada OSC"
+      );
+
+      // Send notification to admins
+      const { data: admins } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("role", "admin");
+
+      if (admins && admins.length > 0) {
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.createBulk(
+          admins.map((admin) => ({
+            userId: admin.id,
+            type: "submission" as any,
+            title: "Laporan Teknikal Dikemukakan",
+            message: `Laporan Teknikal ${noRujukanFail} telah dikemukakan.`,
+            applicationId: id as string,
+          }))
+        );
+      }
+
+      setStatusLaporan("Dikemukakan");
+      setHasUnsavedChanges(false);
+
+      toast({
+        title: "Berjaya",
+        description: "Laporan Teknikal berjaya dikemukakan.",
+      });
+
+      // Redirect back to application
+      setTimeout(() => {
+        router.push(`/dashboard/permohonan/${id}`);
+      }, 1500);
+    } catch (error) {
+      console.error("Error submitting:", error);
+      toast({
+        variant: "destructive",
+        title: "Ralat",
+        description: "Gagal mengemukakan laporan teknikal",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -393,7 +628,7 @@ export default function LaporanTeknikalPage() {
     { id: "C", label: "C", disabled: false },
     { id: "D", label: "D", disabled: false },
     { id: "E", label: "E", disabled: false },
-    { id: "F", label: "F", disabled: true },
+    { id: "F", label: "F", disabled: false },
     { id: "G", label: "G*", disabled: !isKmt },
   ];
 
@@ -1910,8 +2145,682 @@ export default function LaporanTeknikalPage() {
                 </div>
               </div>
             )}
+
+            {/* BAHAGIAN F */}
+            {currentSection === "F" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold">F. SEMAKAN TERHADAP CADANGAN / LCP</h2>
+                  <p className="text-sm italic text-muted-foreground">(Rujuk Cadangan Permohonan / LCP)</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="font-semibold">a. Keselarasan Cadangan Bangunan Berdasarkan Piawaian</Label>
+                    <Textarea
+                      value={bahagianF.f_a}
+                      onChange={(e) => {
+                        setBahagianF({ ...bahagianF, f_a: e.target.value });
+                        markChanged();
+                      }}
+                      rows={4}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="font-semibold">b. Kesinambungan Sistem Jalan dengan Kawasan Sekitar</Label>
+                    <Textarea
+                      value={bahagianF.f_b}
+                      onChange={(e) => {
+                        setBahagianF({ ...bahagianF, f_b: e.target.value });
+                        markChanged();
+                      }}
+                      rows={4}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="font-semibold">c. Penyesuaian Cadangan Bentuk Muka Bumi & Sistem Saliran Sedia Ada</Label>
+                    <Textarea
+                      value={bahagianF.f_c}
+                      onChange={(e) => {
+                        setBahagianF({ ...bahagianF, f_c: e.target.value });
+                        markChanged();
+                      }}
+                      rows={4}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="font-semibold">d. Penyesuaian Cadangan Keperluan Infrastruktur (Air, Elektrik, Pembentungan dll.)</Label>
+                    <Textarea
+                      value={bahagianF.f_d}
+                      onChange={(e) => {
+                        setBahagianF({ ...bahagianF, f_d: e.target.value });
+                        markChanged();
+                      }}
+                      rows={4}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="font-semibold">e. Penyesuaian Cadangan dengan Dasar-Dasar Semasa (termasuk RFN, RSN, RTD, RKK & PTK)</Label>
+                    <Textarea
+                      value={bahagianF.f_e}
+                      onChange={(e) => {
+                        setBahagianF({ ...bahagianF, f_e: e.target.value });
+                        markChanged();
+                      }}
+                      rows={4}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="font-semibold">f. Lain-lain Penemuan Yang Relevan</Label>
+                    <Textarea
+                      value={bahagianF.f_f}
+                      onChange={(e) => {
+                        setBahagianF({ ...bahagianF, f_f: e.target.value });
+                        markChanged();
+                      }}
+                      rows={4}
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="font-semibold">g. MyLCP Score (jika berkaitan)</Label>
+                    <Input
+                      type="number"
+                      value={bahagianF.f_g}
+                      onChange={(e) => {
+                        setBahagianF({ ...bahagianF, f_g: e.target.value });
+                        markChanged();
+                      }}
+                      placeholder="MyLCP Score"
+                      className="mt-2 max-w-xs"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">(Lampirkan cetakan MyLCP Score)</p>
+                  </div>
+                </div>
+
+                {/* Ulasan / Syor */}
+                <div className="space-y-3 pt-6 border-t">
+                  <h3 className="font-bold">ULASAN / SYOR TERHADAP PERMOHONAN</h3>
+                  <Textarea
+                    value={ulasanSyorF}
+                    onChange={(e) => {
+                      setUlasanSyorF(e.target.value);
+                      markChanged();
+                    }}
+                    rows={8}
+                    placeholder="Nyatakan ulasan dan syor terhadap permohonan ini..."
+                  />
+                </div>
+
+                {/* Signature Block */}
+                <div className="space-y-3 pt-4 border-t">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Disediakan Oleh :</Label>
+                      <Input
+                        value={disediakanOleh}
+                        onChange={(e) => {
+                          setDisediakanOleh(e.target.value);
+                          markChanged();
+                        }}
+                        placeholder="Nama"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Jawatan :</Label>
+                      <Input
+                        value={jawatanPenyedia}
+                        onChange={(e) => {
+                          setJawatanPenyedia(e.target.value);
+                          markChanged();
+                        }}
+                        placeholder="Jawatan"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tarikh :</Label>
+                      <Input
+                        type="date"
+                        value={tarikhDisediakan}
+                        onChange={(e) => {
+                          setTarikhDisediakan(e.target.value);
+                          markChanged();
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* BAHAGIAN G (KMT Only) */}
+            {currentSection === "G" && (
+              <div className="space-y-6">
+                {!isKmt ? (
+                  <div className="p-6 bg-muted rounded-md text-center text-muted-foreground">
+                    <p>Bahagian G — Tidak berkenaan (bukan permohonan KMT)</p>
+                  </div>
+                ) : (
+                  <>
+                    <h2 className="text-lg font-bold">G. BAGI PERMOHONAN KMT</h2>
+
+                    {/* G.1 - Bangunan, Struktur & Menara */}
+                    <div className="space-y-3">
+                      <h3 className="font-semibold">1. KMT bagi Bangunan, Struktur & Menara Pemancar</h3>
+                      <div className="border rounded-md overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="border p-2 text-left font-semibold text-sm">Item</th>
+                              <th className="border p-2 text-left font-semibold text-sm">Piawaian</th>
+                              <th className="border p-2 text-left font-semibold text-sm">Pelan</th>
+                              <th className="border p-2 text-center font-semibold text-sm w-32">Keselarasan</th>
+                              <th className="border p-2 text-left font-semibold text-sm">Nota</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              { key: "jenis_bangunan", label: "a. Jenis Bangunan (struktur)" },
+                              { key: "keluasan_tapak", label: "b. Keluasan Tapak Dibenar" },
+                              { key: "ketinggian", label: "c. Ketinggian (struktur / menara)" },
+                              { key: "jarak_pembangunan", label: "d. Jarak dari Pembangunan" },
+                              { key: "pelan_pagar", label: "e. Pelan Pagar & Pintu Masuk" },
+                              { key: "sistem_perparitan", label: "f. Sistem Perparitan" },
+                              { key: "langkah_cerun", label: "g. Langkah Penstabilan Cerun" },
+                              { key: "binaan_9m", label: "h. Binaan 9m dari pavement" },
+                              { key: "binaan_lalulintas", label: "i. Binaan tidak ganggu lalulintas" },
+                              { key: "permit_khas", label: "j. Permit khas / LPS" },
+                              { key: "binaan_sementara", label: "k. Binaan jenis sementara" },
+                            ].map((item) => {
+                              const rowKey = item.key as keyof BahagianGData["g1_bangunan_struktur"];
+                              const rowData = bahagianG.g1_bangunan_struktur[rowKey];
+                              return (
+                                <tr key={item.key} className={rowData.keselarasan === "Tidak" ? "bg-red-50" : ""}>
+                                  <td className="border p-2 text-sm">{item.label}</td>
+                                  <td className="border p-2">
+                                    <Input
+                                      value={rowData.piawaian}
+                                      onChange={(e) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g1_bangunan_struktur: {
+                                            ...bahagianG.g1_bangunan_struktur,
+                                            [rowKey]: { ...rowData, piawaian: e.target.value },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="h-8 text-sm"
+                                    />
+                                  </td>
+                                  <td className="border p-2">
+                                    <Input
+                                      value={rowData.pelan}
+                                      onChange={(e) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g1_bangunan_struktur: {
+                                            ...bahagianG.g1_bangunan_struktur,
+                                            [rowKey]: { ...rowData, pelan: e.target.value },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="h-8 text-sm"
+                                    />
+                                  </td>
+                                  <td className="border p-2">
+                                    <RadioGroup
+                                      value={rowData.keselarasan || ""}
+                                      onValueChange={(value) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g1_bangunan_struktur: {
+                                            ...bahagianG.g1_bangunan_struktur,
+                                            [rowKey]: { ...rowData, keselarasan: value as "Selaras" | "Tidak" },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="flex gap-2 justify-center"
+                                    >
+                                      <div className="flex items-center space-x-1">
+                                        <RadioGroupItem value="Selaras" id={`g1_${item.key}_selaras`} />
+                                        <Label htmlFor={`g1_${item.key}_selaras`} className="text-xs">Selaras</Label>
+                                      </div>
+                                      <div className="flex items-center space-x-1">
+                                        <RadioGroupItem value="Tidak" id={`g1_${item.key}_tidak`} />
+                                        <Label htmlFor={`g1_${item.key}_tidak`} className="text-xs">Tidak</Label>
+                                      </div>
+                                    </RadioGroup>
+                                  </td>
+                                  <td className="border p-2">
+                                    <Input
+                                      value={rowData.nota}
+                                      onChange={(e) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g1_bangunan_struktur: {
+                                            ...bahagianG.g1_bangunan_struktur,
+                                            [rowKey]: { ...rowData, nota: e.target.value },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="h-8 text-sm"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {bahagianG.g1_additional.map((row, index) => (
+                              <tr key={`g1_add_${index}`} className={row.keselarasan === "Tidak" ? "bg-red-50" : ""}>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.item}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g1_additional];
+                                      newRows[index].item = e.target.value;
+                                      setBahagianG({ ...bahagianG, g1_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                    placeholder="Item tambahan"
+                                  />
+                                </td>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.piawaian}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g1_additional];
+                                      newRows[index].piawaian = e.target.value;
+                                      setBahagianG({ ...bahagianG, g1_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                </td>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.pelan}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g1_additional];
+                                      newRows[index].pelan = e.target.value;
+                                      setBahagianG({ ...bahagianG, g1_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                </td>
+                                <td className="border p-2">
+                                  <RadioGroup
+                                    value={row.keselarasan || ""}
+                                    onValueChange={(value) => {
+                                      const newRows = [...bahagianG.g1_additional];
+                                      newRows[index].keselarasan = value as "Selaras" | "Tidak";
+                                      setBahagianG({ ...bahagianG, g1_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="flex gap-2 justify-center"
+                                  >
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem value="Selaras" id={`g1_add_${index}_selaras`} />
+                                      <Label htmlFor={`g1_add_${index}_selaras`} className="text-xs">Selaras</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem value="Tidak" id={`g1_add_${index}_tidak`} />
+                                      <Label htmlFor={`g1_add_${index}_tidak`} className="text-xs">Tidak</Label>
+                                    </div>
+                                  </RadioGroup>
+                                </td>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.nota}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g1_additional];
+                                      newRows[index].nota = e.target.value;
+                                      setBahagianG({ ...bahagianG, g1_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBahagianG({
+                            ...bahagianG,
+                            g1_additional: [...bahagianG.g1_additional, { item: "", ...emptyDRow() }],
+                          });
+                          markChanged();
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Tambah Item
+                      </Button>
+                    </div>
+
+                    {/* G.2 - Taska / Tadika */}
+                    <div className="space-y-3">
+                      <h3 className="font-semibold">2. KMT bagi Taska / Tadika / Pusat Jagaan Kanak-Kanak</h3>
+                      <div className="border rounded-md overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="border p-2 text-left font-semibold text-sm">Item</th>
+                              <th className="border p-2 text-left font-semibold text-sm">Piawaian</th>
+                              <th className="border p-2 text-left font-semibold text-sm">Pelan</th>
+                              <th className="border p-2 text-center font-semibold text-sm w-32">Keselarasan</th>
+                              <th className="border p-2 text-left font-semibold text-sm">Nota</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              { key: "saiz_minimum", label: "a. Saiz minimum bangunan" },
+                              { key: "ruang_permainan", label: "b. Ruang permainan / rekreasi" },
+                              { key: "bilik_darjah", label: "c. Bilik darjah" },
+                              { key: "tandas", label: "d. Tandas (U/L/P)" },
+                              { key: "pengubahsuaian_fasad", label: "e. Pengubahsuaian fasad" },
+                              { key: "papan_iklan", label: "f. Papan iklan tidak tutup fasad" },
+                              { key: "landskap_lembut", label: "g. Landskap Lembut 10%" },
+                              { key: "kod_warna", label: "h. Kod Warna (ceria)" },
+                              { key: "persetujuan_jiran", label: "i. Persetujuan Jiran (4 penjuru)" },
+                              { key: "sokongan_jkm", label: "j. Sokongan JKM atau PPD" },
+                              { key: "sokongan_jbpm", label: "k. Sokongan JBPM" },
+                              { key: "sokongan_pkd", label: "l. Sokongan PKD" },
+                            ].map((item) => {
+                              const rowKey = item.key as keyof BahagianGData["g2_taska"];
+                              const rowData = bahagianG.g2_taska[rowKey];
+                              return (
+                                <tr key={item.key} className={rowData.keselarasan === "Tidak" ? "bg-red-50" : ""}>
+                                  <td className="border p-2 text-sm">{item.label}</td>
+                                  <td className="border p-2">
+                                    <Input
+                                      value={rowData.piawaian}
+                                      onChange={(e) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g2_taska: {
+                                            ...bahagianG.g2_taska,
+                                            [rowKey]: { ...rowData, piawaian: e.target.value },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="h-8 text-sm"
+                                    />
+                                  </td>
+                                  <td className="border p-2">
+                                    <Input
+                                      value={rowData.pelan}
+                                      onChange={(e) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g2_taska: {
+                                            ...bahagianG.g2_taska,
+                                            [rowKey]: { ...rowData, pelan: e.target.value },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="h-8 text-sm"
+                                    />
+                                  </td>
+                                  <td className="border p-2">
+                                    <RadioGroup
+                                      value={rowData.keselarasan || ""}
+                                      onValueChange={(value) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g2_taska: {
+                                            ...bahagianG.g2_taska,
+                                            [rowKey]: { ...rowData, keselarasan: value as "Selaras" | "Tidak" },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="flex gap-2 justify-center"
+                                    >
+                                      <div className="flex items-center space-x-1">
+                                        <RadioGroupItem value="Selaras" id={`g2_${item.key}_selaras`} />
+                                        <Label htmlFor={`g2_${item.key}_selaras`} className="text-xs">Selaras</Label>
+                                      </div>
+                                      <div className="flex items-center space-x-1">
+                                        <RadioGroupItem value="Tidak" id={`g2_${item.key}_tidak`} />
+                                        <Label htmlFor={`g2_${item.key}_tidak`} className="text-xs">Tidak</Label>
+                                      </div>
+                                    </RadioGroup>
+                                  </td>
+                                  <td className="border p-2">
+                                    <Input
+                                      value={rowData.nota}
+                                      onChange={(e) => {
+                                        setBahagianG({
+                                          ...bahagianG,
+                                          g2_taska: {
+                                            ...bahagianG.g2_taska,
+                                            [rowKey]: { ...rowData, nota: e.target.value },
+                                          },
+                                        });
+                                        markChanged();
+                                      }}
+                                      className="h-8 text-sm"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {bahagianG.g2_additional.map((row, index) => (
+                              <tr key={`g2_add_${index}`} className={row.keselarasan === "Tidak" ? "bg-red-50" : ""}>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.item}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g2_additional];
+                                      newRows[index].item = e.target.value;
+                                      setBahagianG({ ...bahagianG, g2_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                    placeholder="Item tambahan"
+                                  />
+                                </td>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.piawaian}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g2_additional];
+                                      newRows[index].piawaian = e.target.value;
+                                      setBahagianG({ ...bahagianG, g2_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                </td>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.pelan}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g2_additional];
+                                      newRows[index].pelan = e.target.value;
+                                      setBahagianG({ ...bahagianG, g2_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                </td>
+                                <td className="border p-2">
+                                  <RadioGroup
+                                    value={row.keselarasan || ""}
+                                    onValueChange={(value) => {
+                                      const newRows = [...bahagianG.g2_additional];
+                                      newRows[index].keselarasan = value as "Selaras" | "Tidak";
+                                      setBahagianG({ ...bahagianG, g2_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="flex gap-2 justify-center"
+                                  >
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem value="Selaras" id={`g2_add_${index}_selaras`} />
+                                      <Label htmlFor={`g2_add_${index}_selaras`} className="text-xs">Selaras</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem value="Tidak" id={`g2_add_${index}_tidak`} />
+                                      <Label htmlFor={`g2_add_${index}_tidak`} className="text-xs">Tidak</Label>
+                                    </div>
+                                  </RadioGroup>
+                                </td>
+                                <td className="border p-2">
+                                  <Input
+                                    value={row.nota}
+                                    onChange={(e) => {
+                                      const newRows = [...bahagianG.g2_additional];
+                                      newRows[index].nota = e.target.value;
+                                      setBahagianG({ ...bahagianG, g2_additional: newRows });
+                                      markChanged();
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBahagianG({
+                            ...bahagianG,
+                            g2_additional: [...bahagianG.g2_additional, { item: "", ...emptyDRow() }],
+                          });
+                          markChanged();
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Tambah Item
+                      </Button>
+                    </div>
+
+                    {/* Ulasan / Syor for G */}
+                    <div className="space-y-3 pt-6 border-t">
+                      <h3 className="font-bold">ULASAN / SYOR TERHADAP PERMOHONAN</h3>
+                      <Textarea
+                        value={ulasanSyorG}
+                        onChange={(e) => {
+                          setUlasanSyorG(e.target.value);
+                          markChanged();
+                        }}
+                        rows={8}
+                        placeholder="Nyatakan ulasan dan syor terhadap permohonan KMT ini..."
+                      />
+                    </div>
+
+                    {/* Signature Block for G */}
+                    <div className="space-y-3 pt-4 border-t">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label>Disediakan Oleh :</Label>
+                          <Input
+                            value={disediakanOleh}
+                            onChange={(e) => {
+                              setDisediakanOleh(e.target.value);
+                              markChanged();
+                            }}
+                            placeholder="Nama"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Jawatan :</Label>
+                          <Input
+                            value={jawatanPenyedia}
+                            onChange={(e) => {
+                              setJawatanPenyedia(e.target.value);
+                              markChanged();
+                            }}
+                            placeholder="Jawatan"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Tarikh :</Label>
+                          <Input
+                            type="date"
+                            value={tarikhDisediakan}
+                            onChange={(e) => {
+                              setTarikhDisediakan(e.target.value);
+                              markChanged();
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Fixed Bottom Action Bar */}
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg z-20">
+          <div className="flex items-center justify-between max-w-7xl mx-auto">
+            <Button
+              variant="ghost"
+              onClick={() => router.push(`/dashboard/permohonan/${id}`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Kembali ke Permohonan
+            </Button>
+
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => handleSave()}
+                disabled={saving || statusLaporan === "Dikemukakan"}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Simpan Draf
+              </Button>
+
+              <Button
+                onClick={handleSubmit}
+                disabled={saving || statusLaporan === "Dikemukakan"}
+              >
+                Kemukakan
+              </Button>
+
+              <Button
+                variant="outline"
+                className="bg-success text-white hover:bg-success/90"
+                disabled={hasUnsavedChanges}
+                title={hasUnsavedChanges ? "Simpan draf dahulu" : ""}
+              >
+                Jana PDF
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Add padding to bottom to prevent content being hidden by fixed bar */}
+        <div className="h-24"></div>
       </div>
     </Layout>
   );
