@@ -39,6 +39,17 @@ export default function WrittenDirectivePage() {
   const [tarikhPematuhanDiterima, setTarikhPematuhanDiterima] = useState("");
   const [statusPematuhan, setStatusPematuhan] = useState("Menunggu");
   const [catatan, setCatatan] = useState("");
+  const [formData, setFormData] = useState({
+    application_id: "",
+    nama_pemaju_pemilik: "",
+    alamat_pemohon: "",
+    tajuk_permohonan: "",
+    arahan_pindaan: "",
+    tarikh_arahan: new Date().toISOString().split("T")[0],
+    tarikh_pematuhan: "",
+    no_rujukan: "",
+    yang_dipertua_name: "YB. Dato' Haji Ahmad bin Abdullah",
+  });
 
   useEffect(() => {
     if (!application_id) return;
@@ -160,6 +171,35 @@ export default function WrittenDirectivePage() {
       setSubmitting(false);
     }
   }
+
+  const loadDirectiveForEdit = async (directiveId: string) => {
+    try {
+      const directive = await writtenDirectiveService.getDirectiveById(directiveId);
+
+      if (directive) {
+        setFormData({
+          application_id: directive.application_id,
+          nama_pemaju_pemilik: directive.nama_pemaju_pemilik,
+          alamat_pemohon: directive.alamat_pemohon || "",
+          tajuk_permohonan: directive.tajuk_permohonan,
+          arahan_pindaan: directive.arahan_pindaan,
+          tarikh_arahan: directive.tarikh_arahan,
+          tarikh_pematuhan: directive.tarikh_pematuhan || "",
+          no_rujukan: directive.no_rujukan || "",
+          yang_dipertua_name: directive.yang_dipertua_name || "YB. Dato' Haji Ahmad bin Abdullah",
+        });
+        setEditingId(directiveId);
+        setShowForm(true);
+      }
+    } catch (error) {
+      console.error("Error loading directive:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memuatkan data arahan bertulis",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (loading) {
     return (

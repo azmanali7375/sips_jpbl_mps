@@ -193,3 +193,242 @@ export function isDirectiveOverdue(directive: WrittenDirective): boolean {
 
   return today > deadline;
 }
+
+generateDirectivePDF(directive: WrittenDirective): string {
+  const dateFormatted = new Date(directive.tarikh_arahan).toLocaleDateString("ms-MY", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  // Calculate 1 week deadline for plan return
+  const planReturnDate = new Date(directive.tarikh_arahan);
+  planReturnDate.setDate(planReturnDate.setDate(planReturnDate.getDate() + 7));
+  const planReturnDateFormatted = planReturnDate.toLocaleDateString("ms-MY", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  // Format compliance deadline (tarikh_pematuhan)
+  const complianceDeadline = directive.tarikh_pematuhan
+    ? new Date(directive.tarikh_pematuhan).toLocaleDateString("ms-MY", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+
+  // Format address lines
+  const addressLines = directive.alamat_pemohon
+    ? directive.alamat_pemohon.split("\n").map((line) => `<div>${line}</div>`).join("")
+    : "";
+
+  // Format directives as numbered list
+  const directivesList = directive.arahan_pindaan
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line, idx) => `<p>${idx + 1}. ${line}</p>`)
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Borang A(1) - Arahan Bertulis</title>
+  <style>
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12pt;
+      line-height: 1.6;
+      margin: 30px 50px;
+      color: #000;
+    }
+    .letterhead {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 3px solid #000;
+      padding-bottom: 10px;
+    }
+    .letterhead h1 {
+      font-size: 16pt;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    .letterhead p {
+      font-size: 9pt;
+      margin: 2px 0;
+    }
+    .header-block {
+      text-align: center;
+      margin: 30px 0 20px 0;
+      font-weight: bold;
+    }
+    .header-block div {
+      margin: 3px 0;
+    }
+    .form-title {
+      font-size: 14pt;
+      margin: 5px 0;
+    }
+    .reference {
+      text-align: right;
+      margin: 20px 0;
+    }
+    .address-block {
+      margin: 20px 0;
+    }
+    .body-text {
+      text-align: justify;
+      margin: 15px 0;
+    }
+    .body-text p {
+      margin: 10px 0;
+    }
+    .signature-block {
+      margin-top: 40px;
+      display: table;
+      width: 100%;
+    }
+    .signature-left {
+      display: table-cell;
+      width: 50%;
+      vertical-align: top;
+    }
+    .signature-right {
+      display: table-cell;
+      width: 50%;
+      text-align: center;
+      vertical-align: top;
+      padding-top: 60px;
+    }
+    .signature-line {
+      border-top: 1px solid #000;
+      width: 200px;
+      margin: 0 auto 5px auto;
+    }
+    .asterisk-note {
+      text-align: center;
+      font-style: italic;
+      font-size: 10pt;
+      margin-top: 10px;
+    }
+    .lampiran {
+      page-break-before: always;
+      margin-top: 50px;
+    }
+    .lampiran h2 {
+      text-align: center;
+      font-size: 14pt;
+      margin-bottom: 20px;
+    }
+    .lampiran-content {
+      margin: 20px 0;
+    }
+    .lampiran-content p {
+      margin: 8px 0;
+      text-align: justify;
+    }
+    @media print {
+      body { margin: 20px 40px; }
+      .lampiran { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Letterhead -->
+  <div class="letterhead">
+    <h1>MAJLIS PERBANDARAN SEGAMAT</h1>
+    <p>NO. 1, JALAN ABDULLAH, 85000 SEGAMAT, JOHOR DARUL TA'ZIM</p>
+    <p>Tel: 07-9312222 | Faks: 07-9324888 | Email: mps@mps.gov.my | www.mps.gov.my</p>
+  </div>
+
+  <!-- Header Block -->
+  <div class="header-block">
+    <div>JADUAL PERTAMA</div>
+    <div>AKTA PERANCANGAN BANDAR DAN DESA 1976</div>
+    <div>KAEDAH-KAEDAH PENGAWALAN PERANCANGAN (AM) 2008</div>
+    <div>NEGERI JOHOR</div>
+    <div style="margin-top: 15px;" class="form-title">BORANG A(1)</div>
+    <div style="margin-top: 10px;">ARAHAN BERTULIS</div>
+    <div style="font-size: 11pt; margin-top: 5px;">[Subkaedah 2(3)]</div>
+    <div style="font-size: 11pt; font-weight: normal; margin-top: 5px;">Mengikut</div>
+    <div style="font-size: 11pt;">Seksyen 21(3) Akta Perancangan Bandar dan Desa, 1976</div>
+  </div>
+
+  <!-- Reference -->
+  <div class="reference">
+    <strong>No. Rujukan:</strong> MPS/JPL.600-3/${directive.no_rujukan || ""}
+  </div>
+
+  <!-- Address Block -->
+  <div class="address-block">
+    <div><strong>Kepada,</strong></div>
+    <div style="margin-top: 10px;">
+      <strong>${directive.nama_pemaju_pemilik}</strong><br>
+      ${addressLines}
+    </div>
+  </div>
+
+  <!-- Body Text -->
+  <div class="body-text">
+    <p>
+      Setelah membuat semakan ke atas permohonan tuan dan mengambil kira perkara-perkara yang 
+      dikehendaki oleh undang-undang, keperluan teknikal serta dokumen rancangan pemajuan yang ada, 
+      arahan bertulis seperti di Lampiran A dengan ini dikenakan kepada <strong>${directive.nama_pemaju_pemilik}</strong> 
+      beralamat ${directive.alamat_pemohon || ""} bagi tujuan <strong>${directive.tajuk_permohonan}</strong>
+    </p>
+
+    <p>
+      2. Tuan dikehendaki mengembalikan rancangan (pelan) yang dipinda dalam tempoh <strong>satu (1) minggu</strong> 
+      dari tarikh notis ini dikeluarkan. Kegagalan untuk menyampaikan semula rancangan (pelan) yang telah 
+      dipinda dalam tempoh tersebut atau tempoh kebenaran yang dilanjutkan, permohonan kebenaran 
+      merancang itu disifatkan telah ditarik balik.
+    </p>
+  </div>
+
+  <!-- Signature Block -->
+  <div class="signature-block">
+    <div class="signature-left">
+      <div><strong>Tarikh:</strong> ${dateFormatted}</div>
+    </div>
+    <div class="signature-right">
+      <div class="signature-line"></div>
+      <div>(${directive.yang_dipertua_name || "YB. Dato' Haji Ahmad bin Abdullah"})</div>
+      <div><strong>Yang Dipertua</strong></div>
+      <div>Majlis Perbandaran Segamat</div>
+    </div>
+  </div>
+
+  <!-- Asterisk Note -->
+  <div class="asterisk-note">
+    *Potong mana yang tidak berkenaan*
+  </div>
+
+  <!-- Lampiran A -->
+  <div class="lampiran">
+    <h2>LAMPIRAN A</h2>
+    <div style="text-align: center; margin-bottom: 20px;">
+      <strong>ARAHAN BERTULIS</strong><br>
+      (No. Rujukan: MPS/JPL.600-3/${directive.no_rujukan || ""})
+    </div>
+    
+    <div class="lampiran-content">
+      ${directivesList}
+    </div>
+
+    ${complianceDeadline ? `
+    <div style="margin-top: 30px;">
+      <p><strong>Tarikh pematuhan penuh:</strong> ${complianceDeadline}</p>
+      <p style="font-size: 10pt; font-style: italic;">
+        (Tarikh akhir untuk mengembalikan pelan yang telah dipinda mengikut semua arahan di atas)
+      </p>
+    </div>
+    ` : ""}
+  </div>
+</body>
+</html>`;
+
+  return html;
+}

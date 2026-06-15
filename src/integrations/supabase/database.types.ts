@@ -1104,6 +1104,7 @@ export type Database = {
       }
       written_directives: {
         Row: {
+          alamat_pemohon: string | null
           application_id: string
           arahan: string | null
           catatan: string | null
@@ -1124,8 +1125,10 @@ export type Database = {
           tarikh_pematuhan_dikehendaki: string | null
           tarikh_pematuhan_diterima: string | null
           updated_at: string | null
+          yang_dipertua_name: string | null
         }
         Insert: {
+          alamat_pemohon?: string | null
           application_id: string
           arahan?: string | null
           catatan?: string | null
@@ -1146,8 +1149,10 @@ export type Database = {
           tarikh_pematuhan_dikehendaki?: string | null
           tarikh_pematuhan_diterima?: string | null
           updated_at?: string | null
+          yang_dipertua_name?: string | null
         }
         Update: {
+          alamat_pemohon?: string | null
           application_id?: string
           arahan?: string | null
           catatan?: string | null
@@ -1168,6 +1173,7 @@ export type Database = {
           tarikh_pematuhan_dikehendaki?: string | null
           tarikh_pematuhan_diterima?: string | null
           updated_at?: string | null
+          yang_dipertua_name?: string | null
         }
         Relationships: [
           {
