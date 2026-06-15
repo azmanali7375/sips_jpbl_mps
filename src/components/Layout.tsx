@@ -16,7 +16,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  UserCog
 } from "lucide-react";
 import { NotificationCenter } from "./NotificationCenter";
 import {
@@ -101,6 +102,9 @@ export function Layout({ children }: LayoutProps) {
         { href: "/dashboard/review", icon: FileCheck, label: "Semakan Laporan" },
         { href: "/dashboard/recommendations", icon: FileText, label: "Syor Saya" },
       ],
+      admin: [
+        { href: "/dashboard/manage-users", icon: UserCog, label: "Urus Pengguna" },
+      ],
     };
 
     return [...common, ...(roleItems[profile?.role || ""] || [])];
@@ -181,6 +185,18 @@ export function Layout({ children }: LayoutProps) {
                       }`}
                     >
                       Semakan Ketua
+                    </Link>
+                  )}
+                  {profile?.role === "admin" && (
+                    <Link
+                      href="/dashboard/manage-users"
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        router.pathname === "/dashboard/manage-users"
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      Urus Pengguna
                     </Link>
                   )}
                 </div>
