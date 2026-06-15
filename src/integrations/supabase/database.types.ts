@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
+ 
 export type Json =
   | string
   | number
@@ -622,6 +622,8 @@ export type Database = {
       }
       osc_decisions: {
         Row: {
+          additional_sk_recipients: string[] | null
+          alamat_pemohon: string | null
           amendment_requirements: string | null
           application_id: string
           approval_conditions: string | null
@@ -629,15 +631,22 @@ export type Database = {
           created_at: string | null
           decision_type: string
           id: string
+          is_exempt_caj: boolean | null
+          jenis_permohonan: string | null
           meeting_date: string
           meeting_number: string | null
           no_kelulusan_km: string | null
+          no_pelan_lulus: string | null
           recorded_by: string
           rejection_reasons: string | null
+          tarikh_kelulusan: string | null
           tempoh_sah_kelulusan: number | null
           updated_at: string | null
+          yang_dipertua_name: string | null
         }
         Insert: {
+          additional_sk_recipients?: string[] | null
+          alamat_pemohon?: string | null
           amendment_requirements?: string | null
           application_id: string
           approval_conditions?: string | null
@@ -645,15 +654,22 @@ export type Database = {
           created_at?: string | null
           decision_type: string
           id?: string
+          is_exempt_caj?: boolean | null
+          jenis_permohonan?: string | null
           meeting_date: string
           meeting_number?: string | null
           no_kelulusan_km?: string | null
+          no_pelan_lulus?: string | null
           recorded_by: string
           rejection_reasons?: string | null
+          tarikh_kelulusan?: string | null
           tempoh_sah_kelulusan?: number | null
           updated_at?: string | null
+          yang_dipertua_name?: string | null
         }
         Update: {
+          additional_sk_recipients?: string[] | null
+          alamat_pemohon?: string | null
           amendment_requirements?: string | null
           application_id?: string
           approval_conditions?: string | null
@@ -661,13 +677,18 @@ export type Database = {
           created_at?: string | null
           decision_type?: string
           id?: string
+          is_exempt_caj?: boolean | null
+          jenis_permohonan?: string | null
           meeting_date?: string
           meeting_number?: string | null
           no_kelulusan_km?: string | null
+          no_pelan_lulus?: string | null
           recorded_by?: string
           rejection_reasons?: string | null
+          tarikh_kelulusan?: string | null
           tempoh_sah_kelulusan?: number | null
           updated_at?: string | null
+          yang_dipertua_name?: string | null
         }
         Relationships: [
           {

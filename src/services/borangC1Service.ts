@@ -23,12 +23,12 @@ export const borangC1Service = {
     isPaid?: boolean;
     isExempt?: boolean;
   }> {
-    // Check if application has osc_decision
+    // Check if application has osc_decision with Lulus
     const { data: decision } = await supabase
       .from("osc_decisions")
-      .select("is_exempt_caj")
+      .select("is_exempt_caj, decision_type")
       .eq("application_id", applicationId)
-      .eq("keputusan_osc", "Lulus")
+      .eq("decision_type", "Lulus")
       .single();
 
     if (!decision) {
@@ -38,7 +38,8 @@ export const borangC1Service = {
       };
     }
 
-    // Check if exempt
+    // For now, all applications are exempt until payment system is implemented
+    // is_exempt_caj defaults to true
     if (decision.is_exempt_caj) {
       return {
         canGenerate: true,
@@ -46,24 +47,11 @@ export const borangC1Service = {
       };
     }
 
-    // Check payment status
-    const { data: payment } = await supabase
-      .from("caj_pemajuan")
-      .select("status_caj")
-      .eq("application_id", applicationId)
-      .single();
-
-    if (!payment || payment.status_caj !== "Dibayar") {
-      return {
-        canGenerate: false,
-        message:
-          "Sila selesaikan pembayaran Caj Pemajuan dahulu. Jana Borang A (Notis Caj Pemajuan) terlebih dahulu.",
-      };
-    }
-
+    // Future: Check caj_pemajuan table when payment system is implemented
     return {
-      canGenerate: true,
-      isPaid: true,
+      canGenerate: false,
+      message:
+        "Sila selesaikan pembayaran Caj Pemajuan dahulu. Jana Borang A (Notis Caj Pemajuan) terlebih dahulu.",
     };
   },
 
@@ -74,9 +62,10 @@ export const borangC1Service = {
         `
         *,
         osc_decisions (
+          decision_type,
           no_mesyuarat,
           tarikh_mesyuarat_osc,
-          syarat_kelulusan,
+          approval_conditions,
           no_pelan_lulus,
           tarikh_kelulusan,
           alamat_pemohon,
@@ -94,7 +83,7 @@ export const borangC1Service = {
       return null;
     }
 
-    const decision = app.osc_decisions.find((d: any) => d.keputusan_osc === "Lulus");
+    const decision = app.osc_decisions.find((d: any) => d.decision_type === "Lulus");
     if (!decision) return null;
 
     return {
@@ -103,13 +92,13 @@ export const borangC1Service = {
       nama_pemaju_pemilik: app.nama_pemaju_pemilik || "",
       alamat_pemohon: decision.alamat_pemohon || "",
       tajuk_permohonan: app.tajuk_permohonan || "",
-      no_mesyuarat: decision.no_mesyuarat || "",
-      tarikh_mesyuarat_osc: decision.tarikh_mesyuarat_osc || "",
+      no_mesyuarat: decision.no_mesyuarat || decision.meeting_number || "",
+      tarikh_mesyuarat_osc: decision.tarikh_mesyuarat_osc || decision.meeting_date || "",
       no_pelan_lulus: decision.no_pelan_lulus || "",
       tarikh_kelulusan: decision.tarikh_kelulusan || "",
       jenis_permohonan: decision.jenis_permohonan || "",
       yang_dipertua_name: decision.yang_dipertua_name || "YB. Dato' Haji Ahmad bin Abdullah",
-      syarat_kelulusan: decision.syarat_kelulusan || "",
+      syarat_kelulusan: decision.approval_conditions || "",
       additional_sk_recipients: decision.additional_sk_recipients || [],
     };
   },

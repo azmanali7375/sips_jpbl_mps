@@ -10,9 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, FileText, CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Calendar, FileText, CheckCircle2, XCircle, AlertCircle, Clock, Download } from "lucide-react";
 import { applicationService, type Application } from "@/services/applicationService";
 import { oscDecisionService, type OSCDecisionType } from "@/services/oscDecisionService";
+import { borangC1Service } from "@/services/borangC1Service";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OSCDecisionsPage() {
@@ -33,6 +35,12 @@ export default function OSCDecisionsPage() {
     no_kelulusan_km: "",
     catatan_osc: "",
   });
+
+  // C1 generation state
+  const [showC1Modal, setShowC1Modal] = useState(false);
+  const [c1Data, setC1Data] = useState<any>(null);
+  const [editableC1Data, setEditableC1Data] = useState<any>(null);
+  const [generatingC1, setGeneratingC1] = useState(false);
 
   useEffect(() => {
     loadApplications();
@@ -120,6 +128,75 @@ export default function OSCDecisionsPage() {
     }
   };
 
+  const handleGenerateC1 = async (appId: string) => {
+    try {
+      // Check payment status
+      const paymentCheck = await borangC1Service.checkPaymentStatus(appId);
+      
+      if (!paymentCheck.canGenerate) {
+        toast({
+          title: "Tidak Boleh Jana C(1)",
+          description: paymentCheck.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get C1 data
+      const data = await borangC1Service.getC1Data(appId);
+      
+      if (!data) {
+        toast({
+          title: "Ralat",
+          description: "Gagal mendapatkan maklumat untuk Borang C(1)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setC1Data(data);
+      setEditableC1Data({ ...data });
+      setShowC1Modal(true);
+    } catch (error) {
+      console.error("Error preparing C1:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menyediakan Borang C(1)",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadC1 = () => {
+    if (!editableC1Data) return;
+
+    setGeneratingC1(true);
+    
+    try {
+      const html = borangC1Service.generateC1HTML(editableC1Data);
+      const timestamp = new Date().toISOString().split("T")[0].replace(/-/g, "");
+      const filename = `C1_${editableC1Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
+      
+      borangC1Service.downloadC1PDF(html, filename);
+      
+      toast({
+        title: "Borang C(1) Dijana",
+        description: "Buka fail HTML dan cetak ke PDF dari pelayar anda.",
+      });
+      
+      setShowC1Modal(false);
+    } catch (error) {
+      console.error("Error generating C1:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menjana Borang C(1)",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingC1(false);
+    }
+  };
+
   const getDecisionIcon = (type: OSCDecisionType) => {
     switch (type) {
       case "Lulus": return <CheckCircle2 className="h-5 w-5 text-success" />;
@@ -168,17 +245,31 @@ export default function OSCDecisionsPage() {
               ) : (
                 <div className="space-y-2">
                   {applications.map((app) => (
-                    <Button
-                      key={app.id}
-                      variant={selectedApp?.id === app.id ? "default" : "outline"}
-                      className="w-full justify-start text-left"
-                      onClick={() => handleApplicationSelect(app.id)}
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium">{app.tracking_number}</div>
-                        <div className="text-xs opacity-75 truncate">{app.project_name}</div>
-                      </div>
-                    </Button>
+                    <div key={app.id} className="space-y-2">
+                      <Button
+                        variant={selectedApp?.id === app.id ? "default" : "outline"}
+                        className="w-full justify-start text-left"
+                        onClick={() => handleApplicationSelect(app.id)}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{app.tracking_number}</div>
+                          <div className="text-xs opacity-75 truncate">{app.project_name}</div>
+                        </div>
+                      </Button>
+                      
+                      {/* Show Generate C1 button for approved applications */}
+                      {app.status === "approved" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => handleGenerateC1(app.id)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Jana Borang C(1)
+                        </Button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -379,6 +470,147 @@ export default function OSCDecisionsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Borang C(1) Modal */}
+        <Dialog open={showC1Modal} onOpenChange={setShowC1Modal}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Jana Borang C(1) - Kebenaran Merancang</DialogTitle>
+            </DialogHeader>
+
+            {editableC1Data && (
+              <div className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-900 text-sm">
+                    Semak semua maklumat sebelum menjana PDF. Anda boleh edit syarat kelulusan di bawah.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Fail JPL</Label>
+                    <Input value={editableC1Data.no_fail_jpl} disabled className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Permohonan OSC</Label>
+                    <Input value={editableC1Data.no_permohonan_osc} disabled className="text-sm" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Nama Pemaju / Pemilik</Label>
+                    <Input value={editableC1Data.nama_pemaju_pemilik} disabled className="text-sm" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Alamat Pemohon</Label>
+                    <Input
+                      value={editableC1Data.alamat_pemohon}
+                      onChange={(e) =>
+                        setEditableC1Data({ ...editableC1Data, alamat_pemohon: e.target.value })
+                      }
+                      placeholder="Masukkan alamat lengkap pemohon"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Tajuk Permohonan</Label>
+                    <Input value={editableC1Data.tajuk_permohonan} disabled className="text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Mesyuarat OSC</Label>
+                    <Input
+                      value={editableC1Data.no_mesyuarat}
+                      onChange={(e) =>
+                        setEditableC1Data({ ...editableC1Data, no_mesyuarat: e.target.value })
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Tarikh Mesyuarat</Label>
+                    <Input
+                      type="date"
+                      value={editableC1Data.tarikh_mesyuarat_osc}
+                      onChange={(e) =>
+                        setEditableC1Data({ ...editableC1Data, tarikh_mesyuarat_osc: e.target.value })
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">No. Pelan Lulus</Label>
+                    <Input
+                      value={editableC1Data.no_pelan_lulus}
+                      onChange={(e) =>
+                        setEditableC1Data({ ...editableC1Data, no_pelan_lulus: e.target.value })
+                      }
+                      placeholder="Contoh: PL/2026/123"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Tarikh Kelulusan</Label>
+                    <Input
+                      type="date"
+                      value={editableC1Data.tarikh_kelulusan}
+                      onChange={(e) =>
+                        setEditableC1Data({ ...editableC1Data, tarikh_kelulusan: e.target.value })
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Jenis Permohonan</Label>
+                    <Select
+                      value={editableC1Data.jenis_permohonan}
+                      onValueChange={(value) =>
+                        setEditableC1Data({ ...editableC1Data, jenis_permohonan: value })
+                      }
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="Pilih jenis" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Susunatur">Susunatur</SelectItem>
+                        <SelectItem value="Pembinaan">Pembinaan</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Jika Pembinaan, kelulusan sah selama 12 bulan
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Syarat Kelulusan (LAMPIRAN A)</Label>
+                    <Textarea
+                      value={editableC1Data.syarat_kelulusan}
+                      onChange={(e) =>
+                        setEditableC1Data({ ...editableC1Data, syarat_kelulusan: e.target.value })
+                      }
+                      rows={8}
+                      placeholder="Masukkan syarat kelulusan (satu syarat per baris)..."
+                      className="text-sm font-mono"
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowC1Modal(false)}>
+                    Batal
+                  </Button>
+                  <Button onClick={handleDownloadC1} disabled={generatingC1}>
+                    {generatingC1 ? (
+                      "Menjana..."
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Jana PDF
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
