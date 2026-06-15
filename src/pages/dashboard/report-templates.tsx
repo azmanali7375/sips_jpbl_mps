@@ -35,7 +35,7 @@ interface ReportTemplate {
   created_at: string;
 }
 
-interface FormData {
+interface TemplateFormData {
   template_name: string;
   template_type: string;
   template_content: string;
@@ -49,7 +49,7 @@ export default function ReportTemplates() {
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<TemplateFormData>({
     template_name: "",
     template_type: "Ulasan Teknikal",
     template_content: "",
