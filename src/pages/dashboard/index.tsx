@@ -194,6 +194,17 @@ export default function SIPSDashboard() {
     return "text-green-600";
   };
 
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: "Pending",
+      under_review: "Semakan",
+      approved: "Lulus",
+      rejected: "Tolak",
+      approved_with_amendments: "Pindaan",
+    };
+    return labels[status] || status;
+  };
+
   const getRowColor = (remainingDays: number): string => {
     if (remainingDays <= 7) return "bg-destructive/10 hover:bg-destructive/20";
     if (remainingDays <= 14) return "bg-accent/10 hover:bg-accent/20";
@@ -381,56 +392,41 @@ export default function SIPSDashboard() {
                   <TableRow>
                     <TableHead>No. Fail</TableHead>
                     <TableHead>Pemohon</TableHead>
-                    <TableHead>Kategori</TableHead>
-                    <TableHead>Tarikh Terima</TableHead>
-                    <TableHead>Tarikh KPI</TableHead>
-                    <TableHead className="text-right">Baki Hari</TableHead>
-                    <TableHead>Pegawai</TableHead>
+                    <TableHead>Jenis</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Baki Hari</TableHead>
+                    <TableHead>Tindakan</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {kpiPerformance.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         Tiada permohonan aktif
                       </TableCell>
                     </TableRow>
                   ) : (
-                    kpiPerformance.map((app) => {
+                    kpiPerformance.slice(0, 10).map((app) => {
                       const remainingDays = calculateRemainingDays(app.tarikh_kpi);
                       return (
-                        <TableRow
-                          key={app.id}
-                          className={`cursor-pointer transition-colors ${getRowColor(remainingDays)}`}
-                          onClick={() => router.push(`/dashboard/permohonan/${app.id}`)}
-                        >
-                          <TableCell className="font-mono text-sm">{app.tracking_number}</TableCell>
-                          <TableCell className="max-w-[200px] truncate">{app.nama_sp}</TableCell>
+                        <TableRow key={app.id}>
+                          <TableCell className="font-medium">{app.no_fail_jpl}</TableCell>
+                          <TableCell>{app.nama_pemaju_pemilik}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{app.skala_pembangunan || "—"}</Badge>
+                            <Badge variant="secondary">{app.jenis_aplikasi || "KM"}</Badge>
                           </TableCell>
-                          <TableCell className="text-sm">
-                            {app.tarikh_lengkap_diterima_osc ? new Date(app.tarikh_lengkap_diterima_osc).toLocaleDateString("ms-MY") : "—"}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {app.tarikh_kpi ? new Date(app.tarikh_kpi).toLocaleDateString("ms-MY") : "—"}
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-semibold">
-                            {remainingDays === 999 ? (
-                              "—"
-                            ) : remainingDays < 0 ? (
-                              <span className="text-destructive">TAMAT ({Math.abs(remainingDays)})</span>
-                            ) : remainingDays <= 7 ? (
-                              <span className="text-destructive">{remainingDays}</span>
-                            ) : remainingDays <= 14 ? (
-                              <span className="text-accent">{remainingDays}</span>
-                            ) : (
-                              <span className="text-success">{remainingDays}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-[150px] truncate text-sm">
-                            {app.profiles?.full_name || "—"}
+                          <TableCell>
+                            <Badge
+                              variant={
+                                app.status === "approved"
+                                  ? "default"
+                                  : app.status === "rejected"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                            >
+                              {getStatusLabel(app.status)}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             {app.tarikh_kpi ? (
@@ -441,7 +437,15 @@ export default function SIPSDashboard() {
                               "-"
                             )}
                           </TableCell>
-                          <TableCell>{getStatusBadge(app.status || "osc_received", remainingDays, app.kpi_hari || 57)}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/dashboard/permohonan/${app.id}`)}
+                            >
+                              Lihat
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })
