@@ -71,7 +71,6 @@ import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
 import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { cajPemajanService, type CajPemajanData } from "@/services/cajPemajanService";
-import { documentService } from "@/services/documentService";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
 type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
@@ -330,7 +329,7 @@ export default function ApplicationDetailPage() {
       setSiteVisits(visits);
 
       // Get documents
-      const docs = await documentService.getDocumentsByApplication(id as string);
+      const docs = await getApplicationDocuments(id as string);
       setDocuments(docs);
 
       // Load Caj Pemajuan data if exists
