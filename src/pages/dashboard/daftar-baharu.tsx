@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -45,6 +46,11 @@ export default function DaftarBaharu() {
   const [missingCount, setMissingCount] = useState(0);
   const [landLots, setLandLots] = useState<any[]>([]);
   const [processingError, setProcessingError] = useState<string | null>(null);
+
+  // Import success state
+  const [showImportSuccess, setShowImportSuccess] = useState(false);
+  const [importedLotsCount, setImportedLotsCount] = useState(0);
+  const [expandedTajuk, setExpandedTajuk] = useState(false);
 
   const [formData, setFormData] = useState<RegistrationFormData>({
     no_permohonan_osc: "",
@@ -283,6 +289,62 @@ export default function DaftarBaharu() {
     }
   };
 
+  const handleRetryUpload = () => {
+    setExtractedData(null);
+    setUploadedFile(null);
+    setFileType(null);
+    setProcessingError(null);
+  };
+
+  const handleUseExtractedData = () => {
+    if (!extractedData) return;
+
+    // Fill form fields from extracted data
+    setFormData((prev) => ({
+      ...prev,
+      no_permohonan_osc: extractedData.no_permohonan_osc || prev.no_permohonan_osc,
+      kategori_permohonan: extractedData.kategori_permohonan || prev.kategori_permohonan,
+      skala_pembangunan: extractedData.skala_pembangunan || prev.skala_pembangunan,
+      nama_sp: extractedData.nama_sp || prev.nama_sp,
+      no_kp_sp: extractedData.no_kp_sp || prev.no_kp_sp,
+      jenis_proses_pr: extractedData.jenis_proses_pr || prev.jenis_proses_pr,
+      status_semakan_osc: extractedData.status_semakan_osc || prev.status_semakan_osc,
+      tarikh_penghantaran: extractedData.tarikh_penghantaran || prev.tarikh_penghantaran,
+      tarikh_lengkap_diterima_osc: extractedData.tarikh_lengkap_diterima_osc || prev.tarikh_lengkap_diterima_osc,
+      nama_pemaju_pemilik: extractedData.nama_pemaju_pemilik || prev.nama_pemaju_pemilik,
+      tajuk_permohonan: extractedData.tajuk_permohonan || prev.tajuk_permohonan,
+      lokasi_mercu_tanda: extractedData.lokasi_mercu_tanda || prev.lokasi_mercu_tanda,
+      mukim: extractedData.mukim || prev.mukim,
+      daerah: extractedData.daerah || prev.daerah,
+      negeri: extractedData.negeri || prev.negeri,
+      rancangan_tempatan: extractedData.rancangan_tempatan || prev.rancangan_tempatan,
+      zoning: extractedData.zoning || prev.zoning,
+      longitud: extractedData.longitud !== null ? extractedData.longitud : prev.longitud,
+      latitud: extractedData.latitud !== null ? extractedData.latitud : prev.latitud,
+    }));
+
+    // Store land lots for later insertion
+    setImportedLotsCount(landLots.length);
+
+    // Show success banner
+    setShowImportSuccess(true);
+
+    // Close modal
+    setShowImportModal(false);
+
+    // Reset modal state
+    setTimeout(() => {
+      setExtractedData(null);
+      setUploadedFile(null);
+      setFileType(null);
+    }, 500);
+
+    toast({
+      title: "Import Berjaya",
+      description: `${extractedCount} medan telah diisi secara automatik`,
+    });
+  };
+
   const handleInputChange = (
     field: keyof RegistrationFormData,
     value: string | number | undefined
@@ -405,6 +467,24 @@ export default function DaftarBaharu() {
             </Button>
           </AlertDescription>
         </Alert>
+
+        {/* Import Success Banner */}
+        {showImportSuccess && (
+          <Alert className="bg-green-50 border-green-200">
+            <AlertCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-900">
+              <p className="font-semibold">
+                ✓ {extractedCount} medan diisi secara automatik daripada dokumen OSC
+              </p>
+              <p className="text-sm mt-1">
+                Semak dan lengkapkan medan yang tidak ditemui sebelum menyimpan.
+                {importedLotsCount > 0 && (
+                  <> {importedLotsCount} rekod lot akan disimpan apabila borang ini disimpan.</>
+                )}
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Info Alert */}
         <Alert>
@@ -886,28 +966,99 @@ export default function DaftarBaharu() {
                 </div>
               </div>
             ) : extractedData ? (
-              /* Review Panel - will be implemented in next prompt */
-              <div className="py-8">
-                <Alert className="bg-green-50 border-green-200">
-                  <AlertCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-900">
-                    <p className="font-semibold mb-1">Analisis Selesai</p>
-                    <p className="text-sm">
-                      {extractedCount} medan berjaya diekstrak, {missingCount} medan tidak dijumpai
-                    </p>
-                  </AlertDescription>
-                </Alert>
-                <p className="text-sm text-muted-foreground mt-4 text-center">
-                  Review panel akan dilaksanakan dalam langkah seterusnya
-                </p>
-                <div className="mt-6 flex justify-center">
-                  <Button onClick={() => {
-                    setShowImportModal(false);
-                    setExtractedData(null);
-                  }}>
-                    Tutup
-                  </Button>
+              /* Review Panel */
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Semak Maklumat Diekstrak</h3>
+                  
+                  {/* Data Table */}
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="border p-2 text-left font-semibold text-sm">Medan</th>
+                          <th className="border p-2 text-left font-semibold text-sm">Nilai Diekstrak oleh AI</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { label: "No. Permohonan OSC", value: extractedData.no_permohonan_osc },
+                          { label: "Kategori Permohonan", value: extractedData.kategori_permohonan },
+                          { label: "Skala Pembangunan", value: extractedData.skala_pembangunan },
+                          { label: "Nama Pemohon (SP)", value: extractedData.nama_sp },
+                          { label: "No. KP (SP)", value: extractedData.no_kp_sp },
+                          { label: "Jenis Proses PR", value: extractedData.jenis_proses_pr },
+                          { label: "Status Semakan (OSC)", value: extractedData.status_semakan_osc },
+                          { label: "Tarikh Penghantaran", value: extractedData.tarikh_penghantaran },
+                          { label: "Tarikh Lengkap OSC (KPI)", value: extractedData.tarikh_lengkap_diterima_osc, highlight: true },
+                          { label: "Jabatan Memperaku", value: extractedData.jabatan_memperaku },
+                          { label: "Negeri", value: extractedData.negeri },
+                          { label: "Daerah", value: extractedData.daerah },
+                          { label: "Mukim", value: extractedData.mukim },
+                          { label: "Nama Pemaju / Pemilik", value: extractedData.nama_pemaju_pemilik },
+                          { label: "Lokasi / Mercu Tanda", value: extractedData.lokasi_mercu_tanda },
+                          { label: "Longitud", value: extractedData.longitud },
+                          { label: "Latitud", value: extractedData.latitud },
+                          { label: "Rancangan Tempatan", value: extractedData.rancangan_tempatan },
+                          { label: "Zoning", value: extractedData.zoning },
+                          { label: "Tajuk Permohonan", value: extractedData.tajuk_permohonan, truncate: true },
+                          { label: "Maklumat Tanah", value: `${landLots.length} lot ditemui`, custom: true },
+                        ].map((row, index) => (
+                          <tr key={index} className={row.highlight ? "bg-blue-50" : ""}>
+                            <td className="border p-2 text-sm font-medium">{row.label}</td>
+                            <td className="border p-2 text-sm">
+                              {row.value === null || row.value === undefined ? (
+                                <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                                  Tidak ditemui
+                                </Badge>
+                              ) : row.truncate && typeof row.value === "string" ? (
+                                <div>
+                                  {expandedTajuk || row.value.length <= 120 ? (
+                                    row.value
+                                  ) : (
+                                    <>
+                                      {row.value.substring(0, 120)}...{" "}
+                                      <button
+                                        onClick={() => setExpandedTajuk(true)}
+                                        className="text-primary text-xs hover:underline"
+                                      >
+                                        Lihat semua
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : (
+                                String(row.value)
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Summary */}
+                  <p className="text-sm text-muted-foreground mt-3">
+                    {extractedCount} medan berjaya diekstrak, {missingCount} medan tidak ditemui.
+                  </p>
+
+                  {/* Disclaimer */}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Sila semak semua nilai sebelum mengesahkan.
+                  </p>
                 </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={handleRetryUpload}>
+                    Cuba Lagi
+                  </Button>
+                  <Button 
+                    onClick={handleUseExtractedData}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Gunakan Maklumat Ini
+                  </Button>
+                </DialogFooter>
               </div>
             ) : (
               /* Upload Area */
