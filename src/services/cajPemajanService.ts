@@ -38,7 +38,10 @@ export const cajPemajanService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+    };
   },
 
   async getCajPemajan(applicationId: string): Promise<CajPemajanData | null> {
@@ -49,7 +52,12 @@ export const cajPemajanService = {
       .single();
 
     if (error && error.code !== "PGRST116") throw error;
-    return data;
+    if (!data) return null;
+    
+    return {
+      ...data,
+      status_caj: data.status_caj as "Belum Dikira" | "Menunggu Bayaran" | "Dibayar" | "Dikecualikan",
+    };
   },
 
   async updateCajPemajan(id: string, updates: Partial<CajPemajanData>): Promise<void> {
