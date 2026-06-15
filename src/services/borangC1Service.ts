@@ -56,35 +56,41 @@ export const borangC1Service = {
   },
 
   async getC1Data(applicationId: string): Promise<BorangC1Data | null> {
-    const { data: app } = await supabase
+    const { data: app, error } = await supabase
       .from("applications")
       .select(
         `
-        *,
-        osc_decisions (
+        no_fail_jpl,
+        no_permohonan_osc,
+        nama_pemaju_pemilik,
+        tajuk_permohonan,
+        osc_decisions!inner (
           decision_type,
+          meeting_number,
+          meeting_date,
+          approval_conditions,
           no_mesyuarat,
           tarikh_mesyuarat_osc,
-          approval_conditions,
           no_pelan_lulus,
           tarikh_kelulusan,
           alamat_pemohon,
           jenis_permohonan,
           yang_dipertua_name,
-          is_exempt_caj,
           additional_sk_recipients
         )
       `
       )
       .eq("id", applicationId)
+      .eq("osc_decisions.decision_type", "Lulus")
       .single();
 
-    if (!app || !app.osc_decisions || app.osc_decisions.length === 0) {
+    if (error || !app || !app.osc_decisions) {
       return null;
     }
 
-    const decision = app.osc_decisions.find((d: any) => d.decision_type === "Lulus");
-    if (!decision) return null;
+    const decision = Array.isArray(app.osc_decisions) 
+      ? app.osc_decisions[0] 
+      : app.osc_decisions;
 
     return {
       no_fail_jpl: app.no_fail_jpl || "",
