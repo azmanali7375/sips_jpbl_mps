@@ -34,6 +34,7 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  FileDown,
 } from "lucide-react";
 import { useRouter } from "next/router";
 
@@ -58,6 +59,11 @@ export default function PustakaDasarPage() {
   const [selectedTopic, setSelectedTopic] = useState("");
   const [selectedLandUse, setSelectedLandUse] = useState("");
   const [searchResults, setSearchResults] = useState<PolicyChunk[]>([]);
+  const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
+
+  // Quick reference PDF state
+  const [generatingQuickRef, setGeneratingQuickRef] = useState(false);
+  const currentUser = authService.getCurrentUser();
   const [searching, setSearching] = useState(false);
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
 
@@ -227,6 +233,151 @@ export default function PustakaDasarPage() {
       
       setShowIndexModal(false);
       setIndexingDocument(null);
+    }
+  };
+
+  const generateQuickReferencePDF = async () => {
+    setGeneratingQuickRef(true);
+
+    try {
+      // Fetch policy data organized by development type and topic
+      const developmentTypes = ["Kediaman", "Komersial", "Perindustrian"];
+      const topics = [
+        { name: "Anjakan", keywords: ["anjakan bangunan", "building setback"] },
+        { name: "Parkir", keywords: ["tempat letak kereta", "parkir", "parking"] },
+        { name: "Kawasan Lapang", keywords: ["kawasan lapang", "open space"] },
+        { name: "Ketinggian", keywords: ["ketinggian bangunan", "building height"] },
+        { name: "Nisbah Plot", keywords: ["nisbah plot", "plot ratio"] },
+      ];
+
+      const quickRefData: any = {};
+
+      for (const devType of developmentTypes) {
+        quickRefData[devType] = {};
+
+        for (const topic of topics) {
+          const { data: chunks } = await supabase
+            .from("policy_chunks")
+            .select("*")
+            .or(
+              topic.keywords
+                .map((k) => `content_text.ilike.%${k}%,keywords_text.ilike.%${k}%`)
+                .join(",")
+            )
+            .or(`land_use_tags.cs.{${devType.toLowerCase()}},land_use_tags.cs.{semua}`)
+            .limit(3);
+
+          quickRefData[devType][topic.name] = chunks || [];
+        }
+      }
+
+      // Generate PDF content as HTML
+      const currentYear = new Date().getFullYear();
+      const currentDate = new Date().toLocaleDateString("ms-MY", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+
+      let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rujukan Pantas Piawai Perancangan MPS ${currentYear}</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 10pt; margin: 20px; }
+    h1 { font-size: 16pt; text-align: center; margin-bottom: 5px; }
+    h2 { font-size: 12pt; margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #333; }
+    h3 { font-size: 11pt; margin-top: 15px; margin-bottom: 8px; color: #0066cc; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 9pt; }
+    th { background-color: #f0f0f0; padding: 6px; text-align: left; border: 1px solid #ccc; font-weight: bold; }
+    td { padding: 5px; border: 1px solid #ccc; vertical-align: top; }
+    .footer { margin-top: 30px; font-size: 8pt; color: #666; text-align: center; }
+    .doc-badge { display: inline-block; padding: 2px 6px; background-color: #e0e0e0; border-radius: 3px; font-weight: bold; font-size: 8pt; }
+    @media print {
+      body { margin: 15px; }
+      h2 { page-break-before: always; }
+      table { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <h1>RUJUKAN PANTAS PIAWAI PERANCANGAN</h1>
+  <p style="text-align: center; margin-bottom: 20px;">
+    Jabatan Perancang Bandar dan Landskap, Majlis Perbandaran Segamat<br>
+    <em>Untuk kegunaan semakan teknikal lapangan</em>
+  </p>
+`;
+
+      for (const devType of developmentTypes) {
+        htmlContent += `<h2>${devType}</h2>`;
+
+        for (const topic of topics) {
+          const chunks = quickRefData[devType][topic.name];
+          if (chunks.length === 0) continue;
+
+          htmlContent += `<h3>${topic.name}</h3>`;
+          htmlContent += `<table>
+            <tr>
+              <th style="width: 25%;">Parameter</th>
+              <th style="width: 30%;">Piawai</th>
+              <th style="width: 25%;">Sumber</th>
+              <th style="width: 20%;">Nota</th>
+            </tr>`;
+
+          chunks.forEach((chunk: any) => {
+            // Extract key values from content
+            const contentPreview =
+              chunk.content_text.length > 200
+                ? chunk.content_text.substring(0, 200) + "..."
+                : chunk.content_text;
+
+            htmlContent += `<tr>
+              <td>${chunk.section_title || topic.name}</td>
+              <td>${contentPreview}</td>
+              <td><span class="doc-badge">${chunk.document_code}</span> ${chunk.section_number || ""}</td>
+              <td>${chunk.topic_tags?.join(", ") || "-"}</td>
+            </tr>`;
+          });
+
+          htmlContent += `</table>`;
+        }
+      }
+
+      htmlContent += `
+  <div class="footer">
+    <p><strong>Untuk rujukan lapangan sahaja. Sila rujuk dokumen rasmi untuk pengesahan.</strong></p>
+    <p>Dijana pada: ${currentDate} | Pegawai: ${currentUser.profiles?.full_name || "Sistem"}</p>
+  </div>
+</body>
+</html>`;
+
+      // Create blob and download
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Rujukan_Pantas_Piawai_MPS_${currentYear}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Berjaya",
+        description:
+          "Rujukan pantas telah dijana. Buka fail HTML dan cetak ke PDF dari pelayar anda.",
+      });
+    } catch (error) {
+      console.error("Error generating quick reference:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menjana rujukan pantas",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingQuickRef(false);
     }
   };
 
@@ -400,18 +551,35 @@ export default function PustakaDasarPage() {
     <Layout>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-primary flex items-center gap-2">
-            <BookOpen className="h-8 w-8" />
-            Pustaka Dasar Perancangan
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Dokumen rujukan untuk semakan teknikal AI
-          </p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-2xl font-bold">Pustaka Dasar Perancangan</h1>
+              <p className="text-muted-foreground">Dokumen rujukan untuk semakan teknikal AI</p>
+            </div>
+            <Button
+              onClick={generateQuickReferencePDF}
+              disabled={generatingQuickRef}
+              variant="outline"
+              className="bg-blue-50 hover:bg-blue-100"
+            >
+              {generatingQuickRef ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Menjana...
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Rujukan Pantas
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Document Status Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {documents.map((doc) => (
             <Card key={doc.id}>
               <CardHeader>
