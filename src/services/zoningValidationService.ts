@@ -22,10 +22,11 @@ export interface ValidationIssue {
 }
 
 export interface ValidationResult {
-  is_valid: boolean;
+  valid: boolean;
   issues: ValidationIssue[];
-  warnings_count: number;
   errors_count: number;
+  warnings_count: number;
+  info_count: number;
 }
 
 // RTD 2030 Segamat Zoning Limits (simplified - actual limits from policy docs)
@@ -128,10 +129,11 @@ export function validateOSCData(data: {
     });
 
     return {
-      is_valid: true,
+      valid: true,
       issues,
       warnings_count: 1,
       errors_count: 0,
+      info_count: 0,
     };
   }
 
@@ -224,10 +226,11 @@ export function validateOSCData(data: {
   const warnings_count = issues.filter((i) => i.severity === "warning").length;
 
   return {
-    is_valid: errors_count === 0,
+    valid: errors_count === 0,
     issues,
-    warnings_count,
     errors_count,
+    warnings_count,
+    info_count: issues.filter(i => i.severity === "info").length,
   };
 }
 
@@ -235,7 +238,7 @@ export function validateOSCData(data: {
  * Get human-readable summary of validation results
  */
 export function getValidationSummary(result: ValidationResult): string {
-  if (result.is_valid && result.issues.length === 0) {
+  if (result.valid && result.issues.length === 0) {
     return "✓ Tiada isu pematuhan dikesan";
   }
 
