@@ -115,16 +115,18 @@ export default function ReportTemplates() {
     }
 
     try {
+      const templateData = {
+        template_name: formData.template_name,
+        template_type: formData.template_type,
+        template_content: formData.template_content,
+        description: formData.description.trim() || null,
+      };
+
       if (editingId) {
         // Update existing template
         const { error } = await supabase
           .from("report_templates")
-          .update({
-            template_name: formData.template_name,
-            template_type: formData.template_type,
-            template_content: formData.template_content,
-            description: formData.description.trim() ? formData.description.trim() : null,
-          })
+          .update(templateData)
           .eq("id", editingId);
 
         if (error) throw error;
@@ -137,12 +139,7 @@ export default function ReportTemplates() {
         // Create new
         const { error } = await supabase
           .from("report_templates")
-          .insert({
-            template_name: formData.template_name,
-            template_type: formData.template_type,
-            template_content: formData.template_content,
-            description: formData.description.trim() ? formData.description.trim() : null,
-          });
+          .insert(templateData);
 
         if (error) throw error;
 
