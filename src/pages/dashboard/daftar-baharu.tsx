@@ -35,6 +35,7 @@ export default function DaftarBaharu() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [officers, setOfficers] = useState<{ id: string; full_name: string }[]>([]);
   const [userId, setUserId] = useState<string>("");
   const [calculatedKPIDate, setCalculatedKPIDate] = useState<string>("");
@@ -91,20 +92,28 @@ export default function DaftarBaharu() {
 
   useEffect(() => {
     async function loadData() {
-      // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      } else {
-        router.push("/auth/login");
-        return;
-      }
+      try {
+        // Get current user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        
+        if (!user) {
+          router.push("/auth/login");
+          return;
+        }
 
-      // Load officers
-      const officersList = await getOfficers();
-      setOfficers(officersList);
+        setUserId(user.id);
+
+        // Load officers
+        const officersList = await getOfficers();
+        setOfficers(officersList);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        router.push("/auth/login");
+      } finally {
+        setInitialLoading(false);
+      }
     }
 
     loadData();
@@ -557,6 +566,19 @@ export default function DaftarBaharu() {
       });
     }
   };
+
+  if (initialLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Memuatkan...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
