@@ -307,7 +307,10 @@ export default function ReportTemplates() {
                 </Label>
                 <Input
                   value={formData.template_name}
-                  onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, template_name: value }));
+                  }}
                   placeholder="Contoh: Ulasan Teknikal Standard"
                 />
               </div>
@@ -316,7 +319,9 @@ export default function ReportTemplates() {
                 <Label>Jenis Templat</Label>
                 <Select
                   value={formData.template_type}
-                  onValueChange={(value) => setFormData({ ...formData, template_type: value })}
+                  onValueChange={(value) => {
+                    setFormData((prev) => ({ ...prev, template_type: value }));
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -335,7 +340,10 @@ export default function ReportTemplates() {
                 <Label>Penerangan</Label>
                 <Input
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, description: value }));
+                  }}
                   placeholder="Penerangan ringkas templat ini"
                 />
               </div>
@@ -346,7 +354,10 @@ export default function ReportTemplates() {
                 </Label>
                 <Textarea
                   value={formData.template_content}
-                  onChange={(e) => setFormData({ ...formData, template_content: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, template_content: value }));
+                  }}
                   rows={15}
                   placeholder="Masukkan kandungan templat. Gunakan placeholder seperti {{no_fail_jpl}}, {{tajuk_permohonan}}, dll."
                   className="font-mono text-sm"
