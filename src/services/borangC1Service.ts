@@ -26,7 +26,7 @@ export const borangC1Service = {
     // Check if application has osc_decision with Lulus
     const { data: decision } = await supabase
       .from("osc_decisions")
-      .select("is_exempt_caj, decision_type")
+      .select("decision_type")
       .eq("application_id", applicationId)
       .eq("decision_type", "Lulus")
       .single();
@@ -38,20 +38,53 @@ export const borangC1Service = {
       };
     }
 
-    // For now, all applications are exempt until payment system is implemented
-    // is_exempt_caj defaults to true
-    if (decision.is_exempt_caj) {
+    // Check caj_pemajuan status
+    const { data: caj } = await supabase
+      .from("caj_pemajuan")
+      .select("status_caj")
+      .eq("application_id", applicationId)
+      .single();
+
+    if (!caj) {
+      return {
+        canGenerate: false,
+        message: "Rekod Caj Pemajuan tidak dijumpai. Sistem akan mewujudkannya secara automatik.",
+      };
+    }
+
+    // Allow generation if paid or exempt
+    if (caj.status_caj === "Dibayar") {
+      return {
+        canGenerate: true,
+        isPaid: true,
+      };
+    }
+
+    if (caj.status_caj === "Dikecualikan") {
       return {
         canGenerate: true,
         isExempt: true,
       };
     }
 
-    // Future: Check caj_pemajuan table when payment system is implemented
+    // Block if not yet calculated or awaiting payment
+    if (caj.status_caj === "Belum Dikira") {
+      return {
+        canGenerate: false,
+        message: "Caj Pemajuan belum dikira. Sila kemukakan kepada JPPH untuk pengiraan.",
+      };
+    }
+
+    if (caj.status_caj === "Menunggu Bayaran") {
+      return {
+        canGenerate: false,
+        message: "Sila selesaikan pembayaran Caj Pemajuan dahulu. Jana Borang A (Notis Caj Pemajuan) terlebih dahulu.",
+      };
+    }
+
     return {
       canGenerate: false,
-      message:
-        "Sila selesaikan pembayaran Caj Pemajuan dahulu. Jana Borang A (Notis Caj Pemajuan) terlebih dahulu.",
+      message: "Status Caj Pemajuan tidak sah",
     };
   },
 

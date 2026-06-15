@@ -285,6 +285,65 @@ export type Database = {
           },
         ]
       }
+      caj_pemajuan: {
+        Row: {
+          application_id: string
+          catatan: string | null
+          created_at: string | null
+          dikira_oleh: string | null
+          id: string
+          jumlah_caj: number | null
+          no_resit: string | null
+          no_rujukan_caj: string | null
+          pdf_url: string | null
+          status_caj: string
+          tarikh_bayar: string | null
+          tarikh_luput_bayar: string | null
+          tarikh_notis: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id: string
+          catatan?: string | null
+          created_at?: string | null
+          dikira_oleh?: string | null
+          id?: string
+          jumlah_caj?: number | null
+          no_resit?: string | null
+          no_rujukan_caj?: string | null
+          pdf_url?: string | null
+          status_caj?: string
+          tarikh_bayar?: string | null
+          tarikh_luput_bayar?: string | null
+          tarikh_notis?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          catatan?: string | null
+          created_at?: string | null
+          dikira_oleh?: string | null
+          id?: string
+          jumlah_caj?: number | null
+          no_resit?: string | null
+          no_rujukan_caj?: string | null
+          pdf_url?: string | null
+          status_caj?: string
+          tarikh_bayar?: string | null
+          tarikh_luput_bayar?: string | null
+          tarikh_notis?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caj_pemajuan_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_rules: {
         Row: {
           created_at: string | null

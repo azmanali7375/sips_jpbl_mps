@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { workflowService } from "./workflowService";
 import { notificationService } from "./notificationService";
+import { cajPemajanService } from "./cajPemajanService";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type OSCDecision = Tables<"osc_decisions">;
@@ -68,6 +69,16 @@ export const oscDecisionService = {
         data.no_kelulusan_km,
         data.syarat_kelulusan
       );
+    }
+
+    // Auto-create caj_pemajuan record if decision is Lulus or Lulus Bersyarat
+    if (data.keputusan_osc === "Lulus" || data.keputusan_osc === "Lulus Bersyarat") {
+      try {
+        await cajPemajanService.createCajPemajan(data.application_id);
+      } catch (cajError) {
+        console.error("Error creating caj_pemajuan:", cajError);
+        // Don't fail the entire decision if caj creation fails
+      }
     }
 
     // Get application details for notification
