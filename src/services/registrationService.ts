@@ -84,6 +84,9 @@ export async function registerNewApplication(
     // Prepare application data
     const applicationData: ApplicationInsert = {
       no_fail_jpl,
+      applicant_id: userId, // Officer registering on behalf of applicant
+      project_name: formData.tajuk_permohonan,
+      location: formData.lokasi_mercu_tanda || formData.mukim || "Segamat",
       no_permohonan_osc: formData.no_permohonan_osc,
       kategori_permohonan: formData.kategori_permohonan,
       skala_pembangunan: formData.skala_pembangunan,
