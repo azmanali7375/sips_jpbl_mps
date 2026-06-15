@@ -1,311 +1,187 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Download, Edit, Save, Check, AlertCircle, ArrowLeft } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
-import jsPDF from "jspdf";
 import {
-  gatherTechnicalReportData,
-  gatherRecommendationReportData,
-  generateTechnicalReportContent,
-  generateRecommendationReportContent,
-  generateWrittenDirectiveContent,
-  generateFormC1Content,
-  generateFormC2Content,
-  saveGeneratedReport,
-  getApplicationReports,
-  updateGeneratedReport,
-  type ReportType
-} from "@/services/reportService";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { reportGenerationService } from "@/services/reportGenerationService";
+import { getApplicationDetail } from "@/services/applicationDetailService";
+import { ArrowLeft, FileText, Save, Send, AlertCircle } from "lucide-react";
 
-interface ApplicationWithProfiles extends Tables<"applications"> {
-  profiles?: { full_name: string; email: string };
-}
-
-export default function ReportsPage() {
+export default function ReportGenerationPage() {
   const router = useRouter();
-  const { id } = router.query;
-  
-  const [application, setApplication] = useState<ApplicationWithProfiles | null>(null);
+  const { id, report_id } = router.query;
+  const { toast } = useToast();
+
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [selectedReportType, setSelectedReportType] = useState<ReportType>("technical_report");
-  const [generatedContent, setGeneratedContent] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [savedReports, setSavedReports] = useState<Tables<"generated_reports">[]>([]);
-  const [currentReportId, setCurrentReportId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Additional data for specific report types
-  const [amendments, setAmendments] = useState<string[]>([""]);
-  const [conditions, setConditions] = useState<string[]>([""]);
-  const [rejectionReasons, setRejectionReasons] = useState<string[]>([""]);
+  const [application, setApplication] = useState<any>(null);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [reportContent, setReportContent] = useState("");
+  const [existingReport, setExistingReport] = useState<any>(null);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      loadApplication();
-      loadSavedReports();
-    }
-  }, [id]);
+    if (!id) return;
+    loadData();
+  }, [id, report_id]);
 
-  async function loadApplication() {
+  async function loadData() {
     try {
-      const { data, error } = await supabase
-        .from("applications")
-        .select("*, profiles!applications_applicant_id_fkey(full_name, email)")
-        .eq("id", id as string)
-        .single();
+      setLoading(true);
 
-      if (error) throw error;
-      setApplication(data);
-    } catch (err) {
-      console.error("Error loading application:", err);
-      setError("Gagal memuatkan data permohonan");
+      // Get application details
+      const appData = await getApplicationDetail(id as string);
+      setApplication(appData);
+
+      // Get templates
+      const templateList = await reportGenerationService.getTemplates();
+      setTemplates(templateList);
+
+      // If report_id is provided, load existing report
+      if (report_id) {
+        const reports = await reportGenerationService.getGeneratedReports(id as string);
+        const report = reports.find((r: any) => r.id === report_id);
+        if (report) {
+          setExistingReport(report);
+          setReportContent(report.report_content);
+          setSelectedTemplate(report.template_id || "");
+        }
+      } else {
+        // Show template selection dialog for new report
+        setShowTemplateDialog(true);
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memuatkan data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadSavedReports() {
-    try {
-      const reports = await getApplicationReports(id as string);
-      setSavedReports(reports);
-    } catch (err) {
-      console.error("Error loading reports:", err);
-    }
-  }
-
   async function handleGenerateReport() {
-    if (!application) return;
-    
-    setGenerating(true);
-    setError(null);
-    
+    if (!selectedTemplate || !application) {
+      toast({
+        title: "Ralat",
+        description: "Sila pilih templat laporan",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      let content = "";
-      
-      switch (selectedReportType) {
-        case "technical_report": {
-          const data = await gatherTechnicalReportData(application.id);
-          content = generateTechnicalReportContent(data);
-          break;
-        }
-        case "recommendation_report": {
-          const data = await gatherRecommendationReportData(application.id);
-          content = generateRecommendationReportContent(data);
-          break;
-        }
-        case "written_directive": {
-          const filteredAmendments = amendments.filter(a => a.trim());
-          if (filteredAmendments.length === 0) {
-            setError("Sila masukkan sekurang-kurangnya satu pindaan yang diperlukan");
-            return;
-          }
-          content = generateWrittenDirectiveContent(application, filteredAmendments);
-          break;
-        }
-        case "form_c1": {
-          const filteredConditions = conditions.filter(c => c.trim());
-          if (filteredConditions.length === 0) {
-            setError("Sila masukkan sekurang-kurangnya satu syarat kelulusan");
-            return;
-          }
-          content = generateFormC1Content(application, filteredConditions);
-          break;
-        }
-        case "form_c2": {
-          const filteredReasons = rejectionReasons.filter(r => r.trim());
-          if (filteredReasons.length === 0) {
-            setError("Sila masukkan sekurang-kurangnya satu alasan penolakan");
-            return;
-          }
-          content = generateFormC2Content(application, filteredReasons);
-          break;
-        }
+      setLoading(true);
+
+      // Fetch application data for merging
+      const appData = await reportGenerationService.fetchApplicationData(application.id);
+
+      // Get selected template
+      const template = templates.find((t) => t.id === selectedTemplate);
+      if (!template) {
+        throw new Error("Template not found");
       }
-      
-      setGeneratedContent(content);
-      setIsEditing(true);
-      setCurrentReportId(null);
-    } catch (err) {
-      console.error("Error generating report:", err);
-      setError("Gagal menjana laporan. Sila cuba lagi.");
+
+      // Merge template with application data
+      const mergedContent = reportGenerationService.mergeTemplate(template.template_body, appData);
+      setReportContent(mergedContent);
+      setShowTemplateDialog(false);
+
+      toast({
+        title: "Berjaya",
+        description: "Laporan dijana. Sila semak dan edit jika perlu.",
+      });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menjana laporan",
+        variant: "destructive",
+      });
     } finally {
-      setGenerating(false);
+      setLoading(false);
     }
   }
 
-  async function handleSaveReport(finalize = false) {
-    if (!application || !generatedContent) return;
-    
-    setSaving(true);
-    setError(null);
-    
+  async function handleSave(status: "Draf" | "Muktamad") {
+    if (!reportContent.trim() || !selectedTemplate || !application) {
+      toast({
+        title: "Ralat",
+        description: "Kandungan laporan tidak boleh kosong",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      if (currentReportId) {
-        await updateGeneratedReport(currentReportId, generatedContent, finalize);
-      } else {
-        const saved = await saveGeneratedReport(
-          application.id,
-          selectedReportType,
-          generatedContent
+      setSaving(true);
+
+      const template = templates.find((t) => t.id === selectedTemplate);
+      const reportType = template?.template_type || "Ulasan Teknikal";
+
+      if (existingReport) {
+        // Update existing report
+        await reportGenerationService.updateReport(
+          existingReport.id,
+          reportContent,
+          status
         );
-        setCurrentReportId(saved.id);
+
+        toast({
+          title: "Berjaya",
+          description: `Laporan ${status === "Draf" ? "disimpan sebagai draf" : "dimuktamadkan"}`,
+        });
+      } else {
+        // Create new report
+        await reportGenerationService.saveReport(
+          application.id,
+          selectedTemplate,
+          reportType,
+          reportContent,
+          status
+        );
+
+        toast({
+          title: "Berjaya",
+          description: `Laporan ${status === "Draf" ? "disimpan sebagai draf" : "dimuktamadkan"}`,
+        });
       }
-      
-      await loadSavedReports();
-      
-      if (finalize) {
-        setIsEditing(false);
-      }
-    } catch (err) {
-      console.error("Error saving report:", err);
-      setError("Gagal menyimpan laporan");
+
+      // Navigate back to application detail
+      router.push(`/dashboard/permohonan/${application.id}`);
+    } catch (error) {
+      console.error("Error saving report:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menyimpan laporan",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
   }
 
-  function handleDownloadReport() {
-    if (!generatedContent || !application) return;
-    
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4"
-    });
-
-    // Set up font and margins
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 20;
-    const maxWidth = pageWidth - (margin * 2);
-    let yPosition = margin;
-
-    // Helper to add new page if needed
-    function checkPageBreak(requiredSpace = 10) {
-      if (yPosition + requiredSpace > pageHeight - margin) {
-        doc.addPage();
-        yPosition = margin;
-      }
-    }
-
-    // Split content by lines and process
-    const lines = generatedContent.split("\n");
-    
-    lines.forEach((line) => {
-      checkPageBreak();
-
-      // Handle headers (lines starting with #)
-      if (line.startsWith("# ")) {
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        const text = line.replace(/^#+\s*/, "");
-        const wrappedText = doc.splitTextToSize(text, maxWidth);
-        doc.text(wrappedText, margin, yPosition);
-        yPosition += wrappedText.length * 7 + 5;
-      }
-      // Handle subheaders (##)
-      else if (line.startsWith("## ")) {
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        const text = line.replace(/^#+\s*/, "");
-        const wrappedText = doc.splitTextToSize(text, maxWidth);
-        doc.text(wrappedText, margin, yPosition);
-        yPosition += wrappedText.length * 6 + 4;
-      }
-      // Handle bold text (**text**)
-      else if (line.includes("**")) {
-        doc.setFontSize(11);
-        const parts = line.split("**");
-        const xPos = margin;
-        
-        parts.forEach((part, index) => {
-          if (index % 2 === 1) {
-            doc.setFont("helvetica", "bold");
-          } else {
-            doc.setFont("helvetica", "normal");
-          }
-          
-          if (part) {
-            const wrappedText = doc.splitTextToSize(part, maxWidth - (xPos - margin));
-            doc.text(wrappedText, xPos, yPosition);
-            if (wrappedText.length > 1) {
-              yPosition += (wrappedText.length - 1) * 5;
-            }
-          }
-        });
-        yPosition += 6;
-      }
-      // Handle horizontal rules (---)
-      else if (line.trim() === "---") {
-        checkPageBreak();
-        doc.setLineWidth(0.5);
-        doc.line(margin, yPosition, pageWidth - margin, yPosition);
-        yPosition += 5;
-      }
-      // Regular text
-      else if (line.trim()) {
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        const wrappedText = doc.splitTextToSize(line, maxWidth);
-        doc.text(wrappedText, margin, yPosition);
-        yPosition += wrappedText.length * 5 + 2;
-      }
-      // Empty line
-      else {
-        yPosition += 4;
-      }
-    });
-
-    // Add footer with page numbers
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Halaman ${i} daripada ${pageCount}`,
-        pageWidth / 2,
-        pageHeight - 10,
-        { align: "center" }
-      );
-    }
-
-    // Get report type name for filename
-    const reportTypeName = {
-      technical_report: "Laporan_Teknikal",
-      recommendation_report: "Laporan_Syor",
-      written_directive: "Arahan_Bertulis",
-      form_c1: "Borang_C1",
-      form_c2: "Borang_C2"
-    }[selectedReportType] || "Laporan";
-
-    // Download PDF
-    doc.save(`${reportTypeName}_${application.tracking_number}.pdf`);
-  }
-
-  function loadSavedReport(report: Tables<"generated_reports">) {
-    setSelectedReportType(report.report_type as ReportType);
-    setGeneratedContent(report.report_content);
-    setCurrentReportId(report.id);
-    setIsEditing(!report.is_finalized);
-  }
-
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">Memuatkan...</div>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-muted-foreground">Memuatkan...</div>
         </div>
       </Layout>
     );
@@ -314,295 +190,245 @@ export default function ReportsPage() {
   if (!application) {
     return (
       <Layout>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Permohonan tidak dijumpai</AlertDescription>
-        </Alert>
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
+          <div className="text-muted-foreground">Permohonan tidak dijumpai</div>
+          <Button onClick={() => router.push("/dashboard/senarai-permohonan")}>
+            Kembali ke Senarai
+          </Button>
+        </div>
       </Layout>
     );
   }
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Kembali
-          </Button>
-          
-          <h1 className="text-3xl font-serif font-bold text-primary">
-            Penjanaan Laporan Automatik
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {application.tracking_number} - {application.project_name}
-          </p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/dashboard/permohonan/${application.id}`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Kembali
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold font-serif">
+                {existingReport ? "Lihat Laporan" : "Jana Laporan Baharu"}
+              </h1>
+              <p className="text-muted-foreground">{application.no_fail_jpl}</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {!existingReport || existingReport.status === "Draf" ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => handleSave("Draf")}
+                  disabled={saving || !reportContent}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Simpan Draf
+                </Button>
+                <Button
+                  onClick={() => handleSave("Muktamad")}
+                  disabled={saving || !reportContent}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Muktamad
+                </Button>
+              </>
+            ) : (
+              <Badge variant="default" className="px-4 py-2">
+                Muktamad
+              </Badge>
+            )}
+          </div>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <Tabs defaultValue="generate" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="generate">Jana Laporan Baharu</TabsTrigger>
-            <TabsTrigger value="saved">Laporan Tersimpan ({savedReports.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="generate" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-serif">Pilih Jenis Laporan</CardTitle>
-                <CardDescription>
-                  Pilih jenis laporan yang ingin dijana
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+        {/* Template Selection Dialog */}
+        <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Pilih Templat Laporan</DialogTitle>
+              <DialogDescription>
+                Pilih templat yang sesuai untuk menjana laporan teknikal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Templat Laporan</label>
                 <Select
-                  value={selectedReportType}
-                  onValueChange={(value) => setSelectedReportType(value as ReportType)}
+                  value={selectedTemplate}
+                  onValueChange={setSelectedTemplate}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Pilih templat" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="technical_report">Laporan Teknikal</SelectItem>
-                    <SelectItem value="recommendation_report">Laporan Syor</SelectItem>
-                    <SelectItem value="written_directive">Arahan Bertulis</SelectItem>
-                    <SelectItem value="form_c1">Borang C1 (Kelulusan)</SelectItem>
-                    <SelectItem value="form_c2">Borang C2 (Penolakan)</SelectItem>
+                    {templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        <div className="space-y-1">
+                          <div className="font-medium">{template.template_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {template.template_type} • {template.description || "Tiada penerangan"}
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+              </div>
 
-                {selectedReportType === "written_directive" && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Pindaan Yang Diperlukan:</label>
-                    {amendments.map((amendment, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Textarea
-                          value={amendment}
-                          onChange={(e) => {
-                            const newAmendments = [...amendments];
-                            newAmendments[index] = e.target.value;
-                            setAmendments(newAmendments);
-                          }}
-                          placeholder={`Pindaan ${index + 1}`}
-                          rows={2}
-                        />
-                        {index === amendments.length - 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setAmendments([...amendments, ""])}
-                          >
-                            +
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Data permohonan akan digabungkan dengan templat secara automatik.
+                  Anda boleh mengedit laporan yang dijana sebelum disimpan.
+                </AlertDescription>
+              </Alert>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowTemplateDialog(false);
+                  router.push(`/dashboard/permohonan/${application.id}`);
+                }}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleGenerateReport}
+                disabled={!selectedTemplate || loading}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Jana Laporan
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-                {selectedReportType === "form_c1" && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Syarat-Syarat Kelulusan:</label>
-                    {conditions.map((condition, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Textarea
-                          value={condition}
-                          onChange={(e) => {
-                            const newConditions = [...conditions];
-                            newConditions[index] = e.target.value;
-                            setConditions(newConditions);
-                          }}
-                          placeholder={`Syarat ${index + 1}`}
-                          rows={2}
-                        />
-                        {index === conditions.length - 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setConditions([...conditions, ""])}
-                          >
-                            +
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+        {/* Application Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif">Maklumat Permohonan</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">No. Fail JPL</div>
+              <div className="text-base font-mono">{application.no_fail_jpl}</div>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">Nama Pemohon</div>
+              <div className="text-base">{application.nama_sp || "-"}</div>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">Tajuk Permohonan</div>
+              <div className="text-base">{application.tajuk_permohonan || "-"}</div>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">Skala Pembangunan</div>
+              <div className="text-base">
+                <Badge variant="outline">{application.skala_pembangunan || "-"}</Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-                {selectedReportType === "form_c2" && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Alasan Penolakan:</label>
-                    {rejectionReasons.map((reason, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Textarea
-                          value={reason}
-                          onChange={(e) => {
-                            const newReasons = [...rejectionReasons];
-                            newReasons[index] = e.target.value;
-                            setRejectionReasons(newReasons);
-                          }}
-                          placeholder={`Alasan ${index + 1}`}
-                          rows={2}
-                        />
-                        {index === rejectionReasons.length - 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setRejectionReasons([...rejectionReasons, ""])}
-                          >
-                            +
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
+        {/* Report Preview/Editor */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-serif">Kandungan Laporan</CardTitle>
+                <CardDescription>
+                  {existingReport && existingReport.status === "Muktamad"
+                    ? "Laporan yang telah dimuktamadkan (tidak boleh diedit)"
+                    : "Edit kandungan laporan sebelum menyimpan"}
+                </CardDescription>
+              </div>
+              {!existingReport && !reportContent && (
                 <Button
-                  onClick={handleGenerateReport}
-                  disabled={generating}
-                  className="w-full"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTemplateDialog(true)}
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  {generating ? "Menjana..." : "Jana Laporan"}
+                  Pilih Templat
                 </Button>
-              </CardContent>
-            </Card>
-
-            {generatedContent && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="font-serif">Pratonton Laporan</CardTitle>
-                    <div className="flex gap-2">
-                      {isEditing ? (
-                        <>
-                          <Button
-                            variant="outline"
-                            onClick={() => setIsEditing(false)}
-                            size="sm"
-                          >
-                            Batal Edit
-                          </Button>
-                          <Button
-                            onClick={() => handleSaveReport(false)}
-                            disabled={saving}
-                            size="sm"
-                          >
-                            <Save className="h-4 w-4 mr-2" />
-                            Simpan Draf
-                          </Button>
-                          <Button
-                            onClick={() => handleSaveReport(true)}
-                            disabled={saving}
-                            size="sm"
-                            className="bg-success hover:bg-success/90"
-                          >
-                            <Check className="h-4 w-4 mr-2" />
-                            Muktamadkan
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            variant="outline"
-                            onClick={() => setIsEditing(true)}
-                            size="sm"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button
-                            onClick={handleDownloadReport}
-                            size="sm"
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Muat Turun
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isEditing ? (
-                    <Textarea
-                      value={generatedContent}
-                      onChange={(e) => setGeneratedContent(e.target.value)}
-                      rows={30}
-                      className="font-mono text-sm"
-                    />
-                  ) : (
-                    <pre className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-lg max-h-[600px] overflow-auto">
-                      {generatedContent}
-                    </pre>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="saved">
-            <div className="grid gap-4">
-              {savedReports.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">Tiada laporan tersimpan</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                savedReports.map((report) => (
-                  <Card key={report.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold">
-                              {report.report_type === "technical_report" && "Laporan Teknikal"}
-                              {report.report_type === "recommendation_report" && "Laporan Syor"}
-                              {report.report_type === "written_directive" && "Arahan Bertulis"}
-                              {report.report_type === "form_c1" && "Borang C1 (Kelulusan)"}
-                              {report.report_type === "form_c2" && "Borang C2 (Penolakan)"}
-                            </h3>
-                            <Badge variant={report.is_finalized ? "default" : "secondary"}>
-                              {report.is_finalized ? "Muktamad" : "Draf"}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Dijana: {new Date(report.created_at).toLocaleString("ms-MY")}
-                          </p>
-                          {report.updated_at !== report.created_at && (
-                            <p className="text-sm text-muted-foreground">
-                              Dikemas kini: {new Date(report.updated_at).toLocaleString("ms-MY")}
-                            </p>
-                          )}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => loadSavedReport(report)}
-                        >
-                          {report.is_finalized ? "Lihat" : "Edit"}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
               )}
             </div>
-          </TabsContent>
-        </Tabs>
+          </CardHeader>
+          <CardContent>
+            {reportContent ? (
+              <Textarea
+                value={reportContent}
+                onChange={(e) => setReportContent(e.target.value)}
+                rows={30}
+                className="font-mono text-sm"
+                disabled={existingReport?.status === "Muktamad"}
+              />
+            ) : (
+              <div className="text-center py-12 space-y-4">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                <div className="text-muted-foreground">
+                  Pilih templat untuk menjana laporan
+                </div>
+                <Button onClick={() => setShowTemplateDialog(true)}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Pilih Templat
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Metadata */}
+        {existingReport && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif">Maklumat Laporan</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Status</div>
+                <div>
+                  <Badge variant={existingReport.status === "Muktamad" ? "default" : "secondary"}>
+                    {existingReport.status}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Jenis Laporan</div>
+                <div className="text-base">{existingReport.report_type}</div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Dijana Oleh</div>
+                <div className="text-base">{existingReport.profiles?.full_name || "-"}</div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Tarikh Dijana</div>
+                <div className="text-base">
+                  {existingReport.generated_at
+                    ? new Date(existingReport.generated_at).toLocaleString("ms-MY")
+                    : "-"}
+                </div>
+              </div>
+              {existingReport.updated_at && existingReport.updated_at !== existingReport.generated_at && (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Tarikh Kemaskini</div>
+                  <div className="text-base">
+                    {new Date(existingReport.updated_at).toLocaleString("ms-MY")}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );

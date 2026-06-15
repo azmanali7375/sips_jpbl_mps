@@ -62,6 +62,7 @@ import {
   formatFileSize,
   JENIS_DOKUMEN_OPTIONS,
 } from "@/services/documentService";
+import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
 import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck } from "lucide-react";
 
@@ -142,6 +143,9 @@ export default function ApplicationDetailPage() {
     catatan: "",
   });
 
+  // Generated reports state
+  const [generatedReports, setGeneratedReports] = useState<any[]>([]);
+
   // Load data
   useEffect(() => {
     if (!id) return;
@@ -194,6 +198,10 @@ export default function ApplicationDetailPage() {
       // Get documents
       const docs = await getApplicationDocuments(id as string);
       setDocuments(docs);
+
+      // Get generated reports
+      const reports = await reportGenerationService.getGeneratedReports(id as string);
+      setGeneratedReports(reports);
 
       // Get officers (for admin only)
       if (profile?.role === "admin" || profile?.role === "department_head") {
@@ -1288,86 +1296,98 @@ export default function ApplicationDetailPage() {
           </CardContent>
         </Card>
 
-        {/* NEW SECTION: Dokumen */}
+        {/* NEW SECTION: Laporan Dijana */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="font-serif">Dokumen</CardTitle>
+                <CardTitle className="font-serif">Laporan Dijana</CardTitle>
                 <CardDescription>
-                  Dokumen yang dimuat naik untuk permohonan ini
+                  Laporan teknikal yang telah dijana untuk permohonan ini
                 </CardDescription>
               </div>
-              <Button size="sm" onClick={() => setShowUploadModal(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Muat Naik
+              <Button
+                size="sm"
+                onClick={() => router.push(`/dashboard/reports/${application.id}`)}
+              >
+                <FileBarChart className="h-4 w-4 mr-2" />
+                Jana Laporan Baharu
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            {Object.keys(documents).length === 0 ? (
+            {generatedReports.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Tiada dokumen dimuat naik
+                Tiada laporan dijana
               </div>
             ) : (
-              <div className="space-y-6">
-                {Object.entries(documents).map(([category, docs]) => (
-                  <div key={category}>
-                    <h3 className="font-medium mb-3">{category}</h3>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nama Dokumen</TableHead>
-                          <TableHead>Versi</TableHead>
-                          <TableHead>Dimuat Naik Oleh</TableHead>
-                          <TableHead>Tarikh</TableHead>
-                          <TableHead className="w-20">Tindakan</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {docs.map((doc) => (
-                          <TableRow key={doc.id}>
-                            <TableCell>{doc.file_name}</TableCell>
-                            <TableCell>
-                              {doc.versi ? (
-                                <Badge variant="outline">{doc.versi}</Badge>
-                              ) : (
-                                "-"
-                              )}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {(doc as any).uploaded_by_profile?.full_name || "-"}
-                            </TableCell>
-                            <TableCell>
-                              {doc.uploaded_at
-                                ? new Date(doc.uploaded_at).toLocaleDateString("ms-MY")
-                                : "-"}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => window.open(doc.file_path, "_blank")}
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteDocument(doc.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ))}
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Jenis Laporan</TableHead>
+                    <TableHead>Templat</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Dijana Oleh</TableHead>
+                    <TableHead>Tarikh</TableHead>
+                    <TableHead className="w-20">Tindakan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {generatedReports.map((report) => (
+                    <TableRow
+                      key={report.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => router.push(`/dashboard/reports/${application.id}?report_id=${report.id}`)}
+                    >
+                      <TableCell className="font-medium">{report.report_type}</TableCell>
+                      <TableCell className="text-sm">
+                        {report.report_templates?.template_name || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={report.status === "Muktamad" ? "default" : "secondary"}>
+                          {report.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {report.profiles?.full_name || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {report.generated_at
+                          ? new Date(report.generated_at).toLocaleDateString("ms-MY")
+                          : "-"}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/dashboard/reports/${application.id}?report_id=${report.id}`)}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (confirm("Adakah anda pasti untuk memadam laporan ini?")) {
+                                await reportGenerationService.deleteReport(report.id);
+                                const reports = await reportGenerationService.getGeneratedReports(application.id);
+                                setGeneratedReports(reports);
+                                toast({
+                                  title: "Berjaya",
+                                  description: "Laporan dipadam",
+                                });
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
