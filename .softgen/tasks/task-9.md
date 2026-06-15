@@ -1,9 +1,13 @@
 ---
-title: "OSC Meeting Decisions & Plan Registration"
+title: OSC Meeting Decisions & Plan Registration
 status: done
 priority: medium
 type: feature
-tags: ["osc", "decisions", "forms", "registration"]
+tags:
+- osc
+- decisions
+- forms
+- registration
 created_by: agent
 created_at: 2026-05-11
 position: 9

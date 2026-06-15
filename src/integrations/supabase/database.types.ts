@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -455,33 +455,42 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           department: string | null
+          designation: string | null
           email: string | null
           full_name: string | null
           id: string
+          organisation: string | null
           phone: string | null
           role: string | null
+          staff_id: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
           department?: string | null
+          designation?: string | null
           email?: string | null
           full_name?: string | null
           id: string
+          organisation?: string | null
           phone?: string | null
           role?: string | null
+          staff_id?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
           department?: string | null
+          designation?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
+          organisation?: string | null
           phone?: string | null
           role?: string | null
+          staff_id?: string | null
           updated_at?: string | null
         }
         Relationships: []

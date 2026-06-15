@@ -3,9 +3,12 @@ title: Database Schema & Authentication Setup
 status: done
 priority: urgent
 type: feature
-tags: [database, authentication, backend]
+tags:
+- database
+- authentication
+- backend
 created_by: agent
-created_at: 2026-05-09T14:32:57Z
+created_at: 2026-05-09 14:32:57+00:00
 position: 1
 ---
 
