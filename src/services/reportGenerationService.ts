@@ -215,11 +215,30 @@ export const reportGenerationService = {
       .delete()
       .eq("id", reportId);
 
-    if (error) {
-      console.error("Error deleting report:", error);
-      throw error;
-    }
+    if (error) throw error;
+  },
 
-    return true;
-  }
+  async createReport(params: {
+    application_id: string;
+    report_type: string;
+    report_content: any;
+    status: string;
+    generated_by: string;
+  }) {
+    const { data, error } = await supabase
+      .from("generated_reports")
+      .insert({
+        application_id: params.application_id,
+        report_type: params.report_type,
+        report_content: params.report_content,
+        status: params.status,
+        generated_by: params.generated_by,
+        generated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };
