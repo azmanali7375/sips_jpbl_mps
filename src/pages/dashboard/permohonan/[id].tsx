@@ -191,11 +191,96 @@ export default function ApplicationDetailPage() {
   const [manualNotes, setManualNotes] = useState("");
   const [manualSearching, setManualSearching] = useState(false);
 
+  // Manual compliance assessment state
+  const [complianceRows, setComplianceRows] = useState([
+    { parameter: "Zon Perancangan", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Kegunaan Tanah", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Nisbah Plot", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Ketinggian Bangunan", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Densiti", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Kawasan Plinth", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Anjakan Hadapan", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Anjakan Belakang", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Anjakan Tepi Kanan", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Anjakan Tepi Kiri", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Parkir Kereta", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Parkir Motorsikal", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Parkir OKU", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Kawasan Lapang", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    { parameter: "Lebar Jalan Utama", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+  ]);
+
+  // Officer recommendation state
+  const [manualDecision, setManualDecision] = useState("");
+  const [executiveSummary, setExecutiveSummary] = useState("");
+  const [majorIssues, setMajorIssues] = useState<string[]>([""]);
+  const [suggestedConditions, setSuggestedConditions] = useState<string[]>([""]);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualSavedReport, setManualSavedReport] = useState<any>(null);
+
   // Load data
   useEffect(() => {
-    if (!id) return;
     loadData();
-  }, [id]);
+  }, [router.query.id]);
+
+  // Pre-fill compliance table from manual params
+  useEffect(() => {
+    if (reviewMode === "manual") {
+      setComplianceRows((prev) =>
+        prev.map((row) => {
+          let cadangan = row.nilai_cadangan;
+          switch (row.parameter) {
+            case "Zon Perancangan":
+              cadangan = manualParams.zon_perancangan_dicadang;
+              break;
+            case "Kegunaan Tanah":
+              cadangan = manualParams.kegunaan_tanah_dicadang;
+              break;
+            case "Nisbah Plot":
+              cadangan = manualParams.nisbah_plot;
+              break;
+            case "Ketinggian Bangunan":
+              cadangan = manualParams.ketinggian_bangunan_m ? `${manualParams.ketinggian_bangunan_m} m` : "";
+              break;
+            case "Densiti":
+              cadangan = manualParams.densiti_unit_per_ekar ? `${manualParams.densiti_unit_per_ekar} unit/ekar` : "";
+              break;
+            case "Kawasan Plinth":
+              cadangan = manualParams.peratusan_kawasan_plinth ? `${manualParams.peratusan_kawasan_plinth}%` : "";
+              break;
+            case "Anjakan Hadapan":
+              cadangan = manualParams.anjakan_hadapan_m ? `${manualParams.anjakan_hadapan_m} m` : "";
+              break;
+            case "Anjakan Belakang":
+              cadangan = manualParams.anjakan_belakang_m ? `${manualParams.anjakan_belakang_m} m` : "";
+              break;
+            case "Anjakan Tepi Kanan":
+              cadangan = manualParams.anjakan_tepi_kanan_m ? `${manualParams.anjakan_tepi_kanan_m} m` : "";
+              break;
+            case "Anjakan Tepi Kiri":
+              cadangan = manualParams.anjakan_tepi_kiri_m ? `${manualParams.anjakan_tepi_kiri_m} m` : "";
+              break;
+            case "Parkir Kereta":
+              cadangan = manualParams.parkir_kereta ? `${manualParams.parkir_kereta} petak` : "";
+              break;
+            case "Parkir Motorsikal":
+              cadangan = manualParams.parkir_motorsikal ? `${manualParams.parkir_motorsikal} petak` : "";
+              break;
+            case "Parkir OKU":
+              cadangan = manualParams.parkir_oku ? `${manualParams.parkir_oku} petak` : "";
+              break;
+            case "Kawasan Lapang":
+              cadangan = manualParams.kawasan_lapang_peratus ? `${manualParams.kawasan_lapang_peratus}%` : "";
+              break;
+            case "Lebar Jalan Utama":
+              cadangan = manualParams.jalan_utama_lebar_m ? `${manualParams.jalan_utama_lebar_m} m` : "";
+              break;
+          }
+          return { ...row, nilai_cadangan: cadangan };
+        })
+      );
+    }
+  }, [manualParams, reviewMode]);
 
   async function loadData() {
     try {
@@ -872,6 +957,132 @@ export default function ApplicationDetailPage() {
       title: "Disalin",
       description: "Teks telah disalin ke papan keratan",
     });
+  };
+
+  const updateComplianceRow = (index: number, field: string, value: string) => {
+    setComplianceRows((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const addComplianceRow = () => {
+    setComplianceRows((prev) => [
+      ...prev,
+      { parameter: "", nilai_cadangan: "", nilai_piawai: "", status: "", dokumen_rujukan: "", nota: "" },
+    ]);
+  };
+
+  const addMajorIssue = () => {
+    setMajorIssues((prev) => [...prev, ""]);
+  };
+
+  const updateMajorIssue = (index: number, value: string) => {
+    setMajorIssues((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
+
+  const addSuggestedCondition = () => {
+    setSuggestedConditions((prev) => [...prev, ""]);
+  };
+
+  const updateSuggestedCondition = (index: number, value: string) => {
+    setSuggestedConditions((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
+
+  const getRowBackgroundClass = (status: string) => {
+    switch (status) {
+      case "Patuh":
+        return "bg-green-50";
+      case "Tidak Patuh":
+        return "bg-red-50";
+      case "Perlu Pengesahan":
+        return "bg-yellow-50";
+      case "Tidak Berkaitan":
+        return "bg-gray-50 italic text-muted-foreground";
+      default:
+        return "";
+    }
+  };
+
+  const calculateComplianceStats = () => {
+    const patuh = complianceRows.filter((r) => r.status === "Patuh").length;
+    const tidakPatuh = complianceRows.filter((r) => r.status === "Tidak Patuh").length;
+    const perluPengesahan = complianceRows.filter((r) => r.status === "Perlu Pengesahan").length;
+    const tidakBerkaitan = complianceRows.filter((r) => r.status === "Tidak Berkaitan").length;
+    const total = complianceRows.filter((r) => r.status && r.status !== "Tidak Berkaitan").length;
+    const complianceRate = total > 0 ? Math.round((patuh / total) * 100) : 0;
+
+    return { patuh, tidakPatuh, perluPengesahan, tidakBerkaitan, complianceRate };
+  };
+
+  const handleSaveManualReview = async () => {
+    if (!manualDecision || !executiveSummary) {
+      toast({
+        title: "Ralat",
+        description: "Sila lengkapkan keputusan dan ringkasan eksekutif",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setManualSaving(true);
+
+    try {
+      const reportContent = {
+        mod: "Manual",
+        pegawai: `${currentUser.profiles?.full_name || ""} (${currentUser.profiles?.designation || ""})`,
+        tarikh: new Date().toISOString().split("T")[0],
+        plan_parameters: manualParams,
+        semakan_pematuhan: complianceRows,
+        keputusan_manual: manualDecision,
+        ringkasan_eksekutif: executiveSummary,
+        isu_utama: majorIssues.filter((i) => i.trim()),
+        syarat_dicadangkan: suggestedConditions.filter((s) => s.trim()),
+        compliance_stats: calculateComplianceStats(),
+      };
+
+      // Save to generated_reports
+      const savedReport = await reportGenerationService.createReport({
+        application_id: application.id,
+        report_type: "Manual_Policy_Review",
+        report_content: reportContent,
+        status: "Muktamad",
+        generated_by: currentUser.id,
+      });
+
+      // Insert workflow history
+      await supabase.from("workflow_history").insert({
+        application_id: application.id,
+        action: "Semakan Manual Diselesaikan",
+        performed_by: currentUser.id,
+        catatan: `Keputusan: ${manualDecision}`,
+      });
+
+      setManualSavedReport(savedReport);
+
+      toast({
+        title: "Berjaya Disimpan",
+        description: "Semakan manual telah disimpan",
+      });
+    } catch (error) {
+      console.error("Error saving manual review:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menyimpan semakan manual",
+        variant: "destructive",
+      });
+    } finally {
+      setManualSaving(false);
+    }
   };
 
   if (loading) {
@@ -2394,6 +2605,283 @@ export default function ApplicationDetailPage() {
                       placeholder="Catat nombor seksyen atau nilai piawai yang dirujuk untuk rekod..."
                       className="mt-2 min-h-24"
                     />
+                  </div>
+                </>
+              )}
+
+              {/* Compliance Assessment Table */}
+              {manualReferences.length > 0 && !manualSavedReport && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="font-semibold mb-1">Langkah 3: Penilaian Pematuhan</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Bandingkan nilai cadangan dengan piawai
+                    </p>
+
+                    <div className="border rounded-md overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted">
+                            <TableHead className="text-xs w-32">Parameter</TableHead>
+                            <TableHead className="text-xs w-28">Nilai Cadangan</TableHead>
+                            <TableHead className="text-xs w-28">Nilai Piawai</TableHead>
+                            <TableHead className="text-xs w-32">Status</TableHead>
+                            <TableHead className="text-xs w-36">Dokumen Rujukan</TableHead>
+                            <TableHead className="text-xs">Nota</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {complianceRows.map((row, idx) => (
+                            <TableRow key={idx} className={getRowBackgroundClass(row.status)}>
+                              <TableCell className="text-xs font-medium">{row.parameter}</TableCell>
+                              <TableCell className="text-xs">{row.nilai_cadangan}</TableCell>
+                              <TableCell className="p-1">
+                                <Input
+                                  value={row.nilai_piawai}
+                                  onChange={(e) => updateComplianceRow(idx, "nilai_piawai", e.target.value)}
+                                  className="h-8 text-xs"
+                                />
+                              </TableCell>
+                              <TableCell className="p-1">
+                                <Select
+                                  value={row.status}
+                                  onValueChange={(v) => updateComplianceRow(idx, "status", v)}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Patuh">Patuh</SelectItem>
+                                    <SelectItem value="Tidak Patuh">Tidak Patuh</SelectItem>
+                                    <SelectItem value="Perlu Pengesahan">Perlu Pengesahan</SelectItem>
+                                    <SelectItem value="Tidak Berkaitan">Tidak Berkaitan</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell className="p-1">
+                                <Input
+                                  value={row.dokumen_rujukan}
+                                  onChange={(e) => updateComplianceRow(idx, "dokumen_rujukan", e.target.value)}
+                                  className="h-8 text-xs"
+                                  placeholder="RTD 2030, S.4.2"
+                                />
+                              </TableCell>
+                              <TableCell className="p-1">
+                                <Input
+                                  value={row.nota}
+                                  onChange={(e) => updateComplianceRow(idx, "nota", e.target.value)}
+                                  className="h-8 text-xs"
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="flex justify-between items-center mt-3">
+                      <Button variant="outline" size="sm" onClick={addComplianceRow}>
+                        <Plus className="h-3 w-3 mr-1" />
+                        Tambah Baris
+                      </Button>
+                      <div className="text-sm">
+                        <span className="text-green-600 font-medium">
+                          Patuh: {calculateComplianceStats().patuh}
+                        </span>
+                        {" | "}
+                        <span className="text-destructive font-medium">
+                          Tidak Patuh: {calculateComplianceStats().tidakPatuh}
+                        </span>
+                        {" | "}
+                        <span className="text-yellow-600 font-medium">
+                          Perlu Pengesahan: {calculateComplianceStats().perluPengesahan}
+                        </span>
+                        {" | "}
+                        <span className="text-muted-foreground">
+                          Tidak Berkaitan: {calculateComplianceStats().tidakBerkaitan}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-sm font-medium mt-2 text-right">
+                      Kadar Pematuhan: {calculateComplianceStats().complianceRate}%
+                    </p>
+                  </div>
+
+                  <Separator />
+
+                  {/* Officer Recommendation */}
+                  <div>
+                    <h3 className="font-semibold mb-1">Langkah 4: Ulasan dan Syor Pegawai</h3>
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <Label className="text-sm">
+                          Keputusan Manual <span className="text-destructive">*</span>
+                        </Label>
+                        <Select value={manualDecision} onValueChange={setManualDecision}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Pilih keputusan" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Disyorkan Lulus">Disyorkan Lulus</SelectItem>
+                            <SelectItem value="Disyorkan Lulus Bersyarat">
+                              Disyorkan Lulus Bersyarat
+                            </SelectItem>
+                            <SelectItem value="Disyorkan Tolak">Disyorkan Tolak</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">
+                          Ringkasan Eksekutif <span className="text-destructive">*</span>
+                        </Label>
+                        <Textarea
+                          value={executiveSummary}
+                          onChange={(e) => setExecutiveSummary(e.target.value)}
+                          placeholder="Nyatakan penilaian keseluruhan cadangan ini berdasarkan semakan teknikal..."
+                          className="mt-1 min-h-24"
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Isu Utama Dikenal Pasti</Label>
+                        <div className="space-y-2 mt-1">
+                          {majorIssues.map((issue, idx) => (
+                            <Input
+                              key={idx}
+                              value={issue}
+                              onChange={(e) => updateMajorIssue(idx, e.target.value)}
+                              placeholder={`Isu ${idx + 1}`}
+                              className="h-9"
+                            />
+                          ))}
+                          <Button variant="outline" size="sm" onClick={addMajorIssue}>
+                            <Plus className="h-3 w-3 mr-1" />
+                            Tambah Isu
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Syarat yang Dicadangkan</Label>
+                        <div className="space-y-2 mt-1">
+                          {suggestedConditions.map((condition, idx) => (
+                            <Input
+                              key={idx}
+                              value={condition}
+                              onChange={(e) => updateSuggestedCondition(idx, e.target.value)}
+                              placeholder={`Syarat ${idx + 1}`}
+                              className="h-9"
+                            />
+                          ))}
+                          <Button variant="outline" size="sm" onClick={addSuggestedCondition}>
+                            <Plus className="h-3 w-3 mr-1" />
+                            Tambah Syarat
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm">Disediakan Oleh</Label>
+                          <Input
+                            value={currentUser.profiles?.full_name || ""}
+                            disabled
+                            className="mt-1 h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm">Jawatan</Label>
+                          <Input
+                            value={currentUser.profiles?.designation || ""}
+                            disabled
+                            className="mt-1 h-9"
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleSaveManualReview}
+                        disabled={manualSaving || !manualDecision || !executiveSummary}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        {manualSaving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Menyimpan...
+                          </>
+                        ) : (
+                          "Simpan Semakan Manual"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Saved Manual Review Results */}
+              {manualSavedReport && (
+                <>
+                  <Separator />
+                  <div>
+                    <Alert className="bg-green-50 border-green-200 mb-4">
+                      <FileCheck className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-900">
+                        <p className="font-semibold">Semakan Manual Diselesaikan</p>
+                        <p className="text-sm mt-1">
+                          Semakan manual oleh {currentUser.profiles?.full_name}
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+
+                    <Card>
+                      <CardContent className="pt-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Badge
+                            className={
+                              manualDecision === "Disyorkan Lulus"
+                                ? "bg-green-600"
+                                : manualDecision === "Disyorkan Lulus Bersyarat"
+                                ? "bg-orange-500"
+                                : "bg-destructive"
+                            }
+                          >
+                            {manualDecision}
+                          </Badge>
+                          <div className="text-sm">
+                            Kadar Pematuhan:{" "}
+                            <span className="font-bold">{calculateComplianceStats().complianceRate}%</span>
+                          </div>
+                        </div>
+                        <p className="text-sm">{executiveSummary}</p>
+                      </CardContent>
+                    </Card>
+
+                    <div className="mt-4 space-y-3">
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          router.push(`/dashboard/laporan-teknikal/${application.id}?manual_data=true`);
+                        }}
+                      >
+                        Gunakan untuk Laporan Teknikal
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setManualSavedReport(null);
+                          setManualDecision("");
+                          setExecutiveSummary("");
+                          setMajorIssues([""]);
+                          setSuggestedConditions([""]);
+                        }}
+                      >
+                        Semak Pelan Lain
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}
