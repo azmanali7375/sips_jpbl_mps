@@ -1062,9 +1062,9 @@ export default function ApplicationDetailPage() {
       // Insert workflow history
       await supabase.from("workflow_history").insert({
         application_id: application.id,
-        action: "Semakan Manual Diselesaikan",
-        performed_by: currentUser.id,
-        catatan: `Keputusan: ${manualDecision}`,
+        to_status: "Semakan Manual Diselesaikan",
+        changed_by: currentUser.id,
+        comment: `Keputusan: ${manualDecision}`,
       });
 
       setManualSavedReport(savedReport);
