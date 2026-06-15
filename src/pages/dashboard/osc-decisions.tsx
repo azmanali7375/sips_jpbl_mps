@@ -16,6 +16,7 @@ import { applicationService, type Application } from "@/services/applicationServ
 import { oscDecisionService, type OSCDecisionType } from "@/services/oscDecisionService";
 import { borangC1Service } from "@/services/borangC1Service";
 import { borangC2Service } from "@/services/borangC2Service";
+import { suratPemberitahuanService } from "@/services/suratPemberitahuanService";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OSCDecisionsPage() {
@@ -36,6 +37,7 @@ export default function OSCDecisionsPage() {
     no_kelulusan_km: "",
     catatan_osc: "",
   });
+  const [application, setApplication] = useState<Application | null>(null);
 
   // C1 generation state
   const [showC1Modal, setShowC1Modal] = useState(false);
@@ -60,23 +62,29 @@ export default function OSCDecisionsPage() {
     setLoading(false);
   };
 
-  const handleApplicationSelect = async (appId: string) => {
-    const app = applications.find(a => a.id === appId);
-    if (app) {
+  const handleApplicationSelect = async (id: string) => {
+    try {
+      const app = applications.find((a) => a.id === id);
+      if (!app) return;
+
       setSelectedApp(app);
-      const existingDecision = await oscDecisionService.getDecisionByApplicationId(appId);
+      setApplication(app);
+
+      // Fetch existing OSC decision if any
+      const existingDecision = await oscDecisionService.getOSCDecision(id);
+      
       if (existingDecision) {
         setFormData({
           tarikh_mesyuarat_osc: existingDecision.meeting_date || "",
           no_mesyuarat: existingDecision.meeting_number || "",
-          keputusan_osc: existingDecision.decision_type as OSCDecisionType,
+          keputusan_osc: existingDecision.decision_type,
           syarat_kelulusan: existingDecision.approval_conditions || "",
-          tempoh_sah_kelulusan: existingDecision.tempoh_sah_kelulusan || 2,
-          no_kelulusan_km: existingDecision.no_kelulusan_km || "",
-          catatan_osc: existingDecision.catatan_osc || "",
+          tempoh_sah_kelulusan: existingDecision.validity_period || 2,
+          no_kelulusan_km: existingDecision.approval_number || "",
+          catatan_osc: existingDecision.remarks || "",
         });
       } else {
-        // Reset form for new decision
+        // Reset form for new entry
         setFormData({
           tarikh_mesyuarat_osc: "",
           no_mesyuarat: "",
@@ -87,6 +95,13 @@ export default function OSCDecisionsPage() {
           catatan_osc: "",
         });
       }
+    } catch (error) {
+      console.error("Error selecting application:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memuatkan maklumat permohonan",
+        variant: "destructive",
+      });
     }
   };
 
@@ -174,21 +189,36 @@ export default function OSCDecisionsPage() {
     }
   };
 
-  const handleDownloadC1 = () => {
+  const handleDownloadC1 = async () => {
     if (!editableC1Data) return;
 
     setGeneratingC1(true);
     
     try {
-      const html = borangC1Service.generateC1HTML(editableC1Data);
+      // Generate C1 form
+      const c1Html = borangC1Service.generateC1HTML(editableC1Data);
       const timestamp = new Date().toISOString().split("T")[0].replace(/-/g, "");
-      const filename = `C1_${editableC1Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
+      const c1Filename = `C1_${editableC1Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
       
-      borangC1Service.downloadC1PDF(html, filename);
+      borangC1Service.downloadC1PDF(c1Html, c1Filename);
+
+      // Also generate Surat Pemberitahuan (Lulus)
+      if (selectedApp) {
+        const suratData = await suratPemberitahuanService.getSuratData(selectedApp.id, "Lulus");
+        if (suratData) {
+          const suratHtml = suratPemberitahuanService.generateSuratHTML(suratData);
+          const suratFilename = `SuratPemberitahuan_${editableC1Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
+          
+          // Small delay to avoid download collision
+          setTimeout(() => {
+            suratPemberitahuanService.downloadSuratPDF(suratHtml, suratFilename);
+          }, 500);
+        }
+      }
       
       toast({
-        title: "Borang C(1) Dijana",
-        description: "Buka fail HTML dan cetak ke PDF dari pelayar anda.",
+        title: "Dokumen Dijana",
+        description: "Borang C(1) dan Surat Pemberitahuan telah dijana. Buka fail HTML dan cetak ke PDF dari pelayar anda.",
       });
       
       setShowC1Modal(false);
@@ -196,7 +226,7 @@ export default function OSCDecisionsPage() {
       console.error("Error generating C1:", error);
       toast({
         title: "Ralat",
-        description: "Gagal menjana Borang C(1)",
+        description: "Gagal menjana dokumen",
         variant: "destructive",
       });
     } finally {
@@ -237,15 +267,30 @@ export default function OSCDecisionsPage() {
     setGeneratingC2(true);
     
     try {
-      const html = borangC2Service.generateC2HTML(editableC2Data);
+      // Generate C2 form
+      const c2Html = borangC2Service.generateC2HTML(editableC2Data);
       const timestamp = new Date().toISOString().split("T")[0].replace(/-/g, "");
-      const filename = `C2_${editableC2Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
+      const c2Filename = `C2_${editableC2Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
       
-      borangC2Service.downloadC2PDF(html, filename);
+      borangC2Service.downloadC2PDF(c2Html, c2Filename);
+
+      // Also generate Surat Pemberitahuan (Tolak)
+      if (application) {
+        const suratData = await suratPemberitahuanService.getSuratData(application.id, "Tolak");
+        if (suratData) {
+          const suratHtml = suratPemberitahuanService.generateSuratHTML(suratData);
+          const suratFilename = `SuratPemberitahuan_${editableC2Data.no_fail_jpl.replace(/\//g, "_")}_${timestamp}.html`;
+          
+          // Small delay to avoid download collision
+          setTimeout(() => {
+            suratPemberitahuanService.downloadSuratPDF(suratHtml, suratFilename);
+          }, 500);
+        }
+      }
       
       toast({
-        title: "Borang C(2) Dijana",
-        description: "Buka fail HTML dan cetak ke PDF dari pelayar anda.",
+        title: "Dokumen Dijana",
+        description: "Borang C(2) dan Surat Pemberitahuan telah dijana. Buka fail HTML dan cetak ke PDF dari pelayar anda.",
       });
       
       setShowC2Modal(false);
@@ -253,7 +298,7 @@ export default function OSCDecisionsPage() {
       console.error("Error generating C2:", error);
       toast({
         title: "Ralat",
-        description: "Gagal menjana Borang C(2)",
+        description: "Gagal menjana dokumen",
         variant: "destructive",
       });
     } finally {
