@@ -71,7 +71,7 @@ import {
 } from "@/services/documentService";
 import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
-import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle, Calendar, User, Clock, CheckCircle, X, Eye } from "lucide-react";
+import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle, Calendar, User, Clock, CheckCircle, X, Eye, Check } from "lucide-react";
 import { cajPemajanService, type CajPemajanData } from "@/services/cajPemajanService";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
