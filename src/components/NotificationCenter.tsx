@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Bell, Check, CheckCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,23 +22,24 @@ export function NotificationCenter() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     loadNotifications();
     setupRealtimeSubscription();
 
     return () => {
-      notificationService.unsubscribe(channel);
+      if (channelRef.current) {
+        notificationService.unsubscribe(channelRef.current);
+      }
     };
   }, []);
-
-  let channel: any;
 
   const setupRealtimeSubscription = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    channel = notificationService.subscribeToNotifications(user.id, (payload) => {
+    channelRef.current = notificationService.subscribeToNotifications(user.id, (payload) => {
       console.log("New notification received:", payload);
       loadNotifications();
     });
