@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getApplicationDetail,
   getWorkflowHistory,
@@ -21,7 +22,6 @@ import {
   type WorkflowHistoryWithProfile,
 } from "@/services/applicationDetailService";
 import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save } from "lucide-react";
-import { authService } from "@/services/authService";
 
 const STATUS_COLORS: Record<string, string> = {
   "Diterima": "bg-blue-500",
