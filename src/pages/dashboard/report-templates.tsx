@@ -353,11 +353,7 @@ export default function ReportTemplates() {
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Placeholder yang boleh digunakan: {"{"}
-                  {"{"}no_fail_jpl{"}"}}}, {"{"}
-                  {"{"}tajuk_permohonan{"}"}}}, {"{"}
-                  {"{"}nama_pemohon{"}"}}}, {"{"}
-                  {"{"}lokasi{"}"}}}, dll.
+                  Placeholder yang boleh digunakan: {"{{no_fail_jpl}}"}, {"{{tajuk_permohonan}}"}, {"{{nama_pemohon}}"}, {"{{lokasi}}"}, dll.
                 </p>
               </div>
             </div>
