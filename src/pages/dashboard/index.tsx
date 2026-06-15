@@ -194,22 +194,13 @@ export default function SIPSDashboard() {
     return "text-green-600";
   };
 
-  const getStatusBadge = (daysRemaining: number, kpiDays: number) => {
-    const redThreshold = kpiDays === 14 ? 3 : 7;
-    const orangeThreshold = kpiDays === 14 ? 7 : 14;
-
-    if (daysRemaining <= redThreshold) return "bg-red-100 text-red-700 border-red-200";
-    if (daysRemaining <= orangeThreshold) return "bg-orange-100 text-orange-700 border-orange-200";
-    return "bg-green-100 text-green-700 border-green-200";
-  };
-
   const getRowColor = (remainingDays: number): string => {
     if (remainingDays <= 7) return "bg-destructive/10 hover:bg-destructive/20";
     if (remainingDays <= 14) return "bg-accent/10 hover:bg-accent/20";
     return "hover:bg-muted/50";
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, daysRemaining: number, kpiDays: number) => {
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", label: string }> = {
       osc_received: { variant: "outline", label: "Diterima" },
       registered: { variant: "secondary", label: "Daftar" },
@@ -441,7 +432,16 @@ export default function SIPSDashboard() {
                           <TableCell className="max-w-[150px] truncate text-sm">
                             {app.profiles?.full_name || "—"}
                           </TableCell>
-                          <TableCell>{getStatusBadge(app.status || "osc_received")}</TableCell>
+                          <TableCell>
+                            {app.tarikh_kpi ? (
+                              <span className={getStatusColor(calculateDaysRemaining(app.tarikh_kpi), app.kpi_hari || 57)}>
+                                {calculateDaysRemaining(app.tarikh_kpi)} hari
+                              </span>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(app.status || "osc_received", remainingDays, app.kpi_hari || 57)}</TableCell>
                         </TableRow>
                       );
                     })

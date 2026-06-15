@@ -23,6 +23,7 @@ export interface RegistrationFormData {
 
   // Section 4: Maklumat Pembangunan
   tajuk_permohonan: string;
+  lokasi?: string;
   lokasi_mercu_tanda?: string;
   mukim?: string;
   daerah?: string;
@@ -33,9 +34,18 @@ export interface RegistrationFormData {
   latitud?: number;
 
   // Section 5: Penugasan Dalaman
+  kategori?: string;
+  assigned_to?: string;
   pegawai_bertanggungjawab?: string;
   status_dalaman: string;
   catatan_dalaman?: string;
+  
+  // External references
+  no_rujukan_jkr?: string;
+  no_rujukan_jps?: string;
+  no_rujukan_tnb?: string;
+  no_rujukan_telekom?: string;
+  no_rujukan_pbt_lain?: string;
 }
 
 export interface RegistrationResponse {
