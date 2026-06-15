@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { laporanTeknikalService, type BahagianBData } from "@/services/laporanTeknikalService";
 import { Loader2, Save, Plus, X, ArrowLeft } from "lucide-react";
 
