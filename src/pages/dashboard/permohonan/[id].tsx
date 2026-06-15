@@ -6,8 +6,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -21,7 +38,18 @@ import {
   type ApplicationDetailData,
   type WorkflowHistoryWithProfile,
 } from "@/services/applicationDetailService";
-import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save } from "lucide-react";
+import {
+  getLandLots,
+  createLandLot,
+  updateLandLot,
+  deleteLandLot,
+  bulkImportLandLots,
+  KATEGORI_OPTIONS,
+} from "@/services/landLotService";
+import { Database } from "@/integrations/supabase/types";
+import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download } from "lucide-react";
+
+type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
 
 const STATUS_COLORS: Record<string, string> = {
   "Diterima": "bg-blue-500",
@@ -64,6 +92,21 @@ export default function ApplicationDetailPage() {
   const [selectedOfficer, setSelectedOfficer] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Land lots state
+  const [landLots, setLandLots] = useState<LandLot[]>([]);
+  const [showAddLot, setShowAddLot] = useState(false);
+  const [editingLot, setEditingLot] = useState<LandLot | null>(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportData, setBulkImportData] = useState("");
+  const [newLot, setNewLot] = useState({
+    jenis_lot: "",
+    no_lot: "",
+    pemilik_tanah: "",
+    kategori: "",
+    syarat_nyata: "",
+    catatan: "",
+  });
+
   // Load data
   useEffect(() => {
     if (!id) return;
@@ -101,6 +144,10 @@ export default function ApplicationDetailPage() {
       const history = await getWorkflowHistory(id as string);
       setWorkflowHistory(history);
 
+      // Get land lots
+      const lots = await getLandLots(id as string);
+      setLandLots(lots);
+
       // Get officers (for admin only)
       if (profile?.role === "admin" || profile?.role === "department_head") {
         const officerList = await getAvailableOfficers();
@@ -115,6 +162,134 @@ export default function ApplicationDetailPage() {
       });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleAddLot() {
+    if (!application || !newLot.jenis_lot || !newLot.no_lot) {
+      toast({
+        title: "Ralat",
+        description: "Jenis Lot dan No. Lot adalah wajib",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createLandLot({
+        application_id: application.id,
+        ...newLot,
+      });
+
+      toast({
+        title: "Berjaya",
+        description: "Lot tanah ditambah",
+      });
+
+      // Reset form and reload
+      setNewLot({
+        jenis_lot: "",
+        no_lot: "",
+        pemilik_tanah: "",
+        kategori: "",
+        syarat_nyata: "",
+        catatan: "",
+      });
+      setShowAddLot(false);
+      
+      const lots = await getLandLots(application.id);
+      setLandLots(lots);
+    } catch (error) {
+      toast({
+        title: "Ralat",
+        description: "Gagal menambah lot tanah",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleUpdateLot() {
+    if (!editingLot) return;
+
+    try {
+      await updateLandLot(editingLot.id, editingLot);
+
+      toast({
+        title: "Berjaya",
+        description: "Lot tanah dikemaskini",
+      });
+
+      setEditingLot(null);
+      
+      if (application) {
+        const lots = await getLandLots(application.id);
+        setLandLots(lots);
+      }
+    } catch (error) {
+      toast({
+        title: "Ralat",
+        description: "Gagal mengemas kini lot tanah",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDeleteLot(lotId: string) {
+    if (!confirm("Adakah anda pasti untuk memadam lot tanah ini?")) return;
+
+    try {
+      await deleteLandLot(lotId);
+
+      toast({
+        title: "Berjaya",
+        description: "Lot tanah dipadam",
+      });
+
+      if (application) {
+        const lots = await getLandLots(application.id);
+        setLandLots(lots);
+      }
+    } catch (error) {
+      toast({
+        title: "Ralat",
+        description: "Gagal memadam lot tanah",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleBulkImport() {
+    if (!application || !bulkImportData.trim()) {
+      toast({
+        title: "Ralat",
+        description: "Sila masukkan data CSV",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const result = await bulkImportLandLots(application.id, bulkImportData);
+
+      toast({
+        title: "Import Selesai",
+        description: `Berjaya: ${result.success}, Gagal: ${result.failed}${
+          result.errors.length > 0 ? `\n\n${result.errors.slice(0, 3).join("\n")}` : ""
+        }`,
+        variant: result.failed > 0 ? "destructive" : "default",
+      });
+
+      setBulkImportData("");
+      setShowBulkImport(false);
+
+      const lots = await getLandLots(application.id);
+      setLandLots(lots);
+    } catch (error) {
+      toast({
+        title: "Ralat",
+        description: "Gagal import data",
+        variant: "destructive",
+      });
     }
   }
 
@@ -408,6 +583,301 @@ export default function ApplicationDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* NEW SECTION: Maklumat Tanah */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-serif">Maklumat Tanah</CardTitle>
+                <CardDescription>
+                  Lot tanah yang terlibat dalam permohonan ini
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkImport(true)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Import dari OSC
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setShowAddLot(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tambah Lot
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {landLots.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Tiada lot tanah didaftarkan
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Jenis Lot</TableHead>
+                      <TableHead>No. Lot</TableHead>
+                      <TableHead>Pemilik Tanah</TableHead>
+                      <TableHead>Kategori</TableHead>
+                      <TableHead>Syarat Nyata</TableHead>
+                      <TableHead>Catatan</TableHead>
+                      <TableHead className="w-20">Tindakan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {landLots.map((lot) => (
+                      <TableRow key={lot.id}>
+                        <TableCell>{lot.jenis_lot}</TableCell>
+                        <TableCell className="font-mono">{lot.no_lot}</TableCell>
+                        <TableCell>{lot.pemilik_tanah || "-"}</TableCell>
+                        <TableCell>
+                          {lot.kategori ? (
+                            <Badge variant="outline">{lot.kategori}</Badge>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>{lot.syarat_nyata || "-"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {lot.catatan || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingLot(lot)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteLot(lot.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="mt-4 text-sm text-muted-foreground">
+                  Jumlah Lot: {landLots.length}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Add Lot Dialog */}
+        <Dialog open={showAddLot} onOpenChange={setShowAddLot}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Tambah Lot Tanah</DialogTitle>
+              <DialogDescription>
+                Masukkan maklumat lot tanah yang terlibat dalam permohonan ini
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Jenis Lot *</label>
+                  <Input
+                    placeholder="e.g., Lot, Pajakan, Rezab"
+                    value={newLot.jenis_lot}
+                    onChange={(e) => setNewLot({ ...newLot, jenis_lot: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">No. Lot *</label>
+                  <Input
+                    placeholder="e.g., LOT 11968"
+                    value={newLot.no_lot}
+                    onChange={(e) => setNewLot({ ...newLot, no_lot: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Pemilik Tanah</label>
+                <Input
+                  value={newLot.pemilik_tanah}
+                  onChange={(e) => setNewLot({ ...newLot, pemilik_tanah: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Kategori</label>
+                <Select
+                  value={newLot.kategori}
+                  onValueChange={(value) => setNewLot({ ...newLot, kategori: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KATEGORI_OPTIONS.map((kategori) => (
+                      <SelectItem key={kategori} value={kategori}>
+                        {kategori}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Syarat Nyata</label>
+                <Input
+                  placeholder="e.g., KEDAI TIGA TINGKAT"
+                  value={newLot.syarat_nyata}
+                  onChange={(e) => setNewLot({ ...newLot, syarat_nyata: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Catatan</label>
+                <Textarea
+                  rows={2}
+                  value={newLot.catatan}
+                  onChange={(e) => setNewLot({ ...newLot, catatan: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddLot(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleAddLot}>Tambah</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Lot Dialog */}
+        <Dialog open={!!editingLot} onOpenChange={(open) => !open && setEditingLot(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Lot Tanah</DialogTitle>
+            </DialogHeader>
+            {editingLot && (
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Jenis Lot *</label>
+                    <Input
+                      value={editingLot.jenis_lot}
+                      onChange={(e) =>
+                        setEditingLot({ ...editingLot, jenis_lot: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">No. Lot *</label>
+                    <Input
+                      value={editingLot.no_lot}
+                      onChange={(e) =>
+                        setEditingLot({ ...editingLot, no_lot: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Pemilik Tanah</label>
+                  <Input
+                    value={editingLot.pemilik_tanah || ""}
+                    onChange={(e) =>
+                      setEditingLot({ ...editingLot, pemilik_tanah: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Kategori</label>
+                  <Select
+                    value={editingLot.kategori || ""}
+                    onValueChange={(value) =>
+                      setEditingLot({ ...editingLot, kategori: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih kategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {KATEGORI_OPTIONS.map((kategori) => (
+                        <SelectItem key={kategori} value={kategori}>
+                          {kategori}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Syarat Nyata</label>
+                  <Input
+                    value={editingLot.syarat_nyata || ""}
+                    onChange={(e) =>
+                      setEditingLot({ ...editingLot, syarat_nyata: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Catatan</label>
+                  <Textarea
+                    rows={2}
+                    value={editingLot.catatan || ""}
+                    onChange={(e) =>
+                      setEditingLot({ ...editingLot, catatan: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingLot(null)}>
+                Batal
+              </Button>
+              <Button onClick={handleUpdateLot}>Simpan</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Import Dialog */}
+        <Dialog open={showBulkImport} onOpenChange={setShowBulkImport}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Import Lot Tanah dari OSC</DialogTitle>
+              <DialogDescription>
+                Salin senarai lot dari OSC dan tampal di bawah. Format: jenis_lot, no_lot,
+                pemilik_tanah, kategori, syarat_nyata (satu baris satu lot)
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Data CSV</label>
+                <Textarea
+                  rows={10}
+                  placeholder="Contoh:&#10;Lot, LOT 11968, Ahmad bin Ali, Bangunan, KEDAI TIGA TINGKAT&#10;Pajakan, PT 1234, Fatimah binti Hassan, Pertanian, TANAH PERTANIAN"
+                  value={bulkImportData}
+                  onChange={(e) => setBulkImportData(e.target.value)}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Tip: Salin terus dari OSC atau Excel, satu baris untuk setiap lot
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBulkImport(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleBulkImport}>Import</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Section 4: Semakan KPI */}
         {kpiProgress && (
