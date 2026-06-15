@@ -106,7 +106,7 @@ export default function RegisterPage() {
           title: "Pendaftaran Baharu",
           message: `Pendaftaran baharu: ${formData.full_name} (${formData.staff_id}) menunggu kelulusan.`,
           type: "info" as const,
-          read: false,
+          is_read: false,
         }));
 
         await supabase.from("notifications").insert(notifications);

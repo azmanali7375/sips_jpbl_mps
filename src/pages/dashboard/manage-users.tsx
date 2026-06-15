@@ -114,7 +114,7 @@ export default function ManageUsersPage() {
         title: "Akaun Diluluskan",
         message: `Akaun anda telah diluluskan. Anda kini boleh log masuk ke SIPS sebagai ${assignedRole}.`,
         type: "success",
-        read: false,
+        is_read: false,
       });
 
       toast({
@@ -165,7 +165,7 @@ export default function ManageUsersPage() {
         title: "Akaun Ditolak",
         message: `Permohonan pendaftaran anda telah ditolak. Sebab: ${rejectionReason}`,
         type: "error",
-        read: false,
+        is_read: false,
       });
 
       toast({
@@ -218,7 +218,7 @@ export default function ManageUsersPage() {
 
   if (loading) {
     return (
-      <Layout title="Urus Pengguna">
+      <Layout>
         <div className="flex items-center justify-center h-64">
           <p>Memuatkan...</p>
         </div>
@@ -231,8 +231,12 @@ export default function ManageUsersPage() {
   const rejectedUsers = users.filter((u) => u.status === "Ditolak");
 
   return (
-    <Layout title="Urus Pengguna">
+    <Layout>
       <div className="space-y-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Urus Pengguna</h1>
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <Card>
