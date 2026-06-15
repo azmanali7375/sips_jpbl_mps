@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
+import { SEO } from "@/components/SEO";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, FileText, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar, FileText, CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
 import { applicationService, type Application } from "@/services/applicationService";
 import { oscDecisionService, type OSCDecisionType } from "@/services/oscDecisionService";
-import { reportService } from "@/services/reportService";
-import { workflowService } from "@/services/workflowService";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OSCDecisionsPage() {
@@ -22,14 +22,16 @@ export default function OSCDecisionsPage() {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
-    meeting_date: "",
-    meeting_number: "",
-    decision_type: "" as OSCDecisionType,
-    approval_conditions: "",
-    rejection_reasons: "",
-    amendment_requirements: "",
+    tarikh_mesyuarat_osc: "",
+    no_mesyuarat: "",
+    keputusan_osc: "" as OSCDecisionType,
+    syarat_kelulusan: "",
+    tempoh_sah_kelulusan: 2,
+    no_kelulusan_km: "",
+    catatan_osc: "",
   });
 
   useEffect(() => {
@@ -50,12 +52,24 @@ export default function OSCDecisionsPage() {
       const existingDecision = await oscDecisionService.getDecisionByApplicationId(appId);
       if (existingDecision) {
         setFormData({
-          meeting_date: existingDecision.meeting_date || "",
-          meeting_number: existingDecision.meeting_number || "",
-          decision_type: existingDecision.decision_type as OSCDecisionType,
-          approval_conditions: existingDecision.approval_conditions || "",
-          rejection_reasons: existingDecision.rejection_reasons || "",
-          amendment_requirements: existingDecision.amendment_requirements || "",
+          tarikh_mesyuarat_osc: existingDecision.meeting_date || "",
+          no_mesyuarat: existingDecision.meeting_number || "",
+          keputusan_osc: existingDecision.decision_type as OSCDecisionType,
+          syarat_kelulusan: existingDecision.approval_conditions || "",
+          tempoh_sah_kelulusan: existingDecision.tempoh_sah_kelulusan || 2,
+          no_kelulusan_km: existingDecision.no_kelulusan_km || "",
+          catatan_osc: existingDecision.catatan_osc || "",
+        });
+      } else {
+        // Reset form for new decision
+        setFormData({
+          tarikh_mesyuarat_osc: "",
+          no_mesyuarat: "",
+          keputusan_osc: "" as OSCDecisionType,
+          syarat_kelulusan: "",
+          tempoh_sah_kelulusan: 2,
+          no_kelulusan_km: "",
+          catatan_osc: "",
         });
       }
     }
@@ -63,59 +77,44 @@ export default function OSCDecisionsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedApp || !formData.decision_type) return;
+    if (!selectedApp || !formData.keputusan_osc) {
+      setError("Sila lengkapkan semua medan wajib");
+      return;
+    }
 
     setSubmitting(true);
+    setError("");
 
     try {
-      const decision = await oscDecisionService.createDecision({
+      await oscDecisionService.createDecision({
         application_id: selectedApp.id,
         ...formData,
       });
 
-      if (!decision) {
-        throw new Error("Failed to create OSC decision");
-      }
-
-      let newStatus: string;
-      if (formData.decision_type === "lulus") {
-        newStatus = "approved";
-        await reportService.generateFormC1(selectedApp.id);
-      } else if (formData.decision_type === "tolak") {
-        newStatus = "rejected";
-        await reportService.generateFormC2(selectedApp.id);
-      } else {
-        newStatus = "approved_with_amendments";
-      }
-
-      await workflowService.updateStatus(
-        selectedApp.id,
-        newStatus as any,
-        `OSC Decision: ${formData.decision_type}`
-      );
-
       toast({
-        title: "OSC Decision Recorded",
-        description: `Decision recorded and Form ${formData.decision_type === "lulus" ? "C1" : formData.decision_type === "tolak" ? "C2" : "generated"} auto-generated.`,
+        title: "Keputusan OSC Direkodkan",
+        description: `Keputusan ${formData.keputusan_osc} berjaya direkodkan. ${
+          formData.keputusan_osc === "Lulus" || formData.keputusan_osc === "Lulus Bersyarat"
+            ? "Rekod pelan lulus telah diwujudkan secara automatik."
+            : ""
+        }`,
       });
 
+      // Reset form
       setFormData({
-        meeting_date: "",
-        meeting_number: "",
-        decision_type: "" as OSCDecisionType,
-        approval_conditions: "",
-        rejection_reasons: "",
-        amendment_requirements: "",
+        tarikh_mesyuarat_osc: "",
+        no_mesyuarat: "",
+        keputusan_osc: "" as OSCDecisionType,
+        syarat_kelulusan: "",
+        tempoh_sah_kelulusan: 2,
+        no_kelulusan_km: "",
+        catatan_osc: "",
       });
       setSelectedApp(null);
       loadApplications();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting OSC decision:", error);
-      toast({
-        title: "Error",
-        description: "Failed to record OSC decision",
-        variant: "destructive",
-      });
+      setError(error.message || "Ralat semasa merekod keputusan OSC");
     } finally {
       setSubmitting(false);
     }
@@ -123,39 +122,49 @@ export default function OSCDecisionsPage() {
 
   const getDecisionIcon = (type: OSCDecisionType) => {
     switch (type) {
-      case "lulus": return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-      case "tolak": return <XCircle className="h-5 w-5 text-red-600" />;
-      case "lulus_dengan_pindaan": return <AlertCircle className="h-5 w-5 text-amber-600" />;
+      case "Lulus": return <CheckCircle2 className="h-5 w-5 text-success" />;
+      case "Lulus Bersyarat": return <AlertCircle className="h-5 w-5 text-amber-600" />;
+      case "Ditangguhkan": return <Clock className="h-5 w-5 text-slate-600" />;
+      case "Ditolak": return <XCircle className="h-5 w-5 text-destructive" />;
     }
   };
 
-  const getDecisionLabel = (type: OSCDecisionType) => {
+  const getDecisionBadge = (type: OSCDecisionType) => {
     switch (type) {
-      case "lulus": return "Lulus";
-      case "tolak": return "Tolak";
-      case "lulus_dengan_pindaan": return "Lulus Dengan Pindaan";
+      case "Lulus": return <Badge className="bg-success">Lulus</Badge>;
+      case "Lulus Bersyarat": return <Badge variant="secondary">Lulus Bersyarat</Badge>;
+      case "Ditangguhkan": return <Badge variant="outline">Ditangguhkan</Badge>;
+      case "Ditolak": return <Badge variant="destructive">Ditolak</Badge>;
     }
   };
 
   return (
     <Layout>
+      <SEO title="Keputusan OSC - Sistem SPC MPS" />
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
-          <h1 className="text-3xl font-serif font-bold text-[#19283a]">OSC Meeting Decisions</h1>
-          <p className="text-slate-600 mt-2">Record decisions from One Stop Center meetings</p>
+          <h1 className="text-3xl font-serif font-bold text-primary">Keputusan Mesyuarat OSC</h1>
+          <p className="text-muted-foreground mt-2">Rekod keputusan dari mesyuarat One Stop Center</p>
         </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-1">
             <CardHeader>
-              <CardTitle>Applications for OSC</CardTitle>
-              <CardDescription>Select an application to record decision</CardDescription>
+              <CardTitle>Senarai Permohonan</CardTitle>
+              <CardDescription>Pilih permohonan untuk rekod keputusan</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <p className="text-sm text-slate-500">Loading applications...</p>
+                <p className="text-sm text-muted-foreground">Memuatkan permohonan...</p>
               ) : applications.length === 0 ? (
-                <p className="text-sm text-slate-500">No applications awaiting OSC decision</p>
+                <p className="text-sm text-muted-foreground">Tiada permohonan menunggu keputusan OSC</p>
               ) : (
                 <div className="space-y-2">
                   {applications.map((app) => (
@@ -167,7 +176,7 @@ export default function OSCDecisionsPage() {
                     >
                       <div className="flex-1">
                         <div className="font-medium">{app.tracking_number}</div>
-                        <div className="text-xs opacity-75">{app.project_name}</div>
+                        <div className="text-xs opacity-75 truncate">{app.project_name}</div>
                       </div>
                     </Button>
                   ))}
@@ -180,128 +189,154 @@ export default function OSCDecisionsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                OSC Decision Form
+                Borang Keputusan OSC
               </CardTitle>
               <CardDescription>
-                Record the decision made during the OSC meeting
+                Rekodkan keputusan yang dibuat dalam mesyuarat OSC (Admin sahaja)
               </CardDescription>
             </CardHeader>
             <CardContent>
               {!selectedApp ? (
-                <div className="text-center py-12 text-slate-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Select an application to record OSC decision</p>
+                  <p>Pilih permohonan untuk merekod keputusan OSC</p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="bg-slate-50 p-4 rounded-lg">
+                  <div className="bg-muted p-4 rounded-lg">
                     <h3 className="font-semibold mb-2">{selectedApp.project_name}</h3>
-                    <p className="text-sm text-slate-600">Tracking: {selectedApp.tracking_number}</p>
-                    <p className="text-sm text-slate-600">Location: {selectedApp.location}</p>
+                    <p className="text-sm text-muted-foreground">No. Fail: {selectedApp.tracking_number}</p>
+                    <p className="text-sm text-muted-foreground">Lokasi: {selectedApp.location}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="meeting_date">Meeting Date *</Label>
+                      <Label htmlFor="tarikh_mesyuarat">
+                        Tarikh Mesyuarat OSC <span className="text-destructive">*</span>
+                      </Label>
                       <Input
-                        id="meeting_date"
+                        id="tarikh_mesyuarat"
                         type="date"
-                        value={formData.meeting_date}
-                        onChange={(e) => setFormData({ ...formData, meeting_date: e.target.value })}
+                        value={formData.tarikh_mesyuarat_osc}
+                        onChange={(e) => setFormData({ ...formData, tarikh_mesyuarat_osc: e.target.value })}
                         required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="meeting_number">Meeting Number</Label>
+                      <Label htmlFor="no_mesyuarat">No. Mesyuarat</Label>
                       <Input
-                        id="meeting_number"
-                        placeholder="e.g., OSC/2026/05"
-                        value={formData.meeting_number}
-                        onChange={(e) => setFormData({ ...formData, meeting_number: e.target.value })}
+                        id="no_mesyuarat"
+                        placeholder="cth: OSC/MPS/1/2026"
+                        value={formData.no_mesyuarat}
+                        onChange={(e) => setFormData({ ...formData, no_mesyuarat: e.target.value })}
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="decision_type">Decision Type *</Label>
+                    <Label htmlFor="keputusan_osc">
+                      Keputusan OSC <span className="text-destructive">*</span>
+                    </Label>
                     <Select
-                      value={formData.decision_type}
-                      onValueChange={(value) => setFormData({ ...formData, decision_type: value as OSCDecisionType })}
+                      value={formData.keputusan_osc}
+                      onValueChange={(value) => setFormData({ ...formData, keputusan_osc: value as OSCDecisionType })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select decision type" />
+                        <SelectValue placeholder="Pilih keputusan" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="lulus">
+                        <SelectItem value="Lulus">
                           <div className="flex items-center gap-2">
-                            {getDecisionIcon("lulus")}
-                            <span>Lulus (Approve)</span>
+                            {getDecisionIcon("Lulus")}
+                            <span>Lulus</span>
                           </div>
                         </SelectItem>
-                        <SelectItem value="tolak">
+                        <SelectItem value="Lulus Bersyarat">
                           <div className="flex items-center gap-2">
-                            {getDecisionIcon("tolak")}
-                            <span>Tolak (Reject)</span>
+                            {getDecisionIcon("Lulus Bersyarat")}
+                            <span>Lulus Bersyarat</span>
                           </div>
                         </SelectItem>
-                        <SelectItem value="lulus_dengan_pindaan">
+                        <SelectItem value="Ditangguhkan">
                           <div className="flex items-center gap-2">
-                            {getDecisionIcon("lulus_dengan_pindaan")}
-                            <span>Lulus Dengan Pindaan (Approve with Amendments)</span>
+                            {getDecisionIcon("Ditangguhkan")}
+                            <span>Ditangguhkan</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Ditolak">
+                          <div className="flex items-center gap-2">
+                            {getDecisionIcon("Ditolak")}
+                            <span>Ditolak</span>
                           </div>
                         </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {formData.decision_type === "lulus" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="approval_conditions">Approval Conditions</Label>
-                      <Textarea
-                        id="approval_conditions"
-                        placeholder="Enter any conditions for approval..."
-                        rows={4}
-                        value={formData.approval_conditions}
-                        onChange={(e) => setFormData({ ...formData, approval_conditions: e.target.value })}
-                      />
-                    </div>
+                  {(formData.keputusan_osc === "Lulus" || formData.keputusan_osc === "Lulus Bersyarat") && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="no_kelulusan_km">No. Kelulusan KM</Label>
+                        <Input
+                          id="no_kelulusan_km"
+                          placeholder="cth: KM/2026/123"
+                          value={formData.no_kelulusan_km}
+                          onChange={(e) => setFormData({ ...formData, no_kelulusan_km: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="tempoh_sah">Tempoh Sah Kelulusan (tahun)</Label>
+                        <Input
+                          id="tempoh_sah"
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={formData.tempoh_sah_kelulusan}
+                          onChange={(e) => setFormData({ ...formData, tempoh_sah_kelulusan: parseInt(e.target.value) || 2 })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Kelulusan akan sah untuk {formData.tempoh_sah_kelulusan} tahun dari tarikh mesyuarat
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="syarat_kelulusan">Syarat Kelulusan</Label>
+                        <Textarea
+                          id="syarat_kelulusan"
+                          placeholder="Masukkan syarat yang dikenakan (jika ada)..."
+                          rows={4}
+                          value={formData.syarat_kelulusan}
+                          onChange={(e) => setFormData({ ...formData, syarat_kelulusan: e.target.value })}
+                        />
+                      </div>
+                    </>
                   )}
 
-                  {formData.decision_type === "tolak" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="rejection_reasons">Rejection Reasons *</Label>
-                      <Textarea
-                        id="rejection_reasons"
-                        placeholder="Enter reasons for rejection..."
-                        rows={4}
-                        value={formData.rejection_reasons}
-                        onChange={(e) => setFormData({ ...formData, rejection_reasons: e.target.value })}
-                        required
-                      />
-                    </div>
+                  {formData.keputusan_osc === "Ditolak" && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Permohonan akan ditandakan sebagai ditolak. Pastikan sebab penolakan direkodkan dalam catatan.
+                      </AlertDescription>
+                    </Alert>
                   )}
 
-                  {formData.decision_type === "lulus_dengan_pindaan" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="amendment_requirements">Amendment Requirements *</Label>
-                      <Textarea
-                        id="amendment_requirements"
-                        placeholder="Specify required amendments to the plans..."
-                        rows={4}
-                        value={formData.amendment_requirements}
-                        onChange={(e) => setFormData({ ...formData, amendment_requirements: e.target.value })}
-                        required
-                      />
-                      <p className="text-xs text-slate-500">
-                        A Written Directive will need to be prepared for YDP signature
-                      </p>
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="catatan_osc">Catatan Mesyuarat</Label>
+                    <Textarea
+                      id="catatan_osc"
+                      placeholder="Catatan tambahan dari mesyuarat OSC..."
+                      rows={4}
+                      value={formData.catatan_osc}
+                      onChange={(e) => setFormData({ ...formData, catatan_osc: e.target.value })}
+                    />
+                  </div>
 
                   <div className="flex gap-3">
                     <Button type="submit" disabled={submitting} className="flex-1">
-                      {submitting ? "Recording Decision..." : "Record OSC Decision"}
+                      {submitting ? "Merekod..." : "Rekod Keputusan OSC"}
                     </Button>
                     <Button
                       type="button"
@@ -309,28 +344,35 @@ export default function OSCDecisionsPage() {
                       onClick={() => {
                         setSelectedApp(null);
                         setFormData({
-                          meeting_date: "",
-                          meeting_number: "",
-                          decision_type: "" as OSCDecisionType,
-                          approval_conditions: "",
-                          rejection_reasons: "",
-                          amendment_requirements: "",
+                          tarikh_mesyuarat_osc: "",
+                          no_mesyuarat: "",
+                          keputusan_osc: "" as OSCDecisionType,
+                          syarat_kelulusan: "",
+                          tempoh_sah_kelulusan: 2,
+                          no_kelulusan_km: "",
+                          catatan_osc: "",
                         });
                       }}
                     >
-                      Cancel
+                      Batal
                     </Button>
                   </div>
 
-                  {formData.decision_type && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-900 font-medium mb-1">Auto-generation:</p>
-                      <p className="text-sm text-blue-800">
-                        {formData.decision_type === "lulus" && "Form C1 will be auto-generated"}
-                        {formData.decision_type === "tolak" && "Form C2 will be auto-generated"}
-                        {formData.decision_type === "lulus_dengan_pindaan" && "You will need to create a Written Directive for YDP signature"}
-                      </p>
-                    </div>
+                  {formData.keputusan_osc && (
+                    <Alert className="border-accent bg-accent/10">
+                      <AlertCircle className="h-4 w-4 text-accent" />
+                      <AlertDescription className="text-sm">
+                        <p className="font-medium mb-1">Automatik akan dilaksanakan:</p>
+                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                          <li>Status permohonan akan dikemaskini</li>
+                          <li>Rekod workflow akan diwujudkan</li>
+                          <li>Notifikasi akan dihantar kepada pegawai bertugas</li>
+                          {(formData.keputusan_osc === "Lulus" || formData.keputusan_osc === "Lulus Bersyarat") && (
+                            <li className="font-medium text-success">Rekod pelan lulus akan diwujudkan dalam sistem</li>
+                          )}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </form>
               )}

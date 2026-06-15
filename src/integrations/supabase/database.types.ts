@@ -232,6 +232,9 @@ export type Database = {
           plan_registration_number: string
           registered_by: string
           registration_date: string | null
+          syarat_kelulusan: string | null
+          tarikh_kelulusan: string | null
+          tarikh_tamat_sah: string | null
         }
         Insert: {
           application_id: string
@@ -245,6 +248,9 @@ export type Database = {
           plan_registration_number: string
           registered_by: string
           registration_date?: string | null
+          syarat_kelulusan?: string | null
+          tarikh_kelulusan?: string | null
+          tarikh_tamat_sah?: string | null
         }
         Update: {
           application_id?: string
@@ -258,6 +264,9 @@ export type Database = {
           plan_registration_number?: string
           registered_by?: string
           registration_date?: string | null
+          syarat_kelulusan?: string | null
+          tarikh_kelulusan?: string | null
+          tarikh_tamat_sah?: string | null
         }
         Relationships: [
           {
@@ -526,39 +535,48 @@ export type Database = {
           amendment_requirements: string | null
           application_id: string
           approval_conditions: string | null
+          catatan_osc: string | null
           created_at: string | null
           decision_type: string
           id: string
           meeting_date: string
           meeting_number: string | null
+          no_kelulusan_km: string | null
           recorded_by: string
           rejection_reasons: string | null
+          tempoh_sah_kelulusan: number | null
           updated_at: string | null
         }
         Insert: {
           amendment_requirements?: string | null
           application_id: string
           approval_conditions?: string | null
+          catatan_osc?: string | null
           created_at?: string | null
           decision_type: string
           id?: string
           meeting_date: string
           meeting_number?: string | null
+          no_kelulusan_km?: string | null
           recorded_by: string
           rejection_reasons?: string | null
+          tempoh_sah_kelulusan?: number | null
           updated_at?: string | null
         }
         Update: {
           amendment_requirements?: string | null
           application_id?: string
           approval_conditions?: string | null
+          catatan_osc?: string | null
           created_at?: string | null
           decision_type?: string
           id?: string
           meeting_date?: string
           meeting_number?: string | null
+          no_kelulusan_km?: string | null
           recorded_by?: string
           rejection_reasons?: string | null
+          tempoh_sah_kelulusan?: number | null
           updated_at?: string | null
         }
         Relationships: [
