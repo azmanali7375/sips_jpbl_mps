@@ -1,6 +1,12 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -9,7 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -18,288 +23,402 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Loader2 } from "lucide-react";
-import { useRouter } from "next/router";
+import { supabase } from "@/integrations/supabase/client";
+import { Check, X, UserCog } from "lucide-react";
 
-interface Profile {
+interface UserProfile {
   id: string;
-  full_name: string | null;
-  staff_id: string | null;
-  designation: string | null;
+  full_name: string;
+  staff_id: string;
+  email: string;
+  designation: string;
+  department: string;
+  phone: string | null;
   role: string | null;
-  department: string | null;
-  organisation: string | null;
+  status: string;
+  rejection_reason: string | null;
+  created_at: string;
 }
 
 export default function ManageUsersPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [assignedRole, setAssignedRole] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
 
   useEffect(() => {
-    checkUserRole();
-    fetchProfiles();
+    loadUsers();
+    getCurrentUser();
   }, []);
 
-  const checkUserRole = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-      router.push("/auth/login");
-      return;
+  async function getCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (profile?.role !== "admin") {
-      toast({
-        title: "Access Denied",
-        description: "Only administrators can access this page.",
-        variant: "destructive",
-      });
-      router.push("/dashboard");
-      return;
-    }
-
-    setCurrentUserRole(profile.role);
-  };
-
-  const fetchProfiles = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("staff_id", { ascending: true });
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      setProfiles(data ?? []);
-    }
-    setLoading(false);
-  };
-
-  const handleEdit = (profile: Profile) => {
-    setEditingProfile({ ...profile });
-    setIsEditDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!editingProfile) return;
-
-    setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        role: editingProfile.role,
-        designation: editingProfile.designation,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", editingProfile.id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "User profile updated successfully.",
-      });
-      setIsEditDialogOpen(false);
-      fetchProfiles();
-    }
-    setSaving(false);
-  };
-
-  if (currentUserRole !== "admin") {
-    return null;
   }
 
+  async function loadUsers() {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error("Error loading users:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal memuatkan senarai pengguna",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleApprove() {
+    if (!selectedUser || !assignedRole) {
+      toast({
+        title: "Ralat",
+        description: "Sila pilih peranan pengguna",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          status: "Aktif",
+          role: assignedRole,
+          approved_by: currentUserId,
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", selectedUser.id);
+
+      if (error) throw error;
+
+      // Send notification to user
+      await supabase.from("notifications").insert({
+        user_id: selectedUser.id,
+        title: "Akaun Diluluskan",
+        message: `Akaun anda telah diluluskan. Anda kini boleh log masuk ke SIPS sebagai ${assignedRole}.`,
+        type: "success",
+        read: false,
+      });
+
+      toast({
+        title: "Berjaya",
+        description: `Akaun ${selectedUser.full_name} telah diluluskan`,
+      });
+
+      setShowApproveDialog(false);
+      setSelectedUser(null);
+      setAssignedRole("");
+      loadUsers();
+    } catch (error) {
+      console.error("Error approving user:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal meluluskan akaun",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleReject() {
+    if (!selectedUser || !rejectionReason.trim()) {
+      toast({
+        title: "Ralat",
+        description: "Sila nyatakan sebab penolakan",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          status: "Ditolak",
+          rejection_reason: rejectionReason,
+          approved_by: currentUserId,
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", selectedUser.id);
+
+      if (error) throw error;
+
+      // Send notification to user
+      await supabase.from("notifications").insert({
+        user_id: selectedUser.id,
+        title: "Akaun Ditolak",
+        message: `Permohonan pendaftaran anda telah ditolak. Sebab: ${rejectionReason}`,
+        type: "error",
+        read: false,
+      });
+
+      toast({
+        title: "Berjaya",
+        description: `Akaun ${selectedUser.full_name} telah ditolak`,
+      });
+
+      setShowRejectDialog(false);
+      setSelectedUser(null);
+      setRejectionReason("");
+      loadUsers();
+    } catch (error) {
+      console.error("Error rejecting user:", error);
+      toast({
+        title: "Ralat",
+        description: "Gagal menolak akaun",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "Aktif":
+        return <Badge className="bg-green-600">Aktif</Badge>;
+      case "Menunggu Kelulusan":
+        return <Badge className="bg-yellow-600">Menunggu Kelulusan</Badge>;
+      case "Ditolak":
+        return <Badge className="bg-red-600">Ditolak</Badge>;
+      case "Tidak Aktif":
+        return <Badge className="bg-gray-600">Tidak Aktif</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getRoleBadge = (role: string | null) => {
+    if (!role) return <span className="text-muted-foreground text-sm">-</span>;
+
+    const colors: Record<string, string> = {
+      admin: "bg-purple-600",
+      ketua_unit: "bg-blue-600",
+      pegawai: "bg-green-600",
+      penolong: "bg-cyan-600",
+      viewer: "bg-gray-600",
+    };
+
+    return <Badge className={colors[role] || "bg-gray-600"}>{role}</Badge>;
+  };
+
+  if (loading) {
+    return (
+      <Layout title="Urus Pengguna">
+        <div className="flex items-center justify-center h-64">
+          <p>Memuatkan...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  const pendingUsers = users.filter((u) => u.status === "Menunggu Kelulusan");
+  const activeUsers = users.filter((u) => u.status === "Aktif");
+  const rejectedUsers = users.filter((u) => u.status === "Ditolak");
+
   return (
-    <Layout>
-      <div className="container mx-auto py-8 px-4 max-w-7xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Urus Pengguna</h1>
-          <p className="text-muted-foreground">
-            Manage user profiles, roles, and designations
-          </p>
+    <Layout title="Urus Pengguna">
+      <div className="space-y-6">
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{pendingUsers.length}</div>
+              <div className="text-sm text-muted-foreground">Menunggu Kelulusan</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{activeUsers.length}</div>
+              <div className="text-sm text-muted-foreground">Pengguna Aktif</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-sm text-muted-foreground">Jumlah Pengguna</div>
+            </CardContent>
+          </Card>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="bg-card rounded-lg border shadow-sm">
+        {/* Pending Approvals */}
+        {pendingUsers.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCog className="h-5 w-5" />
+                Pendaftaran Menunggu Kelulusan ({pendingUsers.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>No. Kakitangan</TableHead>
+                    <TableHead>Emel</TableHead>
+                    <TableHead>Jawatan</TableHead>
+                    <TableHead>Tarikh Daftar</TableHead>
+                    <TableHead className="text-right">Tindakan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.full_name}</TableCell>
+                      <TableCell>{user.staff_id}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.designation}</TableCell>
+                      <TableCell>
+                        {new Date(user.created_at).toLocaleDateString("ms-MY")}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowApproveDialog(true);
+                          }}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Lulus
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowRejectDialog(true);
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Tolak
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* All Users */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Semua Pengguna</CardTitle>
+          </CardHeader>
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Staff ID</TableHead>
-                  <TableHead>Full Name</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>No. Kakitangan</TableHead>
+                  <TableHead>Emel</TableHead>
+                  <TableHead>Peranan</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Tarikh Daftar</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {profiles.map((profile) => (
-                  <TableRow key={profile.id}>
-                    <TableCell className="font-mono font-semibold">
-                      {profile.staff_id}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {profile.full_name}
-                    </TableCell>
-                    <TableCell>{profile.designation}</TableCell>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.full_name}</TableCell>
+                    <TableCell>{user.staff_id}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>{getStatusBadge(user.status)}</TableCell>
                     <TableCell>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          profile.role === "admin"
-                            ? "bg-primary/10 text-primary"
-                            : profile.role === "unit_head"
-                            ? "bg-secondary/10 text-secondary"
-                            : profile.role === "department_head"
-                            ? "bg-accent/10 text-accent"
-                            : profile.role === "assistant_planner_j5"
-                            ? "bg-success/10 text-success"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {profile.role === "admin" && "Admin"}
-                        {profile.role === "admin_assistant" && "Admin Assistant"}
-                        {profile.role === "unit_head" && "Unit Head"}
-                        {profile.role === "assistant_planner_j5" && "Assistant Planner J5"}
-                        {profile.role === "department_head" && "Department Head"}
-                        {profile.role === "applicant" && "Applicant"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {profile.department}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(profile)}
-                      >
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
+                      {new Date(user.created_at).toLocaleDateString("ms-MY")}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </div>
-        )}
-
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit User Profile</DialogTitle>
-              <DialogDescription>
-                Update the role and designation for {editingProfile?.full_name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="staff-id">Staff ID</Label>
-                <Input
-                  id="staff-id"
-                  value={editingProfile?.staff_id ?? ""}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="full-name">Full Name</Label>
-                <Input
-                  id="full-name"
-                  value={editingProfile?.full_name ?? ""}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="designation">Designation</Label>
-                <Input
-                  id="designation"
-                  value={editingProfile?.designation ?? ""}
-                  onChange={(e) =>
-                    setEditingProfile(
-                      editingProfile
-                        ? { ...editingProfile, designation: e.target.value }
-                        : null
-                    )
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <Select
-                  value={editingProfile?.role ?? ""}
-                  onValueChange={(value) =>
-                    setEditingProfile(
-                      editingProfile ? { ...editingProfile, role: value } : null
-                    )
-                  }
-                >
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="admin_assistant">Admin Assistant</SelectItem>
-                    <SelectItem value="unit_head">Unit Head</SelectItem>
-                    <SelectItem value="assistant_planner_j5">Assistant Planner J5</SelectItem>
-                    <SelectItem value="department_head">Department Head</SelectItem>
-                    <SelectItem value="applicant">Applicant</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Approve Dialog */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Luluskan Pengguna</DialogTitle>
+            <DialogDescription>
+              Tetapkan peranan sistem untuk {selectedUser?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="role">Peranan Sistem</Label>
+              <Select value={assignedRole} onValueChange={setAssignedRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih peranan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="ketua_unit">Ketua Unit</SelectItem>
+                  <SelectItem value="pegawai">Pegawai</SelectItem>
+                  <SelectItem value="penolong">Penolong</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApproveDialog(false)}>
+              Batal
+            </Button>
+            <Button onClick={handleApprove}>Lulus Akaun</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tolak Pengguna</DialogTitle>
+            <DialogDescription>
+              Nyatakan sebab penolakan untuk {selectedUser?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="reason">Sebab Penolakan</Label>
+              <Textarea
+                id="reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+                placeholder="Contoh: Maklumat tidak lengkap, no. kakitangan tidak sah, dll."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={handleReject}>
+              Tolak Akaun
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
