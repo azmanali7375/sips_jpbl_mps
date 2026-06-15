@@ -17,7 +17,8 @@ import {
   LogOut,
   Menu,
   X,
-  UserCog
+  UserCog,
+  FilePlus
 } from "lucide-react";
 import { NotificationCenter } from "./NotificationCenter";
 import {
