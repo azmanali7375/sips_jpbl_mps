@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -488,6 +488,80 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "land_lots_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      laporan_teknikal: {
+        Row: {
+          application_id: string
+          bahagian_a: string | null
+          bahagian_b: Json | null
+          bahagian_c: Json | null
+          bahagian_d: Json | null
+          bahagian_e: Json | null
+          bahagian_f: Json | null
+          bahagian_g: Json | null
+          created_at: string | null
+          disediakan_oleh: string | null
+          id: string
+          is_kmt: boolean | null
+          jawatan_penyedia: string | null
+          no_rujukan_fail: string | null
+          status_laporan: string | null
+          tarikh_disediakan: string | null
+          ulasan_syor_f: string | null
+          ulasan_syor_g: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id: string
+          bahagian_a?: string | null
+          bahagian_b?: Json | null
+          bahagian_c?: Json | null
+          bahagian_d?: Json | null
+          bahagian_e?: Json | null
+          bahagian_f?: Json | null
+          bahagian_g?: Json | null
+          created_at?: string | null
+          disediakan_oleh?: string | null
+          id?: string
+          is_kmt?: boolean | null
+          jawatan_penyedia?: string | null
+          no_rujukan_fail?: string | null
+          status_laporan?: string | null
+          tarikh_disediakan?: string | null
+          ulasan_syor_f?: string | null
+          ulasan_syor_g?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          bahagian_a?: string | null
+          bahagian_b?: Json | null
+          bahagian_c?: Json | null
+          bahagian_d?: Json | null
+          bahagian_e?: Json | null
+          bahagian_f?: Json | null
+          bahagian_g?: Json | null
+          created_at?: string | null
+          disediakan_oleh?: string | null
+          id?: string
+          is_kmt?: boolean | null
+          jawatan_penyedia?: string | null
+          no_rujukan_fail?: string | null
+          status_laporan?: string | null
+          tarikh_disediakan?: string | null
+          ulasan_syor_f?: string | null
+          ulasan_syor_g?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laporan_teknikal_application_id_fkey"
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "applications"
