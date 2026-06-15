@@ -760,10 +760,10 @@ export default function ApplicationDetailPage() {
   };
 
   const handleStartAiReview = async () => {
-    if (!selectedPlan || !jenisPembangunan) {
+    if (!jenisPembangunan) {
       toast({
         title: "Ralat",
-        description: "Sila pilih pelan dan jenis pembangunan",
+        description: "Sila pilih jenis pembangunan",
         variant: "destructive",
       });
       return;
@@ -774,90 +774,154 @@ export default function ApplicationDetailPage() {
     setRetrievedChunks([]);
 
     try {
-      // Stage 1: Read the plan PDF
-      setAiStatus("Membaca pelan cadangan...");
-      
-      const selectedDoc = Object.values(documents)
-        .flat()
-        .find((doc) => doc.id === selectedPlan);
+      // STEP 1: Build plan_parameters from OSC data (Source A)
+      const oscParameters = {
+        nisbah_plot: application?.nisbah_plot || null,
+        ketinggian_bangunan_m: application?.ketinggian_bangunan_m || null,
+        bil_tingkat: application?.bil_tingkat || null,
+        bil_unit: application?.bil_unit || null,
+        kawasan_lantai_kasar_m2: application?.kawasan_lantai_kasar_m2 || null,
+        parkir_kereta: application?.bil_tempat_letak_kereta || null,
+        parkir_motosikal: application?.bil_tempat_letak_motosikal || null,
+        parkir_oku: application?.bil_tempat_letak_oku || null,
+        kawasan_landskap_lembut: (application as any).kawasan_landskap_lembut_m2 || null,
+        jenis_guna_tanah: (application as any).jenis_guna_tanah || null,
+        zon_perancangan: (application as any).zoning || null,
+        keluasan_tapak_m2: application?.kawasan_pembangunan_m2 || null,
+      };
 
-      if (!selectedDoc?.file_path) {
-        throw new Error("URL dokumen tidak dijumpai");
-      }
+      // Check if all critical parameters are available from OSC
+      const criticalParams = [
+        oscParameters.nisbah_plot,
+        oscParameters.ketinggian_bangunan_m,
+        oscParameters.bil_tingkat,
+        oscParameters.parkir_kereta,
+        oscParameters.kawasan_lantai_kasar_m2,
+      ];
 
-      // Fetch the PDF file
-      const response = await fetch(selectedDoc.file_path);
-      const blob = await response.blob();
-      
-      // Convert to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const base64String = result.split(",")[1];
-          resolve(base64String);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      const allCriticalAvailable = criticalParams.every(p => p !== null && p !== undefined);
 
-      setAiStatus("Mengekstrak parameter teknikal...");
+      let planParameters = { ...oscParameters };
 
-      // Call Claude API to extract parameters
-      const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
-      if (!apiKey) throw new Error("Anthropic API key not configured");
+      if (allCriticalAvailable) {
+        // All critical parameters from OSC - skip plan PDF reading
+        setAiStatus("✓ Semua parameter diperoleh dari OSC. Pelan cadangan tidak diperlukan untuk semakan asas.");
+        
+        // Wait 2 seconds to show message
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
+        // Some parameters missing - need plan PDF
+        if (!selectedPlan) {
+          toast({
+            title: "Ralat",
+            description: "Parameter tidak lengkap. Sila pilih pelan cadangan untuk ekstraksi parameter tambahan.",
+            variant: "destructive",
+          });
+          setAiProcessing(false);
+          return;
+        }
 
-      const mediaType = selectedDoc.file_path.toLowerCase().endsWith(".pdf")
-        ? "application/pdf"
-        : "image/jpeg";
-      const contentType = mediaType === "application/pdf" ? "document" : "image";
+        setAiStatus("Parameter tidak lengkap dari OSC. Membaca pelan cadangan untuk parameter tambahan...");
+        
+        const selectedDoc = Object.values(documents)
+          .flat()
+          .find((doc) => doc.id === selectedPlan);
 
-      const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: `Extract planning parameters from this Malaysian KM application plan. Return ONLY JSON: {jenis_pembangunan, zon_perancangan_dicadang, kegunaan_tanah_dicadang, bilangan_tingkat, ketinggian_bangunan_m, nisbah_plot, peratusan_kawasan_plinth, densiti_unit_per_ekar, anjakan:{hadapan_m, tepi_kanan_m, tepi_kiri_m, belakang_m}, parkir:{kereta, motorsikal, oku}, kawasan_lapang_peratus, keluasan_tapak_m2, keluasan_lantai_kasar_m2, bil_unit_kediaman, bil_unit_komersial, jalan_utama_lebar_m, infrastruktur_dicadang:[], kemudahan_awam_dicadang:[], penemuan_lain:[]}. Set null for any parameter not in the document.`,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: contentType,
-                  source: {
-                    type: "base64",
-                    media_type: mediaType,
-                    data: base64,
+        if (!selectedDoc?.file_path) {
+          throw new Error("URL dokumen tidak dijumpai");
+        }
+
+        // Fetch and convert to base64
+        const response = await fetch(selectedDoc.file_path);
+        const blob = await response.blob();
+        
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        const mimeType = selectedDoc.file_path.toLowerCase().endsWith(".pdf")
+          ? "application/pdf"
+          : "image/jpeg";
+        const contentType = mimeType === "application/pdf" ? "document" : "image";
+
+        // Identify missing parameters
+        const missingFields = Object.entries(oscParameters)
+          .filter(([_, value]) => value === null)
+          .map(([key, _]) => key);
+
+        // Call Claude API to extract ONLY missing fields
+        const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
+        if (!apiKey) throw new Error("Anthropic API key not configured");
+
+        const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            system: `Extract ONLY these missing fields from the architectural plan: ${missingFields.join(", ")}.
+Return ONLY valid JSON with no explanation. Return null for any field not visible. Never guess.
+
+Return this exact JSON structure with ONLY the requested fields:
+{
+  ${missingFields.map(f => `"${f}": null`).join(",\n  ")}
+}`,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: contentType,
+                    source: {
+                      type: "base64",
+                      media_type: mimeType,
+                      data: base64,
+                    },
                   },
-                },
-                {
-                  type: "text",
-                  text: "Extract all planning parameters as JSON.",
-                },
-              ],
-            },
-          ],
-        }),
-      });
+                  {
+                    type: "text",
+                    text: `Extract these missing parameters from this plan: ${missingFields.join(", ")}. Return as JSON.`,
+                  },
+                ],
+              },
+            ],
+          }),
+        });
 
-      if (!claudeResponse.ok) {
-        const errorData = await claudeResponse.json();
-        throw new Error(errorData.error?.message || "Claude API request failed");
+        if (!claudeResponse.ok) {
+          const errorData = await claudeResponse.json();
+          throw new Error(errorData.error?.message || "Claude API request failed");
+        }
+
+        const claudeData = await claudeResponse.json();
+        const textBlock = claudeData.content?.find((block: any) => block.type === "text");
+        if (!textBlock) throw new Error("No text content in API response");
+
+        const extractedParams = JSON.parse(textBlock.text);
+
+        // Merge OSC data (Source A) with extracted plan data (Source B)
+        planParameters = {
+          ...oscParameters,
+          ...extractedParams,
+        };
+
+        setAiStatus("✓ Parameter tambahan diekstrak dari pelan cadangan.");
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      const claudeData = await claudeResponse.json();
-      const textBlock = claudeData.content?.find((block: any) => block.type === "text");
-      if (!textBlock) throw new Error("No text content in API response");
+      setPlanParameters(planParameters);
 
-      const parameters = JSON.parse(textBlock.text);
-      setPlanParameters(parameters);
-
-      // Stage 2: Search policy chunks
+      // STEP 2: Search policy chunks
       setAiStatus("Mencari peruntukan dasar yang relevan...");
 
       const searchTerms = [
@@ -867,7 +931,7 @@ export default function ApplicationDetailPage() {
         `densiti ${jenisPembangunan}`,
         `kawasan lapang`,
         `tempat letak kereta ${jenisPembangunan}`,
-        `zon perancangan ${parameters.zon_perancangan_dicadang || ""}`,
+        `zon perancangan ${planParameters.zon_perancangan || ""}`,
         `${jenisPembangunan} kegunaan tanah`,
       ];
 
@@ -892,13 +956,12 @@ export default function ApplicationDetailPage() {
         }
       }
 
-      // Keep top 12 chunks
       const topChunks = allChunks.slice(0, 12);
       setRetrievedChunks(topChunks);
 
       setAiStatus("Menyusun ulasan teknikal...");
 
-      // Stage 3: Generate AI recommendation
+      // STEP 3: Generate AI recommendation
       const policyContext = topChunks
         .map(
           (c) =>
@@ -907,16 +970,17 @@ export default function ApplicationDetailPage() {
         .join("\n\n");
 
       const recommendationPrompt = `PARAMETER PELAN:\n${JSON.stringify(
-        parameters,
+        planParameters,
         null,
         2
       )}\n\nSEKSYEN DASAR RELEVAN:\n${policyContext}\n\nBandingkan dan kembalikan penilaian JSON.`;
 
+      const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
       const recommendationResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
+          "x-api-key": apiKey!,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
@@ -3442,6 +3506,52 @@ export default function ApplicationDetailPage() {
           ) : (
             /* Selection Form */
             <div className="space-y-6 mt-6">
+              {/* OSC Data Summary */}
+              {(() => {
+                const hasOSCData = !!(
+                  application?.nisbah_plot ||
+                  application?.kawasan_lantai_kasar_m2 ||
+                  application?.bil_unit ||
+                  application?.bil_tingkat ||
+                  application?.ketinggian_bangunan_m ||
+                  application?.bil_tempat_letak_kereta
+                );
+
+                if (!hasOSCData) return null;
+
+                const oscParams = [
+                  { label: "Nisbah Plot", value: application?.nisbah_plot?.toFixed(2) },
+                  { label: "KLK", value: application?.kawasan_lantai_kasar_m2 ? `${application?.kawasan_lantai_kasar_m2.toFixed(2)} m²` : null },
+                  { label: "Bil Unit", value: application?.bil_unit },
+                  { label: "Bil Tingkat", value: application?.bil_tingkat },
+                  { label: "Ketinggian", value: application?.ketinggian_bangunan_m ? `${application?.ketinggian_bangunan_m.toFixed(1)} m` : null },
+                  { label: "Parkir Kereta", value: application?.bil_tempat_letak_kereta ? `${application?.bil_tempat_letak_kereta} petak` : null },
+                ].filter(p => p.value !== null && p.value !== undefined);
+
+                return oscParams.length > 0 && (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription>
+                      <div className="text-blue-900">
+                        <p className="font-semibold mb-2">Data Teknikal dari Import OSC</p>
+                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                          {oscParams.map((param, idx) => (
+                            <div key={idx} className="bg-white/50 px-2 py-1 rounded border border-blue-100">
+                              <span className="text-blue-700 font-medium">{param.label}:</span>{" "}
+                              <span className="text-blue-900 font-semibold">{param.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-blue-700">
+                          ✓ Parameter ini telah diekstrak daripada OSC 3 Plus dan akan digunakan secara langsung dalam semakan pematuhan. 
+                          Pelan cadangan hanya diperlukan untuk parameter yang tidak tersedia dalam OSC.
+                        </p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                );
+              })()}
+
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   Pilih pelan untuk disemak
@@ -3515,7 +3625,7 @@ export default function ApplicationDetailPage() {
 
               <Button
                 onClick={handleStartAiReview}
-                disabled={!selectedPlan || !jenisPembangunan}
+                disabled={!jenisPembangunan}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
