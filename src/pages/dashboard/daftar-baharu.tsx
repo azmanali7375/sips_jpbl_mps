@@ -28,6 +28,7 @@ import {
   getOfficers,
   RegistrationFormData,
 } from "@/services/registrationService";
+import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
 import { supabase } from "@/integrations/supabase/client";
 import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X } from "lucide-react";
 
@@ -1104,7 +1105,6 @@ export default function DaftarBaharu() {
 
                   {/* Validation Results */}
                   {(() => {
-                    const { validateOSCData, getValidationSummary } = require("@/services/zoningValidationService");
                     const validation = validateOSCData({
                       zoning: extractedData.maklumat_am?.zoning,
                       nisbah_plot: extractedData.maklumat_permohonan?.nisbah_plot,

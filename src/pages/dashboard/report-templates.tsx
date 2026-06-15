@@ -308,7 +308,11 @@ export default function ReportTemplates() {
                 <Input
                   value={formData.template_name}
                   onChange={(e) => {
-                    setFormData((prev: TemplateFormData) => ({ ...prev, template_name: e.target.value }));
+                    const newValue = e.target.value;
+                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                      ...prev,
+                      template_name: newValue,
+                    }));
                   }}
                   placeholder="Contoh: Ulasan Teknikal Standard"
                 />
@@ -319,7 +323,10 @@ export default function ReportTemplates() {
                 <Select
                   value={formData.template_type}
                   onValueChange={(value) => {
-                    setFormData((prev: TemplateFormData) => ({ ...prev, template_type: value }));
+                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                      ...prev,
+                      template_type: value,
+                    }));
                   }}
                 >
                   <SelectTrigger>
@@ -340,7 +347,11 @@ export default function ReportTemplates() {
                 <Input
                   value={formData.description}
                   onChange={(e) => {
-                    setFormData((prev: TemplateFormData) => ({ ...prev, description: e.target.value }));
+                    const newValue = e.target.value;
+                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                      ...prev,
+                      description: newValue,
+                    }));
                   }}
                   placeholder="Penerangan ringkas templat ini"
                 />
@@ -353,7 +364,11 @@ export default function ReportTemplates() {
                 <Textarea
                   value={formData.template_content}
                   onChange={(e) => {
-                    setFormData((prev: TemplateFormData) => ({ ...prev, template_content: e.target.value }));
+                    const newValue = e.target.value;
+                    setFormData((prev: TemplateFormData): TemplateFormData => ({
+                      ...prev,
+                      template_content: newValue,
+                    }));
                   }}
                   rows={15}
                   placeholder="Masukkan kandungan templat. Gunakan placeholder seperti {{no_fail_jpl}}, {{tajuk_permohonan}}, dll."
