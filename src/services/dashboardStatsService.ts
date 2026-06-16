@@ -83,7 +83,7 @@ export const dashboardStatsService = {
       // KPI compliance calculation
       const { data: allApps } = await supabase
         .from("applications")
-        .select("skala_km, tarikh_lengkap_diterima_osc, status, updated_at")
+        .select("jenis_aplikasi, tarikh_lengkap_diterima_osc, status, updated_at")
         .not("status", "in", '("approved","rejected")');
 
       let compliantCount = 0;
@@ -95,7 +95,7 @@ export const dashboardStatsService = {
 
         let bakiHari = 0;
         
-        if (app.skala_km) {
+        if (app.jenis_aplikasi === "KM") {
           // KM: Use working days (53 working days)
           const deadlineDate = await publicHolidayService.addWorkingDays(
             app.tarikh_lengkap_diterima_osc,
@@ -121,7 +121,7 @@ export const dashboardStatsService = {
           ? new Date(app.updated_at)
           : new Date();
         
-        if (app.skala_km) {
+        if (app.jenis_aplikasi === "KM") {
           const workingDays = await publicHolidayService.calculateWorkingDays(
             app.tarikh_lengkap_diterima_osc,
             endDate.toISOString().split("T")[0]

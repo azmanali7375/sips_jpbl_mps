@@ -806,7 +806,7 @@ export default function SIPSDashboard() {
                       <TableHead>Pemohon</TableHead>
                       <TableHead>Jenis</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Baki Hari</TableHead>
+                      <TableHead>Baki Hari Bekerja</TableHead>
                       <TableHead>Tindakan</TableHead>
                     </TableRow>
                   </TableHeader>

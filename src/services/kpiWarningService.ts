@@ -20,7 +20,7 @@ export const kpiWarningService = {
     try {
       const { data: applications } = await supabase
         .from("applications")
-        .select("id, no_fail_jpl, nama_pemaju_pemilik, skala_km, tarikh_lengkap_diterima_osc")
+        .select("id, no_fail_jpl, nama_pemaju_pemilik, jenis_aplikasi, tarikh_lengkap_diterima_osc")
         .not("status", "in", '("approved","rejected")');
 
       if (!applications) return [];
@@ -34,8 +34,9 @@ export const kpiWarningService = {
         let bakiHari = 0;
         let status: "red" | "orange" | "normal" = "normal";
         let message = "";
+        const isKM = app.jenis_aplikasi === "KM";
 
-        if (app.skala_km) {
+        if (isKM) {
           // KM: 53 working days threshold
           const deadlineDate = await publicHolidayService.addWorkingDays(
             app.tarikh_lengkap_diterima_osc,
@@ -83,7 +84,7 @@ export const kpiWarningService = {
           application_id: app.id,
           no_fail_jpl: app.no_fail_jpl,
           nama_pemaju_pemilik: app.nama_pemaju_pemilik,
-          skala_km: app.skala_km,
+          skala_km: isKM,
           tarikh_lengkap_diterima_osc: app.tarikh_lengkap_diterima_osc,
           baki_hari: bakiHari,
           status,
@@ -112,7 +113,7 @@ export const kpiWarningService = {
     try {
       const { data: app } = await supabase
         .from("applications")
-        .select("skala_km, tarikh_lengkap_diterima_osc")
+        .select("jenis_aplikasi, tarikh_lengkap_diterima_osc")
         .eq("id", applicationId)
         .single();
 
@@ -121,7 +122,7 @@ export const kpiWarningService = {
       const today = new Date().toISOString().split("T")[0];
       let bakiHari = 0;
 
-      if (app.skala_km) {
+      if (app.jenis_aplikasi === "KM") {
         // KM: Alert at 10, 5, 2 working days
         const deadlineDate = await publicHolidayService.addWorkingDays(
           app.tarikh_lengkap_diterima_osc,
