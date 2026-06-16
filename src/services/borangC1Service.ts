@@ -462,8 +462,8 @@ ${syaratLines}
       await auditLogService.log({
         user_id: user?.id || "",
         action: "C1_SIGNED",
-        record_id: oscDecisionId,
         details: {
+          osc_decision_id: oscDecisionId,
           tarikh_tandatangan: signatureDate,
         },
         timestamp: new Date().toISOString(),
