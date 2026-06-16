@@ -80,6 +80,8 @@ export const auditLogService = {
     USER_APPROVED: "user_approved",
     USER_REJECTED: "user_rejected",
     USER_DEACTIVATED: "user_deactivated",
+    USER_ACTIVATED: "user_activated",
+    USER_UPDATED: "user_updated",
     USER_ROLE_CHANGED: "user_role_changed",
     C1_GENERATED: "c1_generated",
     C2_GENERATED: "c2_generated",
