@@ -10,19 +10,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { validateOSCData } from "@/services/zoningValidationService";
 import type { Tables } from "@/integrations/supabase/types";
 import { dashboardStatsService, type AdminStats, type WorkflowStats, type RecentApproval, type UserActivityStats } from "@/services/dashboardStatsService";
-import { 
-  FileText, 
-  Clock, 
-  AlertTriangle,
-  XCircle,
-  TrendingUp,
-  BarChart3,
-  PieChart,
-  AlertCircle,
+import { excelReportService } from "@/services/excelReportService";
+import {
+  FileText,
+  Clock,
   CheckCircle,
-  Users,
+  AlertCircle,
+  TrendingUp,
   Calendar,
-  Eye
+  Eye,
+  Download,
 } from "lucide-react";
 import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -57,10 +54,8 @@ export default function SIPSDashboard() {
   const [workflowStats, setWorkflowStats] = useState<WorkflowStats[]>([]);
   const [recentApprovals, setRecentApprovals] = useState<RecentApproval[]>([]);
   const [userActivity, setUserActivity] = useState<UserActivityStats[]>([]);
-  const [statusData, setStatusData] = useState<Array<{ status: string; count: number }>>([]);
-  const [categoryData, setCategoryData] = useState<Array<{ category: string; count: number }>>([]);
-  const [kpiPerformance, setKpiPerformance] = useState<ApplicationWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportingRegister, setExportingRegister] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -263,6 +258,38 @@ export default function SIPSDashboard() {
 
   const COLORS = ["#0F172A", "#1E40AF", "#3B82F6", "#60A5FA", "#93C5FD", "#DBEAFE"];
   const STATUS_COLORS = ["#1E40AF", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
+
+  function formatDate(date: Date): string {
+    return date.toLocaleDateString("ms-MY", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  async function handleExportRegister() {
+    try {
+      setExportingRegister(true);
+      
+      // Get current year
+      const currentYear = new Date().getFullYear();
+      
+      await excelReportService.generateApplicationRegister(currentYear);
+      
+      toast({
+        title: "Eksport Berjaya",
+        description: `Daftar Permohonan ${currentYear} telah dieksport ke Excel`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Ralat",
+        description: error.message || "Gagal mengeksport daftar permohonan",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingRegister(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -747,45 +774,27 @@ export default function SIPSDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Prestasi KPI</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Permohonan aktif mengikut tarikh akhir KPI
+                <p className="text-sm text-muted-foreground">
+                  Pantau kepatuhan tempoh keputusan
                 </p>
               </div>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    const { generateExcelReport, downloadExcelReport } = await import("@/services/excelReportService");
-                    
-                    // Fetch all applications for export
-                    const { data: allApps, error } = await supabase
-                      .from("applications")
-                      .select("*")
-                      .order("tarikh_lengkap_diterima_osc", { ascending: true });
-
-                    if (error) throw error;
-
-                    const blob = await generateExcelReport(allApps || [], "ALL");
-                    const today = new Date().toISOString().split("T")[0];
-                    downloadExcelReport(blob, `Laporan_KPI_SIPS_${today}.xlsx`);
-
-                    toast({
-                      title: "Export Berjaya",
-                      description: "Laporan Excel telah dimuat turun",
-                    });
-                  } catch (error) {
-                    console.error("Export error:", error);
-                    toast({
-                      title: "Ralat Export",
-                      description: "Gagal menghasilkan laporan Excel",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Export Excel
-              </Button>
+              {(profile?.role === "admin" || profile?.role === "ketua_unit") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportRegister}
+                  disabled={exportingRegister}
+                >
+                  {exportingRegister ? (
+                    "Mengeksport..."
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      Eksport Daftar Permohonan
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
