@@ -9,6 +9,7 @@ import { profileService } from "@/services/profileService";
 import { supabase } from "@/integrations/supabase/client";
 import { validateOSCData } from "@/services/zoningValidationService";
 import type { Tables } from "@/integrations/supabase/types";
+import { dashboardStatsService, type AdminStats, type WorkflowStats, type RecentApproval, type UserActivityStats } from "@/services/dashboardStatsService";
 import { 
   FileText, 
   Clock, 
@@ -20,7 +21,8 @@ import {
   AlertCircle,
   CheckCircle,
   Users,
-  Calendar
+  Calendar,
+  Eye
 } from "lucide-react";
 import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -46,11 +48,15 @@ export default function SIPSDashboard() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
-    jumlahAktif: 0,
-    dalamTempoKpi: 0,
-    hampirTamat: 0,
-    kpiTerlepas: 0,
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    completed: 0,
   });
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [workflowStats, setWorkflowStats] = useState<WorkflowStats[]>([]);
+  const [recentApprovals, setRecentApprovals] = useState<RecentApproval[]>([]);
+  const [userActivity, setUserActivity] = useState<UserActivityStats[]>([]);
   const [statusData, setStatusData] = useState<Array<{ status: string; count: number }>>([]);
   const [categoryData, setCategoryData] = useState<Array<{ category: string; count: number }>>([]);
   const [kpiPerformance, setKpiPerformance] = useState<ApplicationWithDetails[]>([]);
@@ -64,6 +70,22 @@ export default function SIPSDashboard() {
     try {
       const profileData = await profileService.getCurrentProfile();
       setProfile(profileData);
+
+      // Load admin-specific stats for admin/ketua_unit roles
+      if (profileData?.role === "admin" || profileData?.role === "ketua_unit") {
+        const [adminStatsData, workflowStatsData, recentApprovalsData, userActivityData] =
+          await Promise.all([
+            dashboardStatsService.getAdminStats(),
+            dashboardStatsService.getWorkflowStats(),
+            dashboardStatsService.getRecentApprovals(10),
+            dashboardStatsService.getUserActivity(),
+          ]);
+
+        setAdminStats(adminStatsData);
+        setWorkflowStats(workflowStatsData);
+        setRecentApprovals(recentApprovalsData);
+        setUserActivity(userActivityData);
+      }
 
       const isAdmin = profileData?.role === "admin" || profileData?.role === "unit_head" || profileData?.role === "department_head";
 
@@ -271,8 +293,73 @@ export default function SIPSDashboard() {
           )}
         </div>
 
-        {/* Row 1: KPI Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        {/* Admin Statistics */}
+        {(profile?.role === "admin" || profile?.role === "ketua_unit") && adminStats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Jumlah Permohonan
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{adminStats.total_applications}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {adminStats.active_applications} aktif
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Menunggu Kelulusan
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-yellow-600">
+                  {adminStats.pending_approval}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Perlu tindakan</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Kelulusan Bulan Ini
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-600">
+                  {adminStats.approved_this_month}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {adminStats.rejected_this_month} ditolak
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  KPI Compliance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-600">
+                  {adminStats.kpi_compliance_rate}%
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Purata {adminStats.avg_processing_days} hari
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Existing Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -539,6 +626,120 @@ export default function SIPSDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Approvals (Admin/Ketua Unit Only) */}
+        {(profile?.role === "admin" || profile?.role === "ketua_unit") && recentApprovals.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Keputusan Terkini</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Permohonan yang telah diluluskan atau ditolak
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No. Fail</TableHead>
+                    <TableHead>Pemohon</TableHead>
+                    <TableHead>Keputusan</TableHead>
+                    <TableHead>Tarikh</TableHead>
+                    <TableHead className="text-right">Tindakan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentApprovals.map((approval) => (
+                    <TableRow key={approval.id}>
+                      <TableCell className="font-medium">{approval.no_fail_jpl}</TableCell>
+                      <TableCell>{approval.nama_pemaju_pemilik}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={approval.status === "approved" ? "default" : "destructive"}
+                        >
+                          {approval.keputusan}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(approval.updated_at).toLocaleDateString("ms-MY")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/dashboard/permohonan/${approval.id}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* User Activity (Admin Only) */}
+        {profile?.role === "admin" && userActivity.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Aktiviti Pegawai</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Ringkasan tugasan dan penyelesaian
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama Pegawai</TableHead>
+                    <TableHead>Peranan</TableHead>
+                    <TableHead className="text-center">Ditugaskan</TableHead>
+                    <TableHead className="text-center">Selesai</TableHead>
+                    <TableHead className="text-center">Belum Selesai</TableHead>
+                    <TableHead className="text-right">Kadar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {userActivity.slice(0, 10).map((user) => {
+                    const completionRate =
+                      user.assigned_count > 0
+                        ? Math.round((user.completed_count / user.assigned_count) * 100)
+                        : 0;
+                    return (
+                      <TableRow key={user.user_id}>
+                        <TableCell className="font-medium">{user.full_name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{user.role}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center">{user.assigned_count}</TableCell>
+                        <TableCell className="text-center text-green-600">
+                          {user.completed_count}
+                        </TableCell>
+                        <TableCell className="text-center text-yellow-600">
+                          {user.pending_count}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={
+                              completionRate >= 80
+                                ? "text-green-600 font-semibold"
+                                : completionRate >= 50
+                                ? "text-yellow-600"
+                                : "text-red-600"
+                            }
+                          >
+                            {completionRate}%
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
         {/* KPI Performance */}
         <Card>
