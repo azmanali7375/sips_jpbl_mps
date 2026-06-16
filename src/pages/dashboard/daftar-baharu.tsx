@@ -543,13 +543,11 @@ export default function DaftarBaharu() {
       for (const doc of uploadedDocuments) {
         await supabase.from("documents").insert({
           application_id: applicationId,
-          no_fail: noFailJpl,
+          file_name: doc.nama_dokumen,
+          file_path: doc.dokumen_url,
           jenis_dokumen: doc.jenis_dokumen,
-          nama_dokumen: doc.nama_dokumen,
-          dokumen_url: doc.dokumen_url,
           versi: "v1",
-          dimuat_naik_oleh: user.id,
-          tarikh_muat_naik: new Date().toISOString(),
+          uploaded_by: user.id,
         });
       }
     } catch (error) {
