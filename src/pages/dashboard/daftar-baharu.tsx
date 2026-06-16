@@ -451,12 +451,12 @@ const { data: application, error: appError } = await supabase
         if (user) {
           for (const doc of uploadedDocuments.filter(d => d.uploaded && d.storagePath)) {
             await supabase.from("documents").insert({
-              application_id: application.id,
-              file_name: doc.nama_dokumen,
-              file_path: doc.storagePath,
+              permohonan_id: application.id,
+              nama_dokumen: doc.nama_dokumen,
+              file_url: doc.storagePath,
               jenis_dokumen: doc.jenis_dokumen,
               versi: "v1",
-              uploaded_by: user.id,
+              dimuat_naik_oleh: user.id,
             });
           }
         }
