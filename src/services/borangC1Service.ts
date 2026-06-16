@@ -434,4 +434,35 @@ ${syaratLines}
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   },
+
+  /**
+   * Record C1 signature date (when YDP signs)
+   */
+  async recordC1SignatureDate(
+    oscDecisionId: string,
+    signatureDate: string
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("osc_decisions")
+        .update({
+          tarikh_tandatangan_c1: signatureDate,
+        })
+        .eq("id", oscDecisionId);
+
+      if (error) throw error;
+
+      // Log to audit
+      await auditLogService.logAction(
+        "C1_SIGNED",
+        oscDecisionId,
+        {
+          tarikh_tandatangan: signatureDate,
+        }
+      );
+    } catch (error) {
+      console.error("Error recording C1 signature date:", error);
+      throw error;
+    }
+  },
 };

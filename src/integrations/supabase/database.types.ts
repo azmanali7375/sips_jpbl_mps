@@ -862,6 +862,7 @@ export type Database = {
           recorded_by: string
           rejection_reasons: string | null
           tarikh_kelulusan: string | null
+          tarikh_tandatangan_c1: string | null
           tempoh_sah_kelulusan: number | null
           updated_at: string | null
           yang_dipertua_name: string | null
@@ -885,6 +886,7 @@ export type Database = {
           recorded_by: string
           rejection_reasons?: string | null
           tarikh_kelulusan?: string | null
+          tarikh_tandatangan_c1?: string | null
           tempoh_sah_kelulusan?: number | null
           updated_at?: string | null
           yang_dipertua_name?: string | null
@@ -908,6 +910,7 @@ export type Database = {
           recorded_by?: string
           rejection_reasons?: string | null
           tarikh_kelulusan?: string | null
+          tarikh_tandatangan_c1?: string | null
           tempoh_sah_kelulusan?: number | null
           updated_at?: string | null
           yang_dipertua_name?: string | null

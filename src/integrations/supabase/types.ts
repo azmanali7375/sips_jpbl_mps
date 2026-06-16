@@ -12,4 +12,4 @@ export type Enums<T extends keyof Database['public']['Enums']> = Database['publi
 export type Functions<T extends keyof Database['public']['Functions']> = Database['public']['Functions'][T];
 
 // Project reference: thjfvocnayjfrkbapmgu
-// Last updated: 2026-06-16T02:09:04.476714
+// Last updated: 2026-06-16T02:22:52.385373

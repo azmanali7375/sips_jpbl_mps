@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Calendar, FileText, CheckCircle2, XCircle, AlertCircle, Clock, Download } from "lucide-react";
+import { FileText, Download, CheckCircle, XCircle, AlertCircle, Printer, Calendar } from "lucide-react";
 import { applicationService, type Application } from "@/services/applicationService";
 import { oscDecisionService, type OSCDecisionType } from "@/services/oscDecisionService";
 import { borangC1Service } from "@/services/borangC1Service";
@@ -41,12 +41,17 @@ export default function OSCDecisionsPage() {
 
   // C1 generation state
   const [showC1Modal, setShowC1Modal] = useState(false);
+  const [showC2Modal, setShowC2Modal] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [selectedDecision, setSelectedDecision] = useState<string | null>(null);
+  const [signatureDate, setSignatureDate] = useState("");
   const [c1Data, setC1Data] = useState<any>(null);
   const [editableC1Data, setEditableC1Data] = useState<any>(null);
   const [generatingC1, setGeneratingC1] = useState(false);
+  const [generatingC2, setGeneratingC2] = useState(false);
+  const [recordingSignature, setRecordingSignature] = useState(false);
 
   // C2 generation state
-  const [showC2Modal, setShowC2Modal] = useState(false);
   const [c2Data, setC2Data] = useState<any>(null);
   const [editableC2Data, setEditableC2Data] = useState<any>(null);
   const [generatingC2, setGeneratingC2] = useState(false);
@@ -291,9 +296,65 @@ export default function OSCDecisionsPage() {
     }
   };
 
+  async function handleGenerateC2(decisionId: string) {
+    try {
+      setGeneratingC2(true);
+      await borangC2Service.generateBorangC2(decisionId);
+      toast({
+        title: "Borang C2 Dijana",
+        description: "Borang C2 telah berjaya dijana.",
+      });
+      await loadDecisions();
+    } catch (error: any) {
+      toast({
+        title: "Ralat",
+        description: error.message || "Gagal menjana Borang C2",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingC2(false);
+      setShowC2Modal(false);
+    }
+  }
+
+  async function handleRecordSignature() {
+    if (!selectedDecision || !signatureDate) {
+      toast({
+        title: "Ralat",
+        description: "Sila pilih tarikh tandatangan",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setRecordingSignature(true);
+      await borangC1Service.recordC1SignatureDate(selectedDecision, signatureDate);
+      toast({
+        title: "Berjaya",
+        description: "Tarikh tandatangan C1 telah direkodkan",
+      });
+      await loadDecisions();
+      setShowSignatureModal(false);
+      setSignatureDate("");
+      setSelectedDecision(null);
+    } catch (error: any) {
+      toast({
+        title: "Ralat",
+        description: error.message || "Gagal merekod tarikh tandatangan",
+        variant: "destructive",
+      });
+    } finally {
+      setRecordingSignature(false);
+    }
+  }
+
+  if (loading) {
+  };
+
   const getDecisionIcon = (type: OSCDecisionType) => {
     switch (type) {
-      case "Lulus": return <CheckCircle2 className="h-5 w-5 text-success" />;
+      case "Lulus": return <CheckCircle className="h-5 w-5 text-success" />;
       case "Lulus Bersyarat": return <AlertCircle className="h-5 w-5 text-amber-600" />;
       case "Ditangguhkan": return <Clock className="h-5 w-5 text-slate-600" />;
       case "Ditolak": return <XCircle className="h-5 w-5 text-destructive" />;
@@ -832,6 +893,39 @@ export default function OSCDecisionsPage() {
                 </DialogFooter>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Rekod Tarikh Tandatangan Modal */}
+        <Dialog open={showSignatureModal} onOpenChange={setShowSignatureModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rekod Tarikh Tandatangan C1</DialogTitle>
+              <DialogDescription>
+                Masukkan tarikh Borang C1 ditandatangani oleh Yang Dipertua Majlis (YDP)
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Tarikh Borang C1 Ditandatangani oleh YDP
+                </label>
+                <Input
+                  type="date"
+                  value={signatureDate}
+                  onChange={(e) => setSignatureDate(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowSignatureModal(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleRecordSignature} disabled={recordingSignature}>
+                {recordingSignature ? "Menyimpan..." : "Simpan Tarikh"}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
