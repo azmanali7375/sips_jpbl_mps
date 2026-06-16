@@ -53,10 +53,14 @@ export function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     loadProfile();
-    loadUser();
+    loadNotifications();
     
-    // Run KPI warning check on page load
-    kpiWarningService.checkAndNotify();
+    // Refresh notifications every 30 seconds
+    const interval = setInterval(() => {
+      loadNotifications();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   async function loadProfile() {
