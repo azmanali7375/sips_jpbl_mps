@@ -1825,7 +1825,11 @@ export default function DaftarBaharu() {
                 </div>
 
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => handleRetryUpload(index)}>
+                  <Button variant="outline" onClick={() => {
+                    setProcessingError(null);
+                    setUploadedFile(null);
+                    setFileType(null);
+                  }}>
                     Cuba Lagi
                   </Button>
                   <Button 
