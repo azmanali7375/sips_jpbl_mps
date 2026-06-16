@@ -1825,7 +1825,7 @@ export default function DaftarBaharu() {
                 </div>
 
                 <DialogFooter>
-                  <Button variant="outline" onClick={handleRetryUpload}>
+                  <Button variant="outline" onClick={() => handleRetryUpload(index)}>
                     Cuba Lagi
                   </Button>
                   <Button 
