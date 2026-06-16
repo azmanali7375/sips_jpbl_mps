@@ -25,7 +25,7 @@ interface Document {
   jenis_dokumen: string;
   versi: string;
   uploaded_by: string;
-  created_at: string;
+  uploaded_at: string;
   application?: {
     no_fail_jpl: string;
     no_permohonan_osc: string;
@@ -103,7 +103,7 @@ export default function DocumentsPage() {
             full_name
           )
         `)
-        .order("created_at", { ascending: false });
+        .order("uploaded_at", { ascending: false });
 
       if (error) throw error;
       setDocuments(data || []);
@@ -431,7 +431,7 @@ export default function DocumentsPage() {
                       </TableCell>
                       <TableCell>{doc.uploader?.full_name || "-"}</TableCell>
                       <TableCell>
-                        {new Date(doc.created_at).toLocaleDateString("ms-MY")}
+                        {new Date(doc.uploaded_at).toLocaleDateString("ms-MY")}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
