@@ -20,6 +20,8 @@ import {
   Calendar,
   Eye,
   Download,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
 import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,9 @@ export default function SIPSDashboard() {
   const [userActivity, setUserActivity] = useState<UserActivityStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportingRegister, setExportingRegister] = useState(false);
+  const [statusData, setStatusData] = useState<{ status: string; count: number }[]>([]);
+  const [categoryData, setCategoryData] = useState<{ category: string; count: number }[]>([]);
+  const [kpiPerformance, setKpiPerformance] = useState<ApplicationWithDetails[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -603,7 +608,7 @@ export default function SIPSDashboard() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+                <BarChart className="h-5 w-5" />
                 Permohonan Mengikut Status
               </CardTitle>
               <CardDescription>Taburan permohonan mengikut peringkat pemprosesan</CardDescription>
