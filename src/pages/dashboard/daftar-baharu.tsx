@@ -1025,7 +1025,7 @@ export default function DaftarBaharu() {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleRemoveLot(index)}
+                            onClick={() => handleRemoveDocument(index)}
                             disabled={doc.uploading}
                           >
                             <XCircle className="h-4 w-4" />
