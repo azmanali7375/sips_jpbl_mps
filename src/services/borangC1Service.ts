@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { auditLogService } from "./auditLogService";
 
 export interface BorangC1Data {
   no_fail_jpl: string;

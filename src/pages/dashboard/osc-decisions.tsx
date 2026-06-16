@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { FileText, Download, CheckCircle, XCircle, AlertCircle, Printer, Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { FileText, Download, CheckCircle, XCircle, AlertCircle, Printer, Calendar, Clock } from "lucide-react";
 import { applicationService, type Application } from "@/services/applicationService";
 import { oscDecisionService, type OSCDecisionType } from "@/services/oscDecisionService";
 import { borangC1Service } from "@/services/borangC1Service";
@@ -54,7 +54,6 @@ export default function OSCDecisionsPage() {
   // C2 generation state
   const [c2Data, setC2Data] = useState<any>(null);
   const [editableC2Data, setEditableC2Data] = useState<any>(null);
-  const [generatingC2, setGeneratingC2] = useState(false);
 
   useEffect(() => {
     loadApplications();
@@ -296,27 +295,6 @@ export default function OSCDecisionsPage() {
     }
   };
 
-  async function handleGenerateC2(decisionId: string) {
-    try {
-      setGeneratingC2(true);
-      await borangC2Service.generateBorangC2(decisionId);
-      toast({
-        title: "Borang C2 Dijana",
-        description: "Borang C2 telah berjaya dijana.",
-      });
-      await loadDecisions();
-    } catch (error: any) {
-      toast({
-        title: "Ralat",
-        description: error.message || "Gagal menjana Borang C2",
-        variant: "destructive",
-      });
-    } finally {
-      setGeneratingC2(false);
-      setShowC2Modal(false);
-    }
-  }
-
   async function handleRecordSignature() {
     if (!selectedDecision || !signatureDate) {
       toast({
@@ -334,7 +312,7 @@ export default function OSCDecisionsPage() {
         title: "Berjaya",
         description: "Tarikh tandatangan C1 telah direkodkan",
       });
-      await loadDecisions();
+      await loadApplications();
       setShowSignatureModal(false);
       setSignatureDate("");
       setSelectedDecision(null);
