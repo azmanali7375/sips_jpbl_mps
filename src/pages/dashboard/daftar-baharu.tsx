@@ -425,7 +425,6 @@ export default function DaftarBaharu() {
           no_permohonan_osc,
           tajuk_permohonan: formData.tajuk_permohonan,
           nama_pemaju_pemilik: formData.nama_pemaju_pemilik,
-          alamat_tapak: formData.alamat_tapak,
           no_lot: formData.no_lot,
           mukim: formData.mukim,
           daerah: formData.daerah,
