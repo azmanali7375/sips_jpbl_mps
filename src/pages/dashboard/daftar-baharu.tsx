@@ -164,30 +164,6 @@ export default function DaftarBaharu() {
     }
   }, [formData.tarikh_lengkap_diterima_osc]);
 
-  const handleFileSelect = (file: File) => {
-    setFileUploadError(null);
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setFileUploadError(
-        "Fail terlalu besar. Sila muat naik fail di bawah 10MB. Cuba kompres PDF atau gunakan tangkapan skrin."
-      );
-      return;
-    }
-
-    // Validate file type
-    const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
-    if (!validTypes.includes(file.type)) {
-      setFileUploadError(
-        "Jenis fail tidak disokong. Sila muat naik PDF, PNG, JPG, atau WEBP sahaja."
-      );
-      return;
-    }
-
-    setUploadedFile(file);
-    setFileType(file.type === "application/pdf" ? "pdf" : "image");
-  };
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -271,13 +247,6 @@ export default function DaftarBaharu() {
       setAiError("Ralat tidak dijangka semasa menganalisa dokumen");
       setAiProcessing(false);
     }
-  };
-
-  const handleRetryUpload = () => {
-    setExtractedData(null);
-    setUploadedFile(null);
-    setFileType(null);
-    setProcessingError(null);
   };
 
   const handleUseExtractedData = () => {
@@ -552,36 +521,6 @@ export default function DaftarBaharu() {
       });
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function uploadDocuments(applicationId: string, noFailJpl: string) {
-    setUploadingFiles(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Pengguna tidak dijumpai");
-
-      for (const doc of uploadedDocuments) {
-        await supabase.from("documents").insert({
-          application_id: applicationId,
-          file_name: doc.nama_dokumen,
-          file_path: doc.dokumen_url,
-          jenis_dokumen: doc.jenis_dokumen,
-          versi: "v1",
-          uploaded_by: user.id,
-        });
-      }
-    } catch (error) {
-      console.error("Error uploading documents:", error);
-      toast({
-        title: "Amaran",
-        description: "Permohonan berjaya didaftar tetapi gagal memuat naik dokumen",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingFiles(false);
     }
   }
 
