@@ -423,7 +423,6 @@ export default function DaftarBaharu() {
           jenis_aplikasi: formData.jenis_aplikasi,
           no_fail_jpl,
           no_permohonan_osc,
-          no_fail_osc: formData.no_fail_osc,
           tajuk_permohonan: formData.tajuk_permohonan,
           nama_pemaju_pemilik: formData.nama_pemaju_pemilik,
           alamat_tapak: formData.alamat_tapak,
