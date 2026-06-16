@@ -1,167 +1,146 @@
 import { supabase } from "@/integrations/supabase/client";
-import { notificationService } from "./notificationService";
+import { publicHolidayService } from "./publicHolidayService";
+
+export interface KPIWarning {
+  application_id: string;
+  no_fail_jpl: string;
+  nama_pemaju_pemilik: string;
+  skala_km: boolean;
+  tarikh_lengkap_diterima_osc: string;
+  baki_hari: number;
+  status: "red" | "orange" | "normal";
+  message: string;
+}
 
 export const kpiWarningService = {
   /**
-   * Check applications for KPI warnings and create notifications
-   * Called on page load or can be scheduled
+   * Get all applications with KPI warnings
    */
-  async checkAndNotify(): Promise<void> {
+  async getKPIWarnings(): Promise<KPIWarning[]> {
     try {
-      // Get all active applications with remaining days calculated
-      const { data: applications, error } = await supabase
+      const { data: applications } = await supabase
         .from("applications")
-        .select(`
-          id,
-          tracking_number,
-          assigned_officer_id,
-          created_at,
-          status
-        `)
-        .in("status", ["registered", "assigned", "site_visit", "technical_report", "head_review", "under_review"])
-        .order("created_at", { ascending: true });
+        .select("id, no_fail_jpl, nama_pemaju_pemilik, skala_km, tarikh_lengkap_diterima_osc")
+        .not("status", "in", '("approved","rejected")');
 
-      if (error || !applications) {
-        console.error("Error fetching applications for KPI check:", error);
-        return;
-      }
+      if (!applications) return [];
 
-      // Get admin users to send all notifications to them
-      const { data: adminProfiles } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("role", "admin");
+      const warnings: KPIWarning[] = [];
+      const today = new Date().toISOString().split("T")[0];
 
-      const adminIds = adminProfiles?.map(p => p.id) || [];
-
-      const notificationsToCreate: Array<{
-        userId: string;
-        type: "status_change";
-        title: string;
-        message: string;
-        applicationId: string;
-      }> = [];
-
-      // Check each application
       for (const app of applications) {
-        const baki_hari = this.calculateRemainingDays(app.created_at);
+        if (!app.tarikh_lengkap_diterima_osc) continue;
 
-        // Check if notification already exists for this warning level today
-        const today = new Date().toISOString().split('T')[0];
-        const { data: existingNotif } = await supabase
-          .from("notifications")
-          .select("id")
-          .eq("application_id", app.id)
-          .gte("created_at", `${today}T00:00:00`)
-          .limit(1)
-          .maybeSingle();
-
-        // Skip if already notified today
-        if (existingNotif) continue;
-
-        let shouldNotify = false;
+        let bakiHari = 0;
+        let status: "red" | "orange" | "normal" = "normal";
         let message = "";
-        let title = "";
 
-        if (baki_hari === 0) {
-          shouldNotify = true;
-          title = "🔴 KPI TERLEPAS";
-          message = `KPI TERLEPAS: Permohonan ${app.tracking_number} telah melebihi 57 hari.`;
-        } else if (baki_hari === 3) {
-          shouldNotify = true;
-          title = "🔴 AMARAN MERAH";
-          message = `MERAH: Permohonan ${app.tracking_number} akan tamat KPI dalam 3 hari. Lapor kepada Ketua Unit segera.`;
-        } else if (baki_hari === 7) {
-          shouldNotify = true;
-          title = "⚠️ AMARAN KRITIKAL";
-          message = `KRITIKAL: Permohonan ${app.tracking_number} akan tamat KPI dalam 7 hari. Tindakan segera diperlukan.`;
-        } else if (baki_hari === 14) {
-          shouldNotify = true;
-          title = "⏰ Amaran KPI";
-          message = `Amaran KPI: Permohonan ${app.tracking_number} perlu diselesaikan dalam 14 hari bekerja.`;
+        if (app.skala_km) {
+          // KM: 53 working days threshold
+          const deadlineDate = await publicHolidayService.addWorkingDays(
+            app.tarikh_lengkap_diterima_osc,
+            53
+          );
+          bakiHari = await publicHolidayService.calculateWorkingDays(today, deadlineDate);
+
+          if (bakiHari <= 5 && bakiHari >= 0) {
+            status = "red";
+            message = `KRITIKAL: ${bakiHari} hari bekerja sahaja!`;
+          } else if (bakiHari < 0) {
+            status = "red";
+            message = `TERLEPAS KPI: ${Math.abs(bakiHari)} hari bekerja lewat`;
+          } else if (bakiHari <= 10) {
+            status = "orange";
+            message = `Hampir tamat: ${bakiHari} hari bekerja`;
+          } else {
+            status = "normal";
+            message = `${bakiHari} hari bekerja lagi`;
+          }
+        } else {
+          // PB: 14 calendar days threshold
+          const startDate = new Date(app.tarikh_lengkap_diterima_osc);
+          const deadlineDate = new Date(startDate);
+          deadlineDate.setDate(deadlineDate.getDate() + 14);
+          const diffTime = deadlineDate.getTime() - new Date(today).getTime();
+          bakiHari = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (bakiHari <= 3 && bakiHari >= 0) {
+            status = "red";
+            message = `KRITIKAL: ${bakiHari} hari sahaja!`;
+          } else if (bakiHari < 0) {
+            status = "red";
+            message = `TERLEPAS KPI: ${Math.abs(bakiHari)} hari lewat`;
+          } else if (bakiHari <= 7) {
+            status = "orange";
+            message = `Hampir tamat: ${bakiHari} hari`;
+          } else {
+            status = "normal";
+            message = `${bakiHari} hari lagi`;
+          }
         }
 
-        if (shouldNotify) {
-          // Notify assigned officer
-          if (app.assigned_officer_id) {
-            notificationsToCreate.push({
-              userId: app.assigned_officer_id,
-              type: "status_change",
-              title,
-              message,
-              applicationId: app.id,
-            });
-          }
-
-          // Notify all admins
-          for (const adminId of adminIds) {
-            notificationsToCreate.push({
-              userId: adminId,
-              type: "status_change",
-              title,
-              message,
-              applicationId: app.id,
-            });
-          }
-        }
+        warnings.push({
+          application_id: app.id,
+          no_fail_jpl: app.no_fail_jpl,
+          nama_pemaju_pemilik: app.nama_pemaju_pemilik,
+          skala_km: app.skala_km,
+          tarikh_lengkap_diterima_osc: app.tarikh_lengkap_diterima_osc,
+          baki_hari: bakiHari,
+          status,
+          message,
+        });
       }
 
-      // Bulk create notifications
-      if (notificationsToCreate.length > 0) {
-        await notificationService.createBulk(notificationsToCreate);
-        console.log(`Created ${notificationsToCreate.length} KPI warning notifications`);
+      // Sort by urgency (red first, then orange, then by baki_hari ascending)
+      return warnings.sort((a, b) => {
+        if (a.status === "red" && b.status !== "red") return -1;
+        if (a.status !== "red" && b.status === "red") return 1;
+        if (a.status === "orange" && b.status === "normal") return -1;
+        if (a.status === "normal" && b.status === "orange") return 1;
+        return a.baki_hari - b.baki_hari;
+      });
+    } catch (error) {
+      console.error("Error fetching KPI warnings:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Check if an application needs a KPI alert notification
+   */
+  async checkForAlerts(applicationId: string): Promise<boolean> {
+    try {
+      const { data: app } = await supabase
+        .from("applications")
+        .select("skala_km, tarikh_lengkap_diterima_osc")
+        .eq("id", applicationId)
+        .single();
+
+      if (!app || !app.tarikh_lengkap_diterima_osc) return false;
+
+      const today = new Date().toISOString().split("T")[0];
+      let bakiHari = 0;
+
+      if (app.skala_km) {
+        // KM: Alert at 10, 5, 2 working days
+        const deadlineDate = await publicHolidayService.addWorkingDays(
+          app.tarikh_lengkap_diterima_osc,
+          53
+        );
+        bakiHari = await publicHolidayService.calculateWorkingDays(today, deadlineDate);
+        return bakiHari === 10 || bakiHari === 5 || bakiHari === 2;
+      } else {
+        // PB: Alert at 7, 3, 1 calendar days
+        const startDate = new Date(app.tarikh_lengkap_diterima_osc);
+        const deadlineDate = new Date(startDate);
+        deadlineDate.setDate(deadlineDate.getDate() + 14);
+        const diffTime = deadlineDate.getTime() - new Date(today).getTime();
+        bakiHari = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return bakiHari === 7 || bakiHari === 3 || bakiHari === 1;
       }
     } catch (error) {
-      console.error("Error in KPI warning check:", error);
-    }
-  },
-
-  /**
-   * Calculate remaining working days until KPI deadline (57 days from creation)
-   */
-  calculateRemainingDays(createdAt: string): number {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const kpiDeadline = new Date(created);
-    kpiDeadline.setDate(kpiDeadline.getDate() + 57);
-
-    // Calculate working days between now and deadline
-    let workingDays = 0;
-    const current = new Date(now);
-
-    while (current <= kpiDeadline) {
-      const dayOfWeek = current.getDay();
-      // Count only weekdays (Monday-Friday)
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        workingDays++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-
-    // If deadline has passed, return 0
-    return Math.max(0, workingDays);
-  },
-
-  /**
-   * Get KPI status for an application
-   */
-  getKPIStatus(createdAt: string): {
-    remainingDays: number;
-    status: "on_track" | "warning" | "critical" | "red" | "overdue";
-    color: string;
-  } {
-    const remainingDays = this.calculateRemainingDays(createdAt);
-
-    if (remainingDays === 0) {
-      return { remainingDays, status: "overdue", color: "bg-destructive" };
-    } else if (remainingDays <= 3) {
-      return { remainingDays, status: "red", color: "bg-destructive" };
-    } else if (remainingDays <= 7) {
-      return { remainingDays, status: "critical", color: "bg-amber-600" };
-    } else if (remainingDays <= 14) {
-      return { remainingDays, status: "warning", color: "bg-amber-500" };
-    } else {
-      return { remainingDays, status: "on_track", color: "bg-success" };
+      console.error("Error checking for alerts:", error);
+      return false;
     }
   },
 };

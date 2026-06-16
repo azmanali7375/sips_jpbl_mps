@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { publicHolidayService } from "./publicHolidayService";
 
 export interface AdminStats {
   total_applications: number;
@@ -11,8 +12,8 @@ export interface AdminStats {
   pending_approval: number;
   approved_this_month: number;
   rejected_this_month: number;
-  avg_processing_days: number;
   kpi_compliance_rate: number;
+  avg_processing_days: number;
 }
 
 export interface WorkflowStats {
@@ -26,8 +27,8 @@ export interface RecentApproval {
   no_fail_jpl: string;
   nama_pemaju_pemilik: string;
   status: string;
-  updated_at: string;
   keputusan: string;
+  updated_at: string;
 }
 
 export interface UserActivityStats {
@@ -41,103 +42,115 @@ export interface UserActivityStats {
 
 export const dashboardStatsService = {
   /**
-   * Get admin summary statistics
+   * Get admin-level statistics
    */
   async getAdminStats(): Promise<AdminStats> {
     try {
-      // Get total applications
-      const { count: total, error: totalError } = await supabase
+      // Total applications
+      const { count: total } = await supabase
         .from("applications")
         .select("*", { count: "exact", head: true });
 
-      if (totalError) throw totalError;
-
-      // Get active applications (not approved/rejected)
-      const { count: active, error: activeError } = await supabase
+      // Active applications (not approved/rejected)
+      const { count: active } = await supabase
         .from("applications")
         .select("*", { count: "exact", head: true })
         .not("status", "in", '("approved","rejected")');
 
-      if (activeError) throw activeError;
-
-      // Get pending approval
-      const { count: pending, error: pendingError } = await supabase
+      // Pending approval
+      const { count: pending } = await supabase
         .from("applications")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending_review");
 
-      if (pendingError) throw pendingError;
+      // This month's stats
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
 
-      // Get approved this month
-      const firstDayOfMonth = new Date();
-      firstDayOfMonth.setDate(1);
-      firstDayOfMonth.setHours(0, 0, 0, 0);
-
-      const { count: approvedMonth, error: approvedError } = await supabase
+      const { count: approvedThisMonth } = await supabase
         .from("applications")
         .select("*", { count: "exact", head: true })
         .eq("status", "approved")
-        .gte("updated_at", firstDayOfMonth.toISOString());
+        .gte("updated_at", startOfMonth.toISOString());
 
-      if (approvedError) throw approvedError;
-
-      // Get rejected this month
-      const { count: rejectedMonth, error: rejectedError } = await supabase
+      const { count: rejectedThisMonth } = await supabase
         .from("applications")
         .select("*", { count: "exact", head: true })
         .eq("status", "rejected")
-        .gte("updated_at", firstDayOfMonth.toISOString());
+        .gte("updated_at", startOfMonth.toISOString());
 
-      if (rejectedError) throw rejectedError;
-
-      // Calculate average processing days (for completed applications)
-      const { data: completedApps, error: completedError } = await supabase
+      // KPI compliance calculation
+      const { data: allApps } = await supabase
         .from("applications")
-        .select("tarikh_lengkap_diterima_osc, updated_at")
-        .in("status", ["approved", "rejected"])
-        .not("tarikh_lengkap_diterima_osc", "is", null)
-        .limit(100);
+        .select("skala_km, tarikh_lengkap_diterima_osc, status, updated_at")
+        .not("status", "in", '("approved","rejected")');
 
-      if (completedError) throw completedError;
+      let compliantCount = 0;
+      let totalProcessingDays = 0;
+      const today = new Date().toISOString().split("T")[0];
 
-      let avgDays = 0;
-      if (completedApps && completedApps.length > 0) {
-        const totalDays = completedApps.reduce((sum, app) => {
-          const start = new Date(app.tarikh_lengkap_diterima_osc!);
-          const end = new Date(app.updated_at!);
-          const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-          return sum + days;
-        }, 0);
-        avgDays = Math.round(totalDays / completedApps.length);
+      for (const app of allApps || []) {
+        if (!app.tarikh_lengkap_diterima_osc) continue;
+
+        let bakiHari = 0;
+        
+        if (app.skala_km) {
+          // KM: Use working days (53 working days)
+          const deadlineDate = await publicHolidayService.addWorkingDays(
+            app.tarikh_lengkap_diterima_osc,
+            53
+          );
+          bakiHari = await publicHolidayService.calculateWorkingDays(today, deadlineDate);
+        } else {
+          // PB: Use calendar days (14 days)
+          const startDate = new Date(app.tarikh_lengkap_diterima_osc);
+          const deadlineDate = new Date(startDate);
+          deadlineDate.setDate(deadlineDate.getDate() + 14);
+          const diffTime = deadlineDate.getTime() - new Date(today).getTime();
+          bakiHari = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        if (bakiHari >= 0) {
+          compliantCount++;
+        }
+
+        // Calculate processing days
+        const startDate = new Date(app.tarikh_lengkap_diterima_osc);
+        const endDate = app.status === "approved" || app.status === "rejected" 
+          ? new Date(app.updated_at)
+          : new Date();
+        
+        if (app.skala_km) {
+          const workingDays = await publicHolidayService.calculateWorkingDays(
+            app.tarikh_lengkap_diterima_osc,
+            endDate.toISOString().split("T")[0]
+          );
+          totalProcessingDays += workingDays;
+        } else {
+          const diffTime = endDate.getTime() - startDate.getTime();
+          totalProcessingDays += Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
       }
 
-      // Calculate KPI compliance rate (completed within KPI deadline)
-      const { data: kpiApps, error: kpiError } = await supabase
-        .from("applications")
-        .select("tarikh_lengkap_diterima_osc, tarikh_kpi, updated_at")
-        .in("status", ["approved", "rejected"])
-        .not("tarikh_kpi", "is", null);
+      const kpiCompliance =
+        (allApps?.length || 0) > 0
+          ? Math.round((compliantCount / (allApps?.length || 1)) * 100)
+          : 100;
 
-      if (kpiError) throw kpiError;
-
-      let kpiCompliance = 0;
-      if (kpiApps && kpiApps.length > 0) {
-        const compliantCount = kpiApps.filter((app) => {
-          const completedDate = new Date(app.updated_at!);
-          const kpiDate = new Date(app.tarikh_kpi!);
-          return completedDate <= kpiDate;
-        }).length;
-        kpiCompliance = Math.round((compliantCount / kpiApps.length) * 100);
-      }
+      const avgProcessingDays =
+        (allApps?.length || 0) > 0
+          ? Math.round(totalProcessingDays / (allApps?.length || 1))
+          : 0;
 
       return {
         total_applications: total || 0,
         active_applications: active || 0,
         pending_approval: pending || 0,
-        approved_this_month: approvedMonth || 0,
-        rejected_this_month: rejectedMonth || 0,
-        avg_processing_days: avgDays,
+        approved_this_month: approvedThisMonth || 0,
+        rejected_this_month: rejectedThisMonth || 0,
         kpi_compliance_rate: kpiCompliance,
+        avg_processing_days: avgProcessingDays,
       };
     } catch (error) {
       console.error("Error fetching admin stats:", error);
@@ -147,8 +160,8 @@ export const dashboardStatsService = {
         pending_approval: 0,
         approved_this_month: 0,
         rejected_this_month: 0,
-        avg_processing_days: 0,
         kpi_compliance_rate: 0,
+        avg_processing_days: 0,
       };
     }
   },

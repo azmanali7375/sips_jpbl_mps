@@ -1554,6 +1554,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_working_days: {
+        Args: { n: number; start_date: string }
+        Returns: string
+      }
+      calculate_working_days: {
+        Args: { end_date: string; start_date: string }
+        Returns: number
+      }
       generate_jpl_file_number: { Args: never; Returns: string }
     }
     Enums: {
