@@ -48,10 +48,10 @@ export default function SIPSDashboard() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
-    total: 0,
-    pending: 0,
-    inProgress: 0,
-    completed: 0,
+    jumlahAktif: 0,
+    dalamTempoKpi: 0,
+    hampirTamat: 0,
+    kpiTerlepas: 0,
   });
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [workflowStats, setWorkflowStats] = useState<WorkflowStats[]>([]);

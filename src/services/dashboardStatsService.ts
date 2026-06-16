@@ -232,20 +232,20 @@ export const dashboardStatsService = {
         const { count: assigned } = await supabase
           .from("applications")
           .select("*", { count: "exact", head: true })
-          .eq("pegawai_bertanggungjawab", user.id);
+          .eq("assigned_officer_id", user.id);
 
         // Count completed
         const { count: completed } = await supabase
           .from("applications")
           .select("*", { count: "exact", head: true })
-          .eq("pegawai_bertanggungjawab", user.id)
+          .eq("assigned_officer_id", user.id)
           .in("status", ["approved", "rejected"]);
 
         // Count pending
         const { count: pending } = await supabase
           .from("applications")
           .select("*", { count: "exact", head: true })
-          .eq("pegawai_bertanggungjawab", user.id)
+          .eq("assigned_officer_id", user.id)
           .not("status", "in", '("approved","rejected")');
 
         stats.push({
