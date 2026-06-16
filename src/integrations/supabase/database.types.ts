@@ -590,6 +590,86 @@ export type Database = {
           },
         ]
       }
+      kertas_perakuan: {
+        Row: {
+          application_id: string | null
+          created_at: string | null
+          disediakan_oleh: string | null
+          id: string
+          jawatan: string | null
+          juru_perunding_nama: string | null
+          juru_perunding_syarikat: string | null
+          luas_ekar: number | null
+          luas_hektar: number | null
+          luas_m2: number | null
+          no_fail: string | null
+          no_id_online: string | null
+          osc_upload_url: string | null
+          pdf_url: string | null
+          perakuan_teks: string | null
+          status: string | null
+          syarat_perakuan: string | null
+          syor_perakuan: string | null
+          tarikh: string | null
+          tarikh_permohonan_lengkap: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string | null
+          disediakan_oleh?: string | null
+          id?: string
+          jawatan?: string | null
+          juru_perunding_nama?: string | null
+          juru_perunding_syarikat?: string | null
+          luas_ekar?: number | null
+          luas_hektar?: number | null
+          luas_m2?: number | null
+          no_fail?: string | null
+          no_id_online?: string | null
+          osc_upload_url?: string | null
+          pdf_url?: string | null
+          perakuan_teks?: string | null
+          status?: string | null
+          syarat_perakuan?: string | null
+          syor_perakuan?: string | null
+          tarikh?: string | null
+          tarikh_permohonan_lengkap?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string | null
+          disediakan_oleh?: string | null
+          id?: string
+          jawatan?: string | null
+          juru_perunding_nama?: string | null
+          juru_perunding_syarikat?: string | null
+          luas_ekar?: number | null
+          luas_hektar?: number | null
+          luas_m2?: number | null
+          no_fail?: string | null
+          no_id_online?: string | null
+          osc_upload_url?: string | null
+          pdf_url?: string | null
+          perakuan_teks?: string | null
+          status?: string | null
+          syarat_perakuan?: string | null
+          syor_perakuan?: string | null
+          tarikh?: string | null
+          tarikh_permohonan_lengkap?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kertas_perakuan_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       land_lots: {
         Row: {
           application_id: string
