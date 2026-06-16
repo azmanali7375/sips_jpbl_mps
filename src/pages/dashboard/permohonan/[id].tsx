@@ -2751,7 +2751,7 @@ Return this exact JSON structure with ONLY the requested fields:
                             <Badge variant="outline">{doc.versi || "v1"}</Badge>
                           </TableCell>
                           <TableCell className="text-sm">
-                            {doc.profiles?.full_name || "-"}
+                            {doc.uploader?.full_name || "-"}
                           </TableCell>
                           <TableCell>
                             {doc.uploaded_at
@@ -2987,7 +2987,7 @@ Return this exact JSON structure with ONLY the requested fields:
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => {
-                                    setPreviewDocument(doc);
+                                    setPreviewDocument(document);
                                     setShowPreviewModal(true);
                                   }}
                                 >
@@ -2996,7 +2996,7 @@ Return this exact JSON structure with ONLY the requested fields:
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => window.open(doc.file_path, "_blank")}
+                                  onClick={() => window.open(document.file_path, "_blank")}
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
