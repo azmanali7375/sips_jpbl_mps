@@ -73,6 +73,10 @@ export default function KertasPerakuanPage() {
     try {
       setLoading(true);
 
+      // Ensure id is a string
+      const applicationId = Array.isArray(id) ? id[0] : id;
+      if (!applicationId) throw new Error("Invalid application ID");
+
       // Get current user
       const {
         data: { user },
@@ -91,7 +95,7 @@ export default function KertasPerakuanPage() {
       const { data: app, error: appError } = await supabase
         .from("applications")
         .select("*")
-        .eq("id", id)
+        .eq("id", applicationId)
         .single();
 
       if (appError) throw appError;
@@ -101,7 +105,7 @@ export default function KertasPerakuanPage() {
       const { data: ulasan } = await (supabase as any)
         .from("ulasan_perancangan")
         .select("*")
-        .eq("application_id", id)
+        .eq("application_id", applicationId)
         .maybeSingle();
 
       setUlasanPerancangan(ulasan);
@@ -116,11 +120,11 @@ export default function KertasPerakuanPage() {
       }
 
       // Get agency ulasan
-      const agencies = await agencyUlasanService.getByApplication(id as string);
+      const agencies = await agencyUlasanService.getByApplication(applicationId);
       setAgencyUlasan(agencies);
 
       // Get existing Kertas Perakuan
-      const existing = await kertasPerakuanService.getByApplication(id as string);
+      const existing = await kertasPerakuanService.getByApplication(applicationId);
 
       if (existing) {
         setKertasPerakuan(existing);
@@ -208,8 +212,12 @@ export default function KertasPerakuanPage() {
     try {
       setSaving(true);
 
+      // Ensure id is a string
+      const applicationId = Array.isArray(id) ? id[0] : id;
+      if (!applicationId) throw new Error("Invalid application ID");
+
       const kpData = {
-        application_id: id as string,
+        application_id: applicationId,
         no_fail: application.no_fail_jpl,
         no_id_online: application.no_permohonan_osc,
         tarikh_permohonan_lengkap: application.tarikh_lengkap_diterima_osc,
@@ -236,7 +244,7 @@ export default function KertasPerakuanPage() {
 
       // Add workflow history
       await supabase.from("workflow_history").insert({
-        application_id: id,
+        application_id: applicationId,
         action: muktamad ? "Kertas Perakuan Dimuktamadkan" : "Kertas Perakuan Disimpan (Draf)",
         performed_by: currentUser.id,
         notes: `Syor: ${formData.syor_perakuan}`,
