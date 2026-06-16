@@ -245,9 +245,9 @@ export default function KertasPerakuanPage() {
       // Add workflow history
       await supabase.from("workflow_history").insert({
         application_id: applicationId,
-        action: muktamad ? "Kertas Perakuan Dimuktamadkan" : "Kertas Perakuan Disimpan (Draf)",
-        performed_by: currentUser.id,
-        notes: `Syor: ${formData.syor_perakuan}`,
+        to_status: muktamad ? "Kertas Perakuan Dikemukakan" : "Kertas Perakuan Draf",
+        changed_by: currentUser.id,
+        comment: `Syor: ${formData.syor_perakuan}`,
       });
 
       toast({
