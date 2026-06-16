@@ -43,8 +43,7 @@ export default function KertasPerakuanPage() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setS
-aving] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [application, setApplication] = useState<any>(null);
   const [kertasPerakuan, setKertasPerakuan] = useState<any>(null);
   const [ulasanPerancangan, setUlasanPerancangan] = useState<any>(null);
