@@ -1,125 +1,120 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
-import { RoleGuard } from "@/components/RoleGuard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SEO } from "@/components/SEO";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
+import { Users, Shield, Search, Edit, Mail, Calendar, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { auditLogService } from "@/services/auditLogService";
-import { Check, X, Edit, UserCog, Power, AlertCircle, Search } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { profileService } from "@/services/profileService";
 
 interface UserProfile {
   id: string;
-  full_name: string;
-  staff_id: string;
   email: string;
-  designation: string;
-  department: string;
-  phone: string | null;
-  role: string | null;
-  status: string;
-  approved_by: string | null;
-  approved_at: string | null;
-  rejection_reason: string | null;
-  last_login: string | null;
+  full_name: string;
+  role: string;
+  department: string | null;
   created_at: string;
+  last_sign_in_at: string | null;
 }
 
-export default function UserManagement() {
+const ROLES = [
+  { value: "admin", label: "Admin", color: "bg-red-100 text-red-800" },
+  { value: "ketua_unit", label: "Ketua Unit", color: "bg-purple-100 text-purple-800" },
+  { value: "penolong_pegawai_j5", label: "Penolong Pegawai (J5)", color: "bg-blue-100 text-blue-800" },
+  { value: "pembantu_tadbir", label: "Pembantu Tadbir", color: "bg-green-100 text-green-800" },
+];
+
+export default function ManageUsersPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<any>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  // Approve modal
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterRole, setFilterRole] = useState("all");
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [assignedRole, setAssignedRole] = useState<string>("");
+  const [updating, setUpdating] = useState(false);
 
-  // Reject modal
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
-
-  // Edit modal
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [editForm, setEditForm] = useState({
     role: "",
-    status: "",
-    designation: "",
+    department: "",
   });
 
   useEffect(() => {
-    checkAccess();
+    checkAdminAccess();
   }, []);
 
   useEffect(() => {
-    applyFilters();
-  }, [users, searchQuery, roleFilter, statusFilter]);
+    filterUsers();
+  }, [users, searchTerm, filterRole]);
 
-  async function checkAccess() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error) throw error;
-
-      if (profile.role !== "admin") {
-        toast({
-          title: "Akses Ditolak",
-          description: "Anda tidak mempunyai akses ke halaman ini.",
-          variant: "destructive",
-        });
-        router.push("/dashboard");
-        return;
-      }
-
-      setCurrentUser(profile);
-      loadUsers();
-    } catch (error) {
-      console.error("Access check error:", error);
+  async function checkAdminAccess() {
+    const profile = await profileService.getCurrentProfile();
+    setCurrentProfile(profile);
+    
+    if (profile?.role !== "admin") {
+      toast({
+        title: "Akses Ditolak",
+        description: "Hanya admin boleh mengakses halaman ini",
+        variant: "destructive",
+      });
       router.push("/dashboard");
+      return;
     }
+
+    loadUsers();
   }
 
   async function loadUsers() {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Get all profiles with auth user data
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
+      if (profilesError) throw profilesError;
+
+      // Get auth users data
+      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
+
+      if (authError) {
+        console.warn("Could not fetch auth users:", authError);
+      }
+
+      // Merge profile and auth data
+      const mergedUsers: UserProfile[] = (profiles || []).map((profile) => {
+        const authUser = authUsers?.find((u) => u.id === profile.id);
+        return {
+          id: profile.id,
+          email: authUser?.email || profile.email || "N/A",
+          full_name: profile.full_name || "N/A",
+          role: profile.role || "pembantu_tadbir",
+          department: profile.department,
+          created_at: profile.created_at || "",
+          last_sign_in_at: authUser?.last_sign_in_at || null,
+        };
+      });
+
+      setUsers(mergedUsers);
+    } catch (error: any) {
       console.error("Error loading users:", error);
       toast({
         title: "Ralat",
-        description: "Gagal memuatkan senarai pengguna",
+        description: error.message || "Gagal memuatkan senarai pengguna",
         variant: "destructive",
       });
     } finally {
@@ -127,173 +122,47 @@ export default function UserManagement() {
     }
   }
 
-  function applyFilters() {
+  function filterUsers() {
     let filtered = [...users];
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    // Apply search filter
+    if (searchTerm) {
       filtered = filtered.filter(
-        (u) =>
-          u.full_name.toLowerCase().includes(query) ||
-          u.staff_id.toLowerCase().includes(query) ||
-          u.email.toLowerCase().includes(query)
+        (user) =>
+          user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.department?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Role filter
-    if (roleFilter !== "all") {
-      filtered = filtered.filter((u) => u.role === roleFilter);
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((u) => u.status === statusFilter);
+    // Apply role filter
+    if (filterRole !== "all") {
+      filtered = filtered.filter((user) => user.role === filterRole);
     }
 
     setFilteredUsers(filtered);
   }
 
-  async function handleApprove() {
-    if (!selectedUser || !assignedRole || !currentUser) return;
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          status: "Aktif",
-          role: assignedRole,
-          approved_by: currentUser.id,
-          approved_at: new Date().toISOString(),
-        })
-        .eq("id", selectedUser.id);
-
-      if (error) throw error;
-
-      // Send notification to user
-      await supabase.from("notifications").insert({
-        user_id: selectedUser.id,
-        title: "Akaun Diluluskan",
-        message: `Akaun anda telah diluluskan. Anda kini boleh log masuk ke SIPS sebagai ${assignedRole}.`,
-        type: "success",
-        is_read: false,
-      });
-
-      toast({
-        title: "Berjaya",
-        description: `Akaun ${selectedUser.full_name} telah diluluskan`,
-      });
-
-      // Log audit entry
-      await auditLogService.log({
-        user_id: currentUser.id,
-        action: auditLogService.actions.USER_APPROVED,
-        target_user_id: selectedUser.id,
-        details: {
-          assigned_role: assignedRole,
-          user_name: selectedUser.full_name,
-          user_email: selectedUser.email,
-        },
-      });
-
-      setShowApproveDialog(false);
-      setSelectedUser(null);
-      setAssignedRole("");
-      loadUsers();
-    } catch (error) {
-      console.error("Approve error:", error);
-      toast({
-        title: "Ralat",
-        description: "Gagal meluluskan akaun",
-        variant: "destructive",
-      });
-    }
+  function openEditModal(user: UserProfile) {
+    setSelectedUser(user);
+    setEditForm({
+      role: user.role,
+      department: user.department || "",
+    });
+    setShowEditModal(true);
   }
 
-  async function handleReject() {
-    if (!selectedUser || !rejectionReason.trim() || !currentUser) return;
+  async function handleUpdateUser() {
+    if (!selectedUser) return;
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          status: "Ditolak",
-          rejection_reason: rejectionReason,
-        })
-        .eq("id", selectedUser.id);
+      setUpdating(true);
 
-      if (error) throw error;
-
-      // Send notification to user
-      await supabase.from("notifications").insert({
-        user_id: selectedUser.id,
-        title: "Akaun Ditolak",
-        message: `Permohonan pendaftaran anda telah ditolak. Sebab: ${rejectionReason}`,
-        type: "error",
-        is_read: false,
-      });
-
-      toast({
-        title: "Berjaya",
-        description: `Akaun ${selectedUser.full_name} telah ditolak`,
-      });
-
-      // Log audit entry
-      await auditLogService.log({
-        user_id: currentUser.id,
-        action: auditLogService.actions.USER_REJECTED,
-        target_user_id: selectedUser.id,
-        details: {
-          rejection_reason: rejectionReason,
-          user_name: selectedUser.full_name,
-          user_email: selectedUser.email,
-        },
-      });
-
-      setShowRejectDialog(false);
-      setSelectedUser(null);
-      setRejectionReason("");
-      loadUsers();
-    } catch (error) {
-      console.error("Reject error:", error);
-      toast({
-        title: "Ralat",
-        description: "Gagal menolak akaun",
-        variant: "destructive",
-      });
-    }
-  }
-
-  async function handleEdit() {
-    if (!selectedUser || !currentUser) return;
-
-    // Security check: cannot change own role or deactivate own account
-    if (selectedUser.id === currentUser.id) {
-      if (editForm.role !== currentUser.role) {
-        toast({
-          title: "Tidak Dibenarkan",
-          description: "Anda tidak boleh menukar peranan sendiri",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (editForm.status !== "Aktif") {
-        toast({
-          title: "Tidak Dibenarkan",
-          description: "Anda tidak boleh menyahaktifkan akaun sendiri",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    try {
       const { error } = await supabase
         .from("profiles")
         .update({
           role: editForm.role,
-          status: editForm.status,
-          designation: editForm.designation,
+          department: editForm.department || null,
         })
         .eq("id", selectedUser.id);
 
@@ -301,498 +170,276 @@ export default function UserManagement() {
 
       toast({
         title: "Berjaya",
-        description: "Maklumat pengguna dikemaskini",
+        description: "Maklumat pengguna telah dikemaskini",
       });
 
-      // Log audit entry
-      await auditLogService.log({
-        user_id: currentUser.id,
-        action: auditLogService.actions.USER_UPDATED,
-        target_user_id: selectedUser.id,
-        details: {
-          changes: {
-            role: editForm.role,
-            status: editForm.status,
-            designation: editForm.designation,
-          },
-          user_name: selectedUser.full_name,
-        },
-      });
-
-      setShowEditDialog(false);
+      setShowEditModal(false);
       setSelectedUser(null);
       loadUsers();
-    } catch (error) {
-      console.error("Edit error:", error);
+    } catch (error: any) {
       toast({
         title: "Ralat",
-        description: "Gagal mengemaskini pengguna",
+        description: error.message || "Gagal mengemaskini pengguna",
         variant: "destructive",
       });
+    } finally {
+      setUpdating(false);
     }
   }
 
-  async function handleToggleStatus(user: UserProfile) {
-    if (!currentUser) return;
-
-    // Security check: cannot deactivate own account
-    if (user.id === currentUser.id && user.status === "Aktif") {
-      toast({
-        title: "Tidak Dibenarkan",
-        description: "Anda tidak boleh menyahaktifkan akaun sendiri",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newStatus = user.status === "Aktif" ? "Tidak Aktif" : "Aktif";
-    const action = newStatus === "Aktif" ? "diaktifkan semula" : "dinyahaktifkan";
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ status: newStatus })
-        .eq("id", user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Berjaya",
-        description: `Akaun ${user.full_name} telah ${action}`,
-      });
-
-      // Log audit entry
-      await auditLogService.log({
-        user_id: currentUser.id,
-        action: newStatus === "Aktif" ? auditLogService.actions.USER_ACTIVATED : auditLogService.actions.USER_DEACTIVATED,
-        target_user_id: user.id,
-        details: {
-          previous_status: user.status,
-          new_status: newStatus,
-          user_name: user.full_name,
-        },
-      });
-
-      loadUsers();
-    } catch (error) {
-      console.error("Toggle status error:", error);
-      toast({
-        title: "Ralat",
-        description: "Gagal menukar status akaun",
-        variant: "destructive",
-      });
-    }
+  function getRoleBadge(role: string) {
+    const roleConfig = ROLES.find((r) => r.value === role);
+    return (
+      <Badge className={roleConfig?.color || "bg-gray-100 text-gray-800"}>
+        {roleConfig?.label || role}
+      </Badge>
+    );
   }
 
-  function getStatusBadge(status: string) {
-    switch (status) {
-      case "Aktif":
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Aktif</Badge>;
-      case "Menunggu Kelulusan":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Menunggu</Badge>;
-      case "Tidak Aktif":
-        return <Badge className="bg-gray-100 text-gray-600 border-gray-200">Tidak Aktif</Badge>;
-      case "Ditolak":
-        return <Badge className="bg-red-100 text-red-800 border-red-200">Ditolak</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  }
-
-  function getRoleLabel(role: string | null) {
-    if (!role) return "-";
-    const roleMap: Record<string, string> = {
-      admin: "Admin",
-      ketua_unit: "Ketua Unit",
-      pegawai: "Pegawai Perancang",
-      penolong: "Penolong Pegawai",
-      viewer: "Pengurusan (Viewer)",
-    };
-    return roleMap[role] || role;
+  function getRoleStats() {
+    return ROLES.map((role) => ({
+      ...role,
+      count: users.filter((u) => u.role === role.value).length,
+    }));
   }
 
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <p>Memuatkan...</p>
+        <SEO title="Pengurusan Pengguna" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Memuatkan senarai pengguna...</p>
+          </div>
         </div>
       </Layout>
     );
   }
 
-  const pendingUsers = users.filter((u) => u.status === "Menunggu Kelulusan");
-  const pendingCount = pendingUsers.length;
-
   return (
     <Layout>
+      <SEO title="Pengurusan Pengguna" />
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Pengurusan Pengguna</h1>
-          <p className="text-muted-foreground mt-1">
-            Urus pendaftaran, peranan, dan status pengguna SIPS
-          </p>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Pengurusan Pengguna</h1>
+            <p className="text-muted-foreground">
+              Urus peranan dan maklumat pengguna sistem
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium">Admin Panel</span>
+          </div>
         </div>
 
-        <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pending">
-              Menunggu Kelulusan {pendingCount > 0 && `(${pendingCount})`}
-            </TabsTrigger>
-            <TabsTrigger value="all">Semua Pengguna</TabsTrigger>
-          </TabsList>
+        {/* Role Statistics */}
+        <div className="grid gap-4 md:grid-cols-4">
+          {getRoleStats().map((role) => (
+            <Card key={role.value}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{role.label}</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{role.count}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {((role.count / users.length) * 100).toFixed(0)}% daripada jumlah
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-          {/* Tab 1: Pending Approvals */}
-          <TabsContent value="pending" className="space-y-4">
-            {pendingUsers.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Tiada pendaftaran baharu yang menunggu kelulusan.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {pendingUsers.map((user) => (
-                  <Card key={user.id}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-lg">
-                            {user.full_name} <span className="text-muted-foreground font-normal">({user.staff_id})</span>
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
-                        </div>
-                        {getStatusBadge(user.status)}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium">Jawatan:</span> {user.designation}
-                          </div>
-                          <div>
-                            <span className="font-medium">Tarikh Daftar:</span>{" "}
-                            {new Date(user.created_at).toLocaleDateString("ms-MY")}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setShowApproveDialog(true);
-                            }}
-                          >
-                            <Check className="h-4 w-4 mr-2" />
-                            Luluskan
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setShowRejectDialog(true);
-                            }}
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Tolak
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+        {/* Admin Notice */}
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Tukar peranan pengguna dengan berhati-hati. Peranan menentukan akses kepada fungsi sistem.
+          </AlertDescription>
+        </Alert>
 
-          {/* Tab 2: All Users */}
-          <TabsContent value="all" className="space-y-4">
-            {/* Filters */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari nama atau No. Staf..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tapis mengikut peranan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Peranan</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="ketua_unit">Ketua Unit</SelectItem>
-                      <SelectItem value="pegawai">Pegawai Perancang</SelectItem>
-                      <SelectItem value="penolong">Penolong Pegawai</SelectItem>
-                      <SelectItem value="viewer">Pengurusan (Viewer)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tapis mengikut status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Status</SelectItem>
-                      <SelectItem value="Aktif">Aktif</SelectItem>
-                      <SelectItem value="Menunggu Kelulusan">Menunggu Kelulusan</SelectItem>
-                      <SelectItem value="Tidak Aktif">Tidak Aktif</SelectItem>
-                      <SelectItem value="Ditolak">Ditolak</SelectItem>
-                    </SelectContent>
-                  </Select>
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Carian & Penapis</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="search">Cari Pengguna</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search"
+                    placeholder="Nama, email, jabatan..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <div>
+                <Label htmlFor="filter">Peranan</Label>
+                <Select value={filterRole} onValueChange={setFilterRole}>
+                  <SelectTrigger id="filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Peranan</SelectItem>
+                    {ROLES.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            {/* Users Table */}
-            <Card>
-              <CardContent className="pt-6">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nama</TableHead>
-                      <TableHead>No. Staf</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Jawatan</TableHead>
-                      <TableHead>Peranan</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Tindakan</TableHead>
+        {/* Users Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Senarai Pengguna ({filteredUsers.length})</CardTitle>
+            <CardDescription>
+              Klik butang Edit untuk menukar peranan pengguna
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {filteredUsers.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Tiada pengguna dijumpai</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama Penuh</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Peranan</TableHead>
+                    <TableHead>Jabatan</TableHead>
+                    <TableHead>Log Masuk Terakhir</TableHead>
+                    <TableHead className="text-right">Tindakan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.full_name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {user.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>{getRoleBadge(user.role)}</TableCell>
+                      <TableCell>{user.department || "-"}</TableCell>
+                      <TableCell>
+                        {user.last_sign_in_at ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {new Date(user.last_sign_in_at).toLocaleString("ms-MY")}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Belum log masuk</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditModal(user)}
+                          disabled={user.id === currentProfile?.id}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                          Tiada pengguna dijumpai
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredUsers.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.full_name}</TableCell>
-                          <TableCell>{user.staff_id}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>{user.designation}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{getRoleLabel(user.role)}</Badge>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(user.status)}</TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setEditForm({
-                                  role: user.role || "",
-                                  status: user.status,
-                                  designation: user.designation,
-                                });
-                                setShowEditDialog(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {user.status === "Aktif" || user.status === "Tidak Aktif" ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleToggleStatus(user)}
-                                disabled={user.id === currentUser?.id && user.status === "Aktif"}
-                              >
-                                <Power className="h-4 w-4" />
-                              </Button>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Edit Modal */}
+        <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Kemaskini Pengguna</DialogTitle>
+              <DialogDescription>
+                Tukar peranan dan jabatan pengguna
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {selectedUser && (
+                <div className="space-y-2 p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">{selectedUser.full_name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="edit_role">Peranan</Label>
+                <Select
+                  value={editForm.role}
+                  onValueChange={(value) => setEditForm({ ...editForm, role: value })}
+                >
+                  <SelectTrigger id="edit_role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Peranan menentukan tahap akses dalam sistem
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="edit_department">Jabatan (Opsional)</Label>
+                <Input
+                  id="edit_department"
+                  value={editForm.department}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, department: e.target.value })
+                  }
+                  placeholder="Contoh: Bahagian Perancangan"
+                />
+              </div>
+
+              {/* Role Descriptions */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs font-medium text-blue-900 mb-2">Keterangan Peranan:</p>
+                <ul className="text-xs text-blue-800 space-y-1">
+                  <li><strong>Admin:</strong> Akses penuh kepada semua fungsi</li>
+                  <li><strong>Ketua Unit:</strong> Semakan, kelulusan, laporan</li>
+                  <li><strong>Penolong Pegawai (J5):</strong> Semakan teknikal, lawatan tapak</li>
+                  <li><strong>Pembantu Tadbir:</strong> Pendaftaran, dokumentasi</li>
+                </ul>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditModal(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleUpdateUser} disabled={updating}>
+                {updating ? "Menyimpan..." : "Simpan Perubahan"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* Approve Dialog */}
-      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Luluskan Pendaftaran</DialogTitle>
-            <DialogDescription>
-              Tetapkan peranan untuk pengguna ini
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <p className="font-medium">{selectedUser?.full_name}</p>
-              <p className="text-sm text-muted-foreground">
-                No. Staf: {selectedUser?.staff_id}
-              </p>
-            </div>
-            <div>
-              <Label>Peranan yang ditetapkan:</Label>
-              <Select value={assignedRole} onValueChange={setAssignedRole}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih peranan" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ketua_unit">Ketua Unit</SelectItem>
-                  <SelectItem value="pegawai">Pegawai Perancang</SelectItem>
-                  <SelectItem value="penolong">Penolong Pegawai Perancang</SelectItem>
-                  <SelectItem value="viewer">Pengurusan (Viewer)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-2">
-                <AlertCircle className="h-3 w-3 inline mr-1" />
-                Admin hanya boleh ditetapkan secara manual dalam pangkalan data.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApproveDialog(false)}>
-              Batal
-            </Button>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              onClick={handleApprove}
-              disabled={!assignedRole}
-            >
-              Sahkan Kelulusan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Dialog */}
-      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tolak Pendaftaran</DialogTitle>
-            <DialogDescription>
-              Sebab penolakan akan dihantar kepada pengguna
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <p className="font-medium">{selectedUser?.full_name}</p>
-              <p className="text-sm text-muted-foreground">
-                Email: {selectedUser?.email}
-              </p>
-            </div>
-            <div>
-              <Label>Sebab penolakan (akan dihantar ke pengguna):</Label>
-              <Textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                rows={4}
-                placeholder="Cth: Butiran tidak lengkap / Bukan staf JPL"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
-              Batal
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={!rejectionReason.trim()}
-            >
-              Sahkan Penolakan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Pengguna</DialogTitle>
-            <DialogDescription>
-              Ubah peranan, status, atau jawatan pengguna
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <p className="font-medium">{selectedUser?.full_name}</p>
-              <p className="text-sm text-muted-foreground">
-                Email: {selectedUser?.email} (tidak boleh diubah)
-              </p>
-            </div>
-            <div>
-              <Label>Peranan:</Label>
-              <Select
-                value={editForm.role}
-                onValueChange={(value) => setEditForm({ ...editForm, role: value })}
-                disabled={selectedUser?.id === currentUser?.id}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="ketua_unit">Ketua Unit</SelectItem>
-                  <SelectItem value="pegawai">Pegawai Perancang</SelectItem>
-                  <SelectItem value="penolong">Penolong Pegawai</SelectItem>
-                  <SelectItem value="viewer">Pengurusan (Viewer)</SelectItem>
-                </SelectContent>
-              </Select>
-              {selectedUser?.id === currentUser?.id && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Anda tidak boleh menukar peranan sendiri
-                </p>
-              )}
-            </div>
-            <div>
-              <Label>Status:</Label>
-              <Select
-                value={editForm.status}
-                onValueChange={(value) => setEditForm({ ...editForm, status: value })}
-                disabled={selectedUser?.id === currentUser?.id && editForm.status === "Aktif"}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Aktif">Aktif</SelectItem>
-                  <SelectItem value="Tidak Aktif">Tidak Aktif</SelectItem>
-                </SelectContent>
-              </Select>
-              {selectedUser?.id === currentUser?.id && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Anda tidak boleh menyahaktifkan akaun sendiri
-                </p>
-              )}
-            </div>
-            <div>
-              <Label>Jawatan:</Label>
-              <Input
-                value={editForm.designation}
-                onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
-                placeholder="Pegawai Perancang Bandar"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              Batal
-            </Button>
-            <Button onClick={handleEdit}>Simpan Perubahan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }
