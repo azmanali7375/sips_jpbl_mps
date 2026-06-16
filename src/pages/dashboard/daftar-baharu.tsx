@@ -32,7 +32,7 @@ import {
 import { DisplayFileNumber } from "@/components/DisplayFileNumber";
 import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X, XCircle } from "lucide-react";
+import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X, XCircle, CheckCircle } from "lucide-react";
 
 export default function DaftarBaharu() {
   const router = useRouter();
@@ -44,10 +44,15 @@ export default function DaftarBaharu() {
   const [uploadedDocuments, setUploadedDocuments] = useState<Array<{
     jenis_dokumen: string;
     nama_dokumen: string;
-    dokumen_url: string;
-    file?: File;
+    file: File | null;
+    uploading: boolean;
+    uploaded: boolean;
+    error: string | null;
+    fileSize: string;
+    storagePath: string | null;
   }>>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadTimeouts, setUploadTimeouts] = useState<Map<number, NodeJS.Timeout>>(new Map());
   const [officers, setOfficers] = useState<{ id: string; full_name: string }[]>([]);
   const [userId, setUserId] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -464,6 +469,24 @@ export default function DaftarBaharu() {
       if (uploadedDocuments.length > 0 && application?.id) {
         await uploadDocuments(application.id, no_fail_jpl);
       }
+      // Save document records to database if any were uploaded
+      if (uploadedDocuments.some(doc => doc.uploaded && doc.storagePath) && application?.id) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          for (const doc of uploadedDocuments.filter(d => d.uploaded && d.storagePath)) {
+            await supabase.from("documents").insert({
+              application_id: application.id,
+              file_name: doc.nama_dokumen,
+              file_path: doc.storagePath,
+              jenis_dokumen: doc.jenis_dokumen,
+              versi: "v1",
+              uploaded_by: user.id,
+            });
+          }
+        }
+      }
 
       toast({
         title: "Berjaya Didaftarkan",
@@ -568,18 +591,198 @@ export default function DaftarBaharu() {
       {
         jenis_dokumen: "Pelan Susun Atur",
         nama_dokumen: "",
-        dokumen_url: "",
+        file: null,
+        uploading: false,
+        uploaded: false,
+        error: null,
+        fileSize: "",
+        storagePath: null,
       },
     ]);
   }
 
   function handleRemoveDocument(index: number) {
+    // Clear any pending timeout for this document
+    const timeout = uploadTimeouts.get(index);
+    if (timeout) {
+      clearTimeout(timeout);
+      uploadTimeouts.delete(index);
+    }
+    
     setUploadedDocuments(uploadedDocuments.filter((_, i) => i !== index));
   }
 
   function handleDocumentChange(index: number, field: string, value: string) {
     const updated = [...uploadedDocuments];
     updated[index] = { ...updated[index], [field]: value };
+    setUploadedDocuments(updated);
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const mb = bytes / (1024 * 1024);
+    const kb = bytes / 1024;
+    
+    if (mb >= 1) {
+      return `${mb.toFixed(2)} MB`;
+    } else if (kb >= 1) {
+      return `${kb.toFixed(2)} KB`;
+    } else {
+      return `${bytes} B`;
+    }
+  }
+
+  async function handleFileSelect(index: number, file: File | null) {
+    if (!file) return;
+
+    const updated = [...uploadedDocuments];
+    
+    // Check file size
+    if (file.size === 0) {
+      updated[index] = {
+        ...updated[index],
+        file: null,
+        error: "Fail tidak dapat dibaca. Sila cuba semula.",
+        fileSize: "",
+      };
+      setUploadedDocuments(updated);
+      return;
+    }
+
+    // Check file size limit (20MB)
+    const maxSize = 20 * 1024 * 1024; // 20MB
+    if (file.size > maxSize) {
+      updated[index] = {
+        ...updated[index],
+        file: null,
+        error: "Saiz fail melebihi had 20MB. Sila pilih fail yang lebih kecil.",
+        fileSize: "",
+      };
+      setUploadedDocuments(updated);
+      return;
+    }
+
+    // Set file info
+    updated[index] = {
+      ...updated[index],
+      file,
+      fileSize: formatFileSize(file.size),
+      nama_dokumen: updated[index].nama_dokumen || file.name,
+      error: null,
+    };
+    setUploadedDocuments(updated);
+  }
+
+  async function handleUploadFile(index: number) {
+    const doc = uploadedDocuments[index];
+    if (!doc.file) return;
+
+    const updated = [...uploadedDocuments];
+    updated[index] = { ...updated[index], uploading: true, error: null };
+    setUploadedDocuments(updated);
+
+    // Set timeout safety net (30 seconds)
+    const timeoutId = setTimeout(() => {
+      const current = [...uploadedDocuments];
+      current[index] = {
+        ...current[index],
+        uploading: false,
+        error: "Muat naik mengambil masa terlalu lama. Sila cuba semula.",
+      };
+      setUploadedDocuments(current);
+    }, 30000);
+
+    uploadTimeouts.set(index, timeoutId);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Pengguna tidak dijumpai");
+
+      // Generate unique file path
+      const timestamp = Date.now();
+      const sanitizedFileName = doc.file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const filePath = `${user.id}/${timestamp}_${sanitizedFileName}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from("sips-documents")
+        .upload(filePath, doc.file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("sips-documents")
+        .getPublicUrl(filePath);
+
+      // Clear timeout
+      clearTimeout(timeoutId);
+      uploadTimeouts.delete(index);
+
+      // Update state with success
+      const success = [...uploadedDocuments];
+      success[index] = {
+        ...success[index],
+        uploading: false,
+        uploaded: true,
+        storagePath: urlData.publicUrl,
+        error: null,
+      };
+      setUploadedDocuments(success);
+
+      toast({
+        title: "Berjaya",
+        description: `${doc.file.name} telah dimuat naik`,
+      });
+    } catch (error: any) {
+      // Clear timeout
+      clearTimeout(timeoutId);
+      uploadTimeouts.delete(index);
+
+      // Update state with error
+      const failed = [...uploadedDocuments];
+      failed[index] = {
+        ...failed[index],
+        uploading: false,
+        error: error.message || "Muat naik gagal. Sila cuba semula.",
+      };
+      setUploadedDocuments(failed);
+
+      toast({
+        title: "Ralat",
+        description: error.message || "Gagal memuat naik fail",
+        variant: "destructive",
+      });
+    }
+  }
+
+  function handleRetryUpload(index: number) {
+    const updated = [...uploadedDocuments];
+    updated[index] = {
+      ...updated[index],
+      error: null,
+      uploading: false,
+      uploaded: false,
+    };
+    setUploadedDocuments(updated);
+  }
+
+  function handleClearFile(index: number) {
+    const updated = [...uploadedDocuments];
+    updated[index] = {
+      ...updated[index],
+      file: null,
+      uploaded: false,
+      uploading: false,
+      error: null,
+      fileSize: "",
+      storagePath: null,
+    };
     setUploadedDocuments(updated);
   }
 
@@ -868,7 +1071,7 @@ export default function DaftarBaharu() {
                   <div>
                     <Label>Dokumen Sokongan</Label>
                     <p className="text-xs text-muted-foreground">
-                      Muat naik dokumen pendaftaran (opsional)
+                      Muat naik dokumen pendaftaran (opsional, maks 20MB setiap fail)
                     </p>
                   </div>
                   <Button
@@ -893,6 +1096,7 @@ export default function DaftarBaharu() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRemoveDocument(index)}
+                            disabled={doc.uploading}
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
@@ -906,6 +1110,7 @@ export default function DaftarBaharu() {
                               onValueChange={(value) =>
                                 handleDocumentChange(index, "jenis_dokumen", value)
                               }
+                              disabled={doc.uploading || doc.uploaded}
                             >
                               <SelectTrigger>
                                 <SelectValue />
@@ -931,22 +1136,102 @@ export default function DaftarBaharu() {
                                 handleDocumentChange(index, "nama_dokumen", e.target.value)
                               }
                               placeholder="Contoh: Pelan Susun Atur - Lot 123"
+                              disabled={doc.uploading || doc.uploaded}
                             />
                           </div>
 
                           <div>
-                            <Label className="text-xs">URL Dokumen</Label>
+                            <Label className="text-xs">Pilih Fail</Label>
                             <Input
-                              value={doc.dokumen_url}
-                              onChange={(e) =>
-                                handleDocumentChange(index, "dokumen_url", e.target.value)
-                              }
-                              placeholder="https://..."
+                              type="file"
+                              accept=".pdf,.dwg,.dxf,.jpg,.jpeg,.png,.webp"
+                              onChange={(e) => handleFileSelect(index, e.target.files?.[0] || null)}
+                              disabled={doc.uploading || doc.uploaded}
                             />
                             <p className="text-xs text-muted-foreground mt-1">
-                              Format: PDF, DWG, DXF, JPG, PNG
+                              Format: PDF, DWG, DXF, JPG, PNG, WebP (Maks 20MB)
                             </p>
                           </div>
+
+                          {/* File info and upload status */}
+                          {doc.file && !doc.uploaded && !doc.error && (
+                            <div className="flex items-center justify-between p-2 bg-muted rounded">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                <div>
+                                  <p className="text-sm font-medium">{doc.file.name}</p>
+                                  <p className="text-xs text-muted-foreground">{doc.fileSize}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                {!doc.uploading && (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => handleUploadFile(index)}
+                                    >
+                                      Muat Naik
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleClearFile(index)}
+                                    >
+                                      Batal
+                                    </Button>
+                                  </>
+                                )}
+                                {doc.uploading && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                                    <span>Memuat naik...</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Upload success */}
+                          {doc.uploaded && doc.file && (
+                            <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <div>
+                                  <p className="text-sm font-medium text-green-900">{doc.file.name}</p>
+                                  <p className="text-xs text-green-700">{doc.fileSize} • Berjaya dimuat naik</p>
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleClearFile(index)}
+                              >
+                                Buang
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Upload error */}
+                          {doc.error && (
+                            <Alert variant="destructive">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                {doc.error}
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="ml-2"
+                                  onClick={() => handleRetryUpload(index)}
+                                >
+                                  Cuba Semula
+                                </Button>
+                              </AlertDescription>
+                            </Alert>
+                          )}
                         </div>
                       </div>
                     ))}
