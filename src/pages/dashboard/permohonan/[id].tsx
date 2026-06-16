@@ -2751,7 +2751,7 @@ Return this exact JSON structure with ONLY the requested fields:
                             <Badge variant="outline">{doc.versi || "v1"}</Badge>
                           </TableCell>
                           <TableCell className="text-sm">
-                            {doc.uploader?.full_name || "-"}
+                            {(doc as any).profiles?.full_name || "-"}
                           </TableCell>
                           <TableCell>
                             {doc.uploaded_at
