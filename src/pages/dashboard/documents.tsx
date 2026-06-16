@@ -16,6 +16,7 @@ import { FileText, Download, Upload, Edit, Trash2, Search, Filter, Eye } from "l
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DisplayFileNumber } from "@/components/DisplayFileNumber";
+import { FilePreviewModal } from "@/components/FilePreviewModal";
 
 interface Document {
   id: string;
@@ -61,6 +62,12 @@ export default function DocumentsPage() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const [uploadForm, setUploadForm] = useState({
     application_id: "",
@@ -434,13 +441,24 @@ export default function DocumentsPage() {
                         {new Date(doc.uploaded_at).toLocaleDateString("ms-MY")}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              router.push(`/dashboard/permohonan/${doc.application_id}`)
-                            }
+                            onClick={() => {
+                              const fileType = doc.file_path.toLowerCase().endsWith(".pdf") ? "pdf" : "image";
+                              setPreviewDocument(doc);
+                              setShowPreviewModal(true);
+                            }}
+                            title="Preview"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/dashboard/permohonan/${doc.application_id}`)}
+                            title="View Application"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -622,6 +640,24 @@ export default function DocumentsPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* File Preview Modal */}
+      {previewDocument && (
+        <FilePreviewModal
+          isOpen={showPreviewModal}
+          onClose={() => {
+            setShowPreviewModal(false);
+            setPreviewDocument(null);
+          }}
+          fileUrl={previewDocument.file_path}
+          fileName={previewDocument.file_name}
+          fileType={
+            previewDocument.file_path.toLowerCase().endsWith(".pdf")
+              ? "pdf"
+              : "image"
+          }
+        />
+      )}
     </Layout>
   );
 }

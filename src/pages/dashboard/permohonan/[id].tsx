@@ -74,6 +74,9 @@ import { reportGenerationService } from "@/services/reportGenerationService";
 import { Database } from "@/integrations/supabase/types";
 import { Edit, FileText, MapPin, FileBarChart, Upload, ArrowLeft, Save, Plus, Trash2, Download, FileCheck, Sparkles, Loader2, AlertCircle, Calendar, User, Clock, CheckCircle, X, Eye, Check } from "lucide-react";
 import { cajPemajanService, type CajPemajanData } from "@/services/cajPemajanService";
+import { DisplayFileNumber } from "@/components/DisplayFileNumber";
+import { FilePreviewModal } from "@/components/FilePreviewModal";
+import { ComplianceResults } from "@/components/ComplianceResults";
 
 type LandLot = Database["public"]["Tables"]["land_lots"]["Row"];
 type WrittenDirective = Database["public"]["Tables"]["written_directives"]["Row"];
@@ -247,6 +250,10 @@ export default function ApplicationDetailPage() {
   const [suggestedConditions, setSuggestedConditions] = useState<string[]>([""]);
   const [manualSaving, setManualSaving] = useState(false);
   const [manualSavedReport, setManualSavedReport] = useState<any>(null);
+
+  const [showDocumentDialog, setShowDocumentDialog] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<any>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -2909,13 +2916,25 @@ Return this exact JSON structure with ONLY the requested fields:
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleEditAgency(agency)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setPreviewDocument(doc);
+                                    setShowPreviewModal(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => window.open(doc.file_path, "_blank")}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </>
                         )}
@@ -4083,6 +4102,24 @@ Contoh:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* File Preview Modal */}
+      {previewDocument && (
+        <FilePreviewModal
+          isOpen={showPreviewModal}
+          onClose={() => {
+            setShowPreviewModal(false);
+            setPreviewDocument(null);
+          }}
+          fileUrl={previewDocument.file_path}
+          fileName={previewDocument.file_name}
+          fileType={
+            previewDocument.file_path.toLowerCase().endsWith(".pdf")
+              ? "pdf"
+              : "image"
+          }
+        />
+      )}
     </Layout>
   );
 }
