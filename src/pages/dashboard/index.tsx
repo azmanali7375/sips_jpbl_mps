@@ -22,8 +22,10 @@ import {
   Download,
   AlertTriangle,
   XCircle,
+  PieChart,
+  BarChart,
 } from "lucide-react";
-import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart as RechartsBar, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -615,13 +617,13 @@ export default function SIPSDashboard() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={statusData} layout="vertical">
+                <RechartsBar data={statusData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" />
                   <YAxis dataKey="status" type="category" width={120} style={{ fontSize: "12px" }} />
                   <Tooltip />
                   <Bar dataKey="count" fill="#1E40AF" radius={[0, 4, 4, 0]} />
-                </BarChart>
+                </RechartsBar>
               </ResponsiveContainer>
             </CardContent>
           </Card>
