@@ -2774,7 +2774,7 @@ Return this exact JSON structure with ONLY the requested fields:
                                 size="sm"
                                 onClick={() => {
                                   if (doc && typeof doc === 'object' && 'file_path' in doc) {
-                                    window.open(doc.file_path as string, "_blank");
+                                    window.open((doc as any).file_path, "_blank");
                                   }
                                 }}
                               >
