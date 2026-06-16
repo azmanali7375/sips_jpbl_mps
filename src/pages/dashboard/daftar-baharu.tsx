@@ -76,6 +76,9 @@ export default function DaftarBaharu() {
   const [formData, setFormData] = useState({
     jenis_aplikasi: "KM" as "KM" | "PB",
     division: 1,
+    applicant_id: "", // Required - maps to nama_pemaju_pemilik
+    project_name: "", // Required - maps to tajuk_permohonan
+    location: "", // Required - full address/location description
     no_fail_osc: "",
     no_permohonan_osc: "",
     kategori_permohonan: "",
@@ -400,6 +403,15 @@ export default function DaftarBaharu() {
       return;
     }
 
+    if (!formData.applicant_id || !formData.project_name || !formData.location) {
+      toast({
+        title: "Ralat",
+        description: "Sila lengkapkan semua medan yang diperlukan",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSubmitting(true);
     setError("");
 
@@ -423,8 +435,11 @@ export default function DaftarBaharu() {
           jenis_aplikasi: formData.jenis_aplikasi,
           no_fail_jpl,
           no_permohonan_osc,
-          tajuk_permohonan: formData.tajuk_permohonan,
-          nama_pemaju_pemilik: formData.nama_pemaju_pemilik,
+          applicant_id: formData.applicant_id,
+          project_name: formData.project_name,
+          location: formData.location,
+          tajuk_permohonan: formData.project_name, // Use project_name for title
+          nama_pemaju_pemilik: formData.applicant_id, // Use applicant_id for developer/owner name
           mukim: formData.mukim,
           daerah: formData.daerah,
           negeri: formData.negeri,
@@ -456,6 +471,9 @@ export default function DaftarBaharu() {
       setFormData({
         jenis_aplikasi: "KM",
         division: 1,
+        applicant_id: "",
+        project_name: "",
+        location: "",
         no_fail_osc: "",
         no_permohonan_osc: "",
         kategori_permohonan: "",
@@ -708,6 +726,76 @@ export default function DaftarBaharu() {
                 <p className="text-sm text-muted-foreground mt-1">
                   Status ini tidak diubah suai oleh SIPS
                 </p>
+              </div>
+
+              {/* Division (for file number generation) */}
+              <div>
+                <Label htmlFor="division">
+                  Bahagian / Division <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="division"
+                  type="number"
+                  min="1"
+                  value={formData.division}
+                  onChange={(e) =>
+                    setFormData({ ...formData, division: parseInt(e.target.value) || 1 })
+                  }
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Untuk penjanaan no. fail: MPS/JPL:{formData.jenis_aplikasi === "KM" ? "600-3" : ".600-13"}/{formData.division}/[n]
+                </p>
+              </div>
+
+              {/* Applicant ID / Name */}
+              <div>
+                <Label htmlFor="applicant_id">
+                  Nama Pemohon / Pemaju <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="applicant_id"
+                  value={formData.applicant_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, applicant_id: e.target.value })
+                  }
+                  placeholder="Nama penuh pemohon atau pemaju"
+                  required
+                />
+              </div>
+
+              {/* Project Name */}
+              <div>
+                <Label htmlFor="project_name">
+                  Tajuk Permohonan / Projek <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="project_name"
+                  value={formData.project_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, project_name: e.target.value })
+                  }
+                  placeholder="Contoh: Permohonan kebenaran merancang untuk membina bangunan kedai 2 tingkat"
+                  rows={2}
+                  required
+                />
+              </div>
+
+              {/* Location */}
+              <div>
+                <Label htmlFor="location">
+                  Lokasi Tapak <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="location"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                  placeholder="Alamat lengkap tapak permohonan"
+                  rows={2}
+                  required
+                />
               </div>
             </CardContent>
           </Card>
