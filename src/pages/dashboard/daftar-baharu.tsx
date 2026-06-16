@@ -405,27 +405,41 @@ export default function DaftarBaharu() {
       );
 
       // Create application
-      const { data: application, error: appError } = await supabase
-        .from("applications")
-        .insert({
-          jenis_aplikasi: formData.jenis_aplikasi,
-          no_fail_jpl,
-          no_permohonan_osc,
-          applicant_id: formData.applicant_id,
-          project_name: formData.project_name,
-          location: formData.location,
-          tajuk_permohonan: formData.project_name,
-          nama_pemaju_pemilik: formData.applicant_id,
-          mukim: formData.mukim,
-          daerah: formData.daerah,
-          negeri: formData.negeri,
-          tarikh_penghantaran: formData.tarikh_penghantaran,
-          tarikh_lengkap_diterima_osc: formData.tarikh_terima,
-          status: "Daftar",
-          registered_by: user.id,
-        })
-        .select()
-        .single();
+const { data: application, error: appError } = await supabase
+  .from("permohonan")
+  .insert({
+    jenis_aplikasi: formData.jenis_aplikasi,
+    no_fail_jpl,
+    no_permohonan_osc,
+    nama_projek: formData.project_name,
+    lokasi: formData.location,
+    pemohon: formData.applicant_id,
+    tajuk_permohonan: formData.tajuk_permohonan || formData.project_name,
+    nama_pemaju_pemilik: formData.nama_pemaju_pemilik || formData.applicant_id,
+    nama_sp: formData.nama_sp,
+    no_kp_sp: formData.no_kp_sp,
+    mukim: formData.mukim,
+    daerah: formData.daerah,
+    negeri: formData.negeri,
+    tarikh_penghantaran: formData.tarikh_penghantaran,
+    tarikh_lengkap_diterima_osc: formData.tarikh_lengkap_diterima_osc || formData.tarikh_terima,
+    status: "Daftar",
+    status_dalaman: formData.status_dalaman || "Diterima",
+    catatan_dalaman: formData.catatan_dalaman,
+    bahagian: formData.division,
+    kategori_permohonan: formData.kategori_permohonan,
+    skala_pembangunan: formData.skala_pembangunan,
+    jenis_proses_pr: formData.jenis_proses_pr,
+    status_semakan_osc: formData.status_semakan_osc,
+    zoning: formData.zoning,
+    rancangan_tempatan: formData.rancangan_tempatan,
+    latitud: formData.latitud,
+    longitud: formData.longitud,
+    lokasi_mercu_tanda: formData.lokasi_mercu_tanda,
+    kpi_hari: formData.jenis_aplikasi === "PB" ? 14 : 53,
+  })
+  .select()
+  .single();
 
       if (appError) throw appError;
 
