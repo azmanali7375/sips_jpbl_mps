@@ -32,7 +32,7 @@ import {
 import { DisplayFileNumber } from "@/components/DisplayFileNumber";
 import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X, XCircle, CheckCircle } from "lucide-react";
+import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X, XCircle, CheckCircle, Trash2 } from "lucide-react";
 
 export default function DaftarBaharu() {
   const router = useRouter();
