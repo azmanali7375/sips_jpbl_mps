@@ -22,7 +22,8 @@ import {
   X,
   UserCog,
   FileCheck,
-  BookOpen
+  BookOpen,
+  List
 } from "lucide-react";
 import {
   DropdownMenu,
