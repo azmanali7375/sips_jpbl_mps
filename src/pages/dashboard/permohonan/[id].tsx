@@ -2773,7 +2773,7 @@ Return this exact JSON structure with ONLY the requested fields:
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  if (doc && typeof doc === 'object' && 'file_path' in doc) {
+                                  if (doc && 'file_path' in doc && typeof (doc as any).file_path === 'string') {
                                     window.open((doc as any).file_path, "_blank");
                                   }
                                 }}
