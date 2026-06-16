@@ -20,6 +20,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import {
@@ -2721,6 +2722,71 @@ Return this exact JSON structure with ONLY the requested fields:
 
         {/* Dokumen */}
         <Card>
+          <CardContent>
+            {Object.entries(documents).map(([category, docs]) => (
+              <div key={category} className="mb-6">
+                <h3 className="font-semibold mb-3">{category}</h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nama Dokumen</TableHead>
+                      <TableHead>Versi</TableHead>
+                      <TableHead>Dimuat Naik Oleh</TableHead>
+                      <TableHead>Tarikh</TableHead>
+                      <TableHead className="w-32">Tindakan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {docs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          Tiada dokumen {category}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      docs.map((doc) => (
+                        <TableRow key={doc.id}>
+                          <TableCell className="font-medium">{doc.file_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{doc.versi || "v1"}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {doc.profiles?.full_name || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {doc.uploaded_at
+                              ? new Date(doc.uploaded_at).toLocaleDateString("ms-MY")
+                              : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setPreviewDocument(doc);
+                                  setShowPreviewModal(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(doc.file_path, "_blank")}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
+          </CardContent>
         </Card>
 
         {/* Ulasan Agensi Section */}
