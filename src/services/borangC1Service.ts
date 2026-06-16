@@ -453,14 +453,22 @@ ${syaratLines}
 
       if (error) throw error;
 
+      // Get current user for audit
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       // Log to audit
-      await auditLogService.logAction(
-        "C1_SIGNED",
-        oscDecisionId,
-        {
+      await auditLogService.log({
+        user_id: user?.id || "",
+        action: "C1_SIGNED",
+        table_name: "osc_decisions",
+        record_id: oscDecisionId,
+        details: {
           tarikh_tandatangan: signatureDate,
-        }
-      );
+        },
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
       console.error("Error recording C1 signature date:", error);
       throw error;
