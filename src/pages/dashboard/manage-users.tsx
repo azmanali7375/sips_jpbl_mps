@@ -89,15 +89,19 @@ export default function ManageUsersPage() {
       if (profilesError) throw profilesError;
 
       // Get auth users data
-      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
-
-      if (authError) {
-        console.warn("Could not fetch auth users:", authError);
+      let authUsers: any[] = [];
+      try {
+        const { data, error: authError } = await supabase.auth.admin.listUsers();
+        if (!authError && data?.users) {
+          authUsers = data.users;
+        }
+      } catch (error) {
+        console.warn("Could not fetch auth users:", error);
       }
 
       // Merge profile and auth data
       const mergedUsers: UserProfile[] = (profiles || []).map((profile) => {
-        const authUser = authUsers?.find((u) => u.id === profile.id);
+        const authUser = authUsers.find((u) => u.id === profile.id);
         return {
           id: profile.id,
           email: authUser?.email || profile.email || "N/A",
