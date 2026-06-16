@@ -32,7 +32,7 @@ import {
 import { DisplayFileNumber } from "@/components/DisplayFileNumber";
 import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X } from "lucide-react";
+import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X, XCircle } from "lucide-react";
 
 export default function DaftarBaharu() {
   const router = useRouter();
@@ -41,6 +41,13 @@ export default function DaftarBaharu() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Array<{
+    jenis_dokumen: string;
+    nama_dokumen: string;
+    dokumen_url: string;
+    file?: File;
+  }>>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [officers, setOfficers] = useState<{ id: string; full_name: string }[]>([]);
   const [userId, setUserId] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -391,7 +398,7 @@ export default function DaftarBaharu() {
     return classes.filter(Boolean).join(" ");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
     if (!formData.jenis_aplikasi) {
@@ -438,8 +445,8 @@ export default function DaftarBaharu() {
           applicant_id: formData.applicant_id,
           project_name: formData.project_name,
           location: formData.location,
-          tajuk_permohonan: formData.project_name, // Use project_name for title
-          nama_pemaju_pemilik: formData.applicant_id, // Use applicant_id for developer/owner name
+          tajuk_permohonan: formData.project_name,
+          nama_pemaju_pemilik: formData.applicant_id,
           mukim: formData.mukim,
           daerah: formData.daerah,
           negeri: formData.negeri,
@@ -452,6 +459,11 @@ export default function DaftarBaharu() {
         .single();
 
       if (appError) throw appError;
+
+      // Upload documents if any
+      if (uploadedDocuments.length > 0 && application?.id) {
+        await uploadDocuments(application.id, no_fail_jpl);
+      }
 
       toast({
         title: "Berjaya Didaftarkan",
@@ -501,6 +513,7 @@ export default function DaftarBaharu() {
         status_dalaman: "Diterima",
         catatan_dalaman: "",
       });
+      setUploadedDocuments([]);
 
       // Navigate to the application detail page
       if (application?.id) {
@@ -517,7 +530,60 @@ export default function DaftarBaharu() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }
+
+  async function uploadDocuments(applicationId: string, noFailJpl: string) {
+    setUploadingFiles(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Pengguna tidak dijumpai");
+
+      for (const doc of uploadedDocuments) {
+        await supabase.from("documents").insert({
+          application_id: applicationId,
+          no_fail: noFailJpl,
+          jenis_dokumen: doc.jenis_dokumen,
+          nama_dokumen: doc.nama_dokumen,
+          dokumen_url: doc.dokumen_url,
+          versi: "v1",
+          dimuat_naik_oleh: user.id,
+          tarikh_muat_naik: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading documents:", error);
+      toast({
+        title: "Amaran",
+        description: "Permohonan berjaya didaftar tetapi gagal memuat naik dokumen",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFiles(false);
+    }
+  }
+
+  function handleAddDocument() {
+    setUploadedDocuments([
+      ...uploadedDocuments,
+      {
+        jenis_dokumen: "Pelan Susun Atur",
+        nama_dokumen: "",
+        dokumen_url: "",
+      },
+    ]);
+  }
+
+  function handleRemoveDocument(index: number) {
+    setUploadedDocuments(uploadedDocuments.filter((_, i) => i !== index));
+  }
+
+  function handleDocumentChange(index: number, field: string, value: string) {
+    const updated = [...uploadedDocuments];
+    updated[index] = { ...updated[index], [field]: value };
+    setUploadedDocuments(updated);
+  }
 
   if (initialLoading) {
     return (
@@ -797,6 +863,107 @@ export default function DaftarBaharu() {
                   required
                 />
               </div>
+
+              {/* Document Upload Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Dokumen Sokongan</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Muat naik dokumen pendaftaran (opsional)
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddDocument}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Tambah Dokumen
+                  </Button>
+                </div>
+
+                {uploadedDocuments.length > 0 && (
+                  <div className="space-y-3 border rounded-lg p-4">
+                    {uploadedDocuments.map((doc, index) => (
+                      <div key={index} className="space-y-2 pb-3 border-b last:border-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Dokumen {index + 1}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveDocument(index)}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="grid gap-3">
+                          <div>
+                            <Label className="text-xs">Jenis Dokumen</Label>
+                            <Select
+                              value={doc.jenis_dokumen}
+                              onValueChange={(value) =>
+                                handleDocumentChange(index, "jenis_dokumen", value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Pelan Susun Atur">Pelan Susun Atur</SelectItem>
+                                <SelectItem value="Pelan Bangunan">Pelan Bangunan</SelectItem>
+                                <SelectItem value="Pelan CAD">Pelan CAD</SelectItem>
+                                <SelectItem value="Kebenaran Tanah">Kebenaran Tanah</SelectItem>
+                                <SelectItem value="Laporan Teknikal">Laporan Teknikal</SelectItem>
+                                <SelectItem value="Surat Pemohon">Surat Pemohon</SelectItem>
+                                <SelectItem value="Dokumen OSC">Dokumen OSC</SelectItem>
+                                <SelectItem value="Lain-lain">Lain-lain</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">Nama Dokumen</Label>
+                            <Input
+                              value={doc.nama_dokumen}
+                              onChange={(e) =>
+                                handleDocumentChange(index, "nama_dokumen", e.target.value)
+                              }
+                              placeholder="Contoh: Pelan Susun Atur - Lot 123"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">URL Dokumen</Label>
+                            <Input
+                              value={doc.dokumen_url}
+                              onChange={(e) =>
+                                handleDocumentChange(index, "dokumen_url", e.target.value)
+                              }
+                              placeholder="https://..."
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Format: PDF, DWG, DXF, JPG, PNG
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
 
