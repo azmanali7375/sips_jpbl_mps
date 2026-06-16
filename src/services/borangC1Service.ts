@@ -466,7 +466,6 @@ ${syaratLines}
           osc_decision_id: oscDecisionId,
           tarikh_tandatangan: signatureDate,
         },
-        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       console.error("Error recording C1 signature date:", error);
