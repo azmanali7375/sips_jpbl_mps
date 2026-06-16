@@ -66,6 +66,103 @@ function calculateKPIDate(startDate: string): string {
 }
 
 /**
+ * Registration Service
+ * Handles application registration and number generation
+ */
+
+export const registrationService = {
+  /**
+   * Generate no_fail_jpl based on application type
+   * KM format: MPS/JPL:600-3/[div]/[n]
+   * PB format: MPS/JPL.600-13/[div]/[n]
+   */
+  async generateNoFailJPL(jenisAplikasi: "KM" | "PB", division: number = 1): Promise<string> {
+    try {
+      // Get the year
+      const year = new Date().getFullYear();
+      
+      // Get count of applications this year for sequential number
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+      
+      const { count } = await supabase
+        .from("applications")
+        .select("*", { count: "exact", head: true })
+        .eq("jenis_aplikasi", jenisAplikasi)
+        .gte("created_at", startDate)
+        .lte("created_at", endDate);
+      
+      const sequentialNumber = (count || 0) + 1;
+      
+      // Format based on application type
+      if (jenisAplikasi === "KM") {
+        // KM format: MPS/JPL:600-3/[div]/[n] (colon after JPL)
+        return `MPS/JPL:600-3/${division}/${sequentialNumber}`;
+      } else {
+        // PB format: MPS/JPL.600-13/[div]/[n] (period after JPL)
+        return `MPS/JPL.600-13/${division}/${sequentialNumber}`;
+      }
+    } catch (error) {
+      console.error("Error generating no_fail_jpl:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Generate no_permohonan_osc
+   * KM format: KM[YYYYMMDD]-[nnn]
+   * PB format: PB[YYYYMMDD]-[nnn]
+   */
+  async generateNoPermohonanOSC(jenisAplikasi: "KM" | "PB"): Promise<string> {
+    try {
+      const today = new Date();
+      const dateStr = today.toISOString().split("T")[0].replace(/-/g, ""); // YYYYMMDD
+      
+      // Get count of applications today for sequential number
+      const todayStart = today.toISOString().split("T")[0] + "T00:00:00Z";
+      const todayEnd = today.toISOString().split("T")[0] + "T23:59:59Z";
+      
+      const { count } = await supabase
+        .from("applications")
+        .select("*", { count: "exact", head: true })
+        .eq("jenis_aplikasi", jenisAplikasi)
+        .gte("created_at", todayStart)
+        .lte("created_at", todayEnd);
+      
+      const sequentialNumber = ((count || 0) + 1).toString().padStart(3, "0");
+      
+      return `${jenisAplikasi}${dateStr}-${sequentialNumber}`;
+    } catch (error) {
+      console.error("Error generating no_permohonan_osc:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Register a new application with generated file numbers
+   */
+  async registerApplication(
+    applicationData: any,
+    jenisAplikasi: "KM" | "PB",
+    division: number = 1
+  ): Promise<{ no_fail_jpl: string; no_permohonan_osc: string }> {
+    try {
+      // Generate both numbers
+      const no_fail_jpl = await this.generateNoFailJPL(jenisAplikasi, division);
+      const no_permohonan_osc = await this.generateNoPermohonanOSC(jenisAplikasi);
+      
+      return {
+        no_fail_jpl,
+        no_permohonan_osc,
+      };
+    } catch (error) {
+      console.error("Error in registerApplication:", error);
+      throw error;
+    }
+  },
+};
+
+/**
  * Register a new KM application into SIPS
  */
 export async function registerNewApplication(

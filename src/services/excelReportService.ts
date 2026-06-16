@@ -291,6 +291,9 @@ export const excelReportService = {
       const monthDisplay = month === lastMonth ? '"' : month;
       lastMonth = month;
 
+      // Format NO. FAIL with line break
+      const noFail = `${app.no_fail_jpl}\n${app.no_permohonan_osc}`;
+
       // Format dates
       const formatDate = (dateStr?: string) => {
         if (!dateStr) return "";
@@ -313,7 +316,7 @@ export const excelReportService = {
       data.push([
         i + 1, // BIL
         monthDisplay, // BULAN
-        app.no_fail_jpl, // NO. FAIL
+        noFail, // NO. FAIL (both lines)
         app.tajuk_permohonan, // PERKARA
         app.nama_pemaju_pemilik, // PEMOHON
         formatDate(app.tarikh_penghantaran), // TARIKH TERIMA

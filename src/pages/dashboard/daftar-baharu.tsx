@@ -28,6 +28,7 @@ import {
   getOfficers,
   RegistrationFormData,
 } from "@/services/registrationService";
+import { DisplayFileNumber } from "@/components/DisplayFileNumber";
 import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
 import { supabase } from "@/integrations/supabase/client";
 import { FileText, Calendar, User, MapPin, Building2, AlertCircle, Upload, FileIcon, ImageIcon, X } from "lucide-react";
@@ -69,29 +70,19 @@ export default function DaftarBaharu() {
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
   const [showPoorQualityWarning, setShowPoorQualityWarning] = useState(false);
 
-  const [formData, setFormData] = useState<RegistrationFormData>({
-    no_permohonan_osc: "",
-    kategori_permohonan: "",
-    skala_pembangunan: "Kecil",
-    jenis_proses_pr: "Tidak",
-    status_semakan_osc: "",
-    tarikh_penghantaran: "",
-    tarikh_lengkap_diterima_osc: "",
-    nama_sp: "",
-    no_kp_sp: "",
-    nama_pemaju_pemilik: "",
+  const [formData, setFormData] = useState({
+    jenis_aplikasi: "KM" as "KM" | "PB",
+    division: 1, // For no_fail_jpl generation
+    no_fail_osc: "",
     tajuk_permohonan: "",
-    lokasi_mercu_tanda: "",
+    nama_pemaju_pemilik: "",
+    alamat_tapak: "",
+    no_lot: "",
     mukim: "",
     daerah: "Segamat",
     negeri: "Johor",
-    rancangan_tempatan: "Tidak",
-    zoning: "",
-    longitud: undefined,
-    latitud: undefined,
-    pegawai_bertanggungjawab: "",
-    status_dalaman: "Diterima",
-    catatan_dalaman: "",
+    tarikh_penghantaran: "",
+    tarikh_terima: new Date().toISOString().split("T")[0],
   });
 
   useEffect(() => {
@@ -380,109 +371,101 @@ export default function DaftarBaharu() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validation
-    if (!formData.no_permohonan_osc.trim()) {
+    
+    if (!formData.jenis_aplikasi) {
       toast({
-        title: "Ralat Pengesahan",
-        description: "No. Permohonan OSC diperlukan",
+        title: "Ralat",
+        description: "Sila pilih jenis permohonan (KM atau PB)",
         variant: "destructive",
       });
       return;
     }
 
-    if (!formData.tarikh_penghantaran) {
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Pengguna tidak dijumpai");
+
+      // Generate file numbers
+      const { no_fail_jpl, no_permohonan_osc } = await registrationService.registerApplication(
+        formData,
+        formData.jenis_aplikasi,
+        formData.division
+      );
+
+      // Create application
+      const { data: application, error: appError } = await supabase
+        .from("applications")
+        .insert({
+          jenis_aplikasi: formData.jenis_aplikasi,
+          no_fail_jpl,
+          no_permohonan_osc,
+          no_fail_osc: formData.no_fail_osc,
+          tajuk_permohonan: formData.tajuk_permohonan,
+          nama_pemaju_pemilik: formData.nama_pemaju_pemilik,
+          alamat_tapak: formData.alamat_tapak,
+          no_lot: formData.no_lot,
+          mukim: formData.mukim,
+          daerah: formData.daerah,
+          negeri: formData.negeri,
+          tarikh_penghantaran: formData.tarikh_penghantaran,
+          tarikh_lengkap_diterima_osc: formData.tarikh_terima,
+          status: "Daftar",
+          registered_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (appError) throw appError;
+
       toast({
-        title: "Ralat Pengesahan",
-        description: "Tarikh Penghantaran diperlukan",
-        variant: "destructive",
+        title: "Berjaya Didaftarkan",
+        description: (
+          <div>
+            <p className="font-semibold">Permohonan berjaya didaftarkan:</p>
+            <DisplayFileNumber 
+              no_fail_jpl={no_fail_jpl} 
+              no_permohonan_osc={no_permohonan_osc}
+              className="mt-2"
+            />
+          </div>
+        ),
       });
-      return;
-    }
 
-    if (!formData.tarikh_lengkap_diterima_osc) {
-      toast({
-        title: "Ralat Pengesahan",
-        description: "Tarikh Lengkap Diterima OSC diperlukan",
-        variant: "destructive",
+      // Reset form
+      setFormData({
+        jenis_aplikasi: "KM",
+        division: 1,
+        no_fail_osc: "",
+        tajuk_permohonan: "",
+        nama_pemaju_pemilik: "",
+        alamat_tapak: "",
+        no_lot: "",
+        mukim: "",
+        daerah: "Segamat",
+        negeri: "Johor",
+        tarikh_penghantaran: "",
+        tarikh_terima: new Date().toISOString().split("T")[0],
       });
-      return;
-    }
 
-    if (!formData.nama_sp.trim()) {
-      toast({
-        title: "Ralat Pengesahan",
-        description: "Nama Pemohon (SP) diperlukan",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.tajuk_permohonan.trim()) {
-      toast({
-        title: "Ralat Pengesahan",
-        description: "Tajuk Permohonan diperlukan",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    const result = await registerNewApplication(formData, userId);
-
-    setLoading(false);
-
-    if (result.success) {
-      // Save land lots if imported from OSC
-      if (landLots.length > 0 && result.application_id) {
-        try {
-          const { data: lotsData, error: lotsError } = await supabase
-            .from("land_lots")
-            .insert(
-              landLots.map((lot) => ({
-                application_id: result.application_id,
-                jenis_lot: lot.jenis_lot,
-                no_lot: lot.no_lot,
-                pemilik_tanah: lot.pemilik_tanah,
-                kategori: lot.kategori,
-                syarat_nyata: lot.syarat_nyata,
-                catatan: lot.catatan,
-              }))
-            );
-
-          if (lotsError) {
-            console.error("Error saving land lots:", lotsError);
-          }
-
-          toast({
-            title: "✓ Permohonan Berjaya Didaftar",
-            description: `No. Fail JPL: ${result.no_fail_jpl}\nTarikh Akhir KPI: ${result.tarikh_kpi}\n${landLots.length} lot tanah turut disimpan secara automatik.`,
-          });
-        } catch (error) {
-          console.error("Error saving land lots:", error);
-          toast({
-            title: "✓ Permohonan Berjaya Didaftar",
-            description: `No. Fail JPL: ${result.no_fail_jpl}\nTarikh Akhir KPI: ${result.tarikh_kpi}`,
-          });
-        }
-      } else {
-        toast({
-          title: "✓ Permohonan Berjaya Didaftar",
-          description: `No. Fail JPL: ${result.no_fail_jpl}\nTarikh Akhir KPI: ${result.tarikh_kpi}`,
-        });
+      // Navigate to the application detail page
+      if (application?.id) {
+        router.push(`/dashboard/permohonan/${application.id}`);
       }
-
-      // Redirect to application detail page
-      setTimeout(() => {
-        router.push(`/dashboard/permohonan/${result.application_id}`);
-      }, 1500);
-    } else {
+    } catch (err: any) {
+      console.error("Error:", err);
+      setError(err.message || "Gagal mendaftarkan permohonan");
       toast({
-        title: "Ralat Pendaftaran",
-        description: result.error || "Gagal mendaftar permohonan",
+        title: "Ralat",
+        description: err.message || "Gagal mendaftarkan permohonan",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
