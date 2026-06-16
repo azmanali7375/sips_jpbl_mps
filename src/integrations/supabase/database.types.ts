@@ -1087,6 +1087,33 @@ export type Database = {
           },
         ]
       }
+      public_holidays: {
+        Row: {
+          created_at: string | null
+          id: string
+          jenis_cuti: string | null
+          nama_cuti: string
+          tahun: number | null
+          tarikh: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          jenis_cuti?: string | null
+          nama_cuti: string
+          tahun?: number | null
+          tarikh: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          jenis_cuti?: string | null
+          nama_cuti?: string
+          tahun?: number | null
+          tarikh?: string
+        }
+        Relationships: []
+      }
       report_templates: {
         Row: {
           created_at: string | null
