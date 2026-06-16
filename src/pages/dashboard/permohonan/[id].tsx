@@ -4181,10 +4181,10 @@ Contoh:
             setShowPreviewModal(false);
             setPreviewDocument(null);
           }}
-          fileUrl={previewDocument.file_path}
-          fileName={previewDocument.file_name}
+          fileUrl={(previewDocument as any).file_path || ""}
+          fileName={(previewDocument as any).file_name || "Document"}
           fileType={
-            previewDocument.file_path.toLowerCase().endsWith(".pdf")
+            (previewDocument as any).file_path?.toLowerCase().endsWith(".pdf")
               ? "pdf"
               : "image"
           }
