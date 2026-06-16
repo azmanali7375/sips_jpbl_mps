@@ -166,17 +166,12 @@ export default function DaftarBaharu() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileSelect(files[0]);
-    }
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(0, file);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
   };
 
   const handleDragLeave = () => {
@@ -186,7 +181,7 @@ export default function DaftarBaharu() {
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFileSelect(0, files[0]);
     }
   };
 
@@ -434,10 +429,6 @@ export default function DaftarBaharu() {
 
       if (appError) throw appError;
 
-      // Upload documents if any
-      if (uploadedDocuments.length > 0 && application?.id) {
-        await uploadDocuments(application.id, no_fail_jpl);
-      }
       // Save document records to database if any were uploaded
       if (uploadedDocuments.some(doc => doc.uploaded && doc.storagePath) && application?.id) {
         const {
