@@ -27,6 +27,7 @@ import {
   registerNewApplication,
   getOfficers,
   RegistrationFormData,
+  registrationService,
 } from "@/services/registrationService";
 import { DisplayFileNumber } from "@/components/DisplayFileNumber";
 import { validateOSCData, getValidationSummary } from "@/services/zoningValidationService";
@@ -37,6 +38,8 @@ export default function DaftarBaharu() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [officers, setOfficers] = useState<{ id: string; full_name: string }[]>([]);
   const [userId, setUserId] = useState("");
@@ -72,17 +75,33 @@ export default function DaftarBaharu() {
 
   const [formData, setFormData] = useState({
     jenis_aplikasi: "KM" as "KM" | "PB",
-    division: 1, // For no_fail_jpl generation
+    division: 1,
     no_fail_osc: "",
-    tajuk_permohonan: "",
+    no_permohonan_osc: "",
+    kategori_permohonan: "",
+    skala_pembangunan: "Kecil" as "Kecil" | "Sederhana" | "Besar A" | "Besar B",
+    jenis_proses_pr: "Tidak" as "Ya" | "Tidak",
+    status_semakan_osc: "",
+    tarikh_penghantaran: "",
+    tarikh_lengkap_diterima_osc: "",
+    tarikh_terima: new Date().toISOString().split("T")[0],
+    nama_sp: "",
+    no_kp_sp: "",
     nama_pemaju_pemilik: "",
+    tajuk_permohonan: "",
     alamat_tapak: "",
     no_lot: "",
+    lokasi_mercu_tanda: "",
     mukim: "",
     daerah: "Segamat",
     negeri: "Johor",
-    tarikh_penghantaran: "",
-    tarikh_terima: new Date().toISOString().split("T")[0],
+    rancangan_tempatan: "Tidak" as "Ya" | "Tidak",
+    zoning: "",
+    longitud: undefined as number | undefined,
+    latitud: undefined as number | undefined,
+    pegawai_bertanggungjawab: "",
+    status_dalaman: "Diterima",
+    catatan_dalaman: "",
   });
 
   useEffect(() => {
@@ -441,15 +460,31 @@ export default function DaftarBaharu() {
         jenis_aplikasi: "KM",
         division: 1,
         no_fail_osc: "",
-        tajuk_permohonan: "",
+        no_permohonan_osc: "",
+        kategori_permohonan: "",
+        skala_pembangunan: "Kecil",
+        jenis_proses_pr: "Tidak",
+        status_semakan_osc: "",
+        tarikh_penghantaran: "",
+        tarikh_lengkap_diterima_osc: "",
+        tarikh_terima: new Date().toISOString().split("T")[0],
+        nama_sp: "",
+        no_kp_sp: "",
         nama_pemaju_pemilik: "",
+        tajuk_permohonan: "",
         alamat_tapak: "",
         no_lot: "",
+        lokasi_mercu_tanda: "",
         mukim: "",
         daerah: "Segamat",
         negeri: "Johor",
-        tarikh_penghantaran: "",
-        tarikh_terima: new Date().toISOString().split("T")[0],
+        rancangan_tempatan: "Tidak",
+        zoning: "",
+        longitud: undefined,
+        latitud: undefined,
+        pegawai_bertanggungjawab: "",
+        status_dalaman: "Diterima",
+        catatan_dalaman: "",
       });
 
       // Navigate to the application detail page
