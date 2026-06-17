@@ -439,7 +439,7 @@ const { data: application, error: appError } = await supabase
     kpi_hari: formData.jenis_aplikasi === "PB" ? 14 : 53,
   })
   .select()
-  .single();
+  .single() as any;
 
       if (appError) throw appError;
 
