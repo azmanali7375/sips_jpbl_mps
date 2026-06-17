@@ -199,16 +199,16 @@ export default function DaftarBaharu() {
   const handleAnalyzeDocument = async () => {
     if (!uploadedFile) return;
 
-    setAiProcessing(true);
-    setAiError(null);
+    setIsProcessing(true);
+    setProcessingError(null);
 
     try {
       const { parseOSCDocument } = await import("@/services/oscDocumentParserService");
       const result = await parseOSCDocument(uploadedFile);
 
       if (!result.success) {
-        setAiError(result.error || "Gagal menganalisa dokumen");
-        setAiProcessing(false);
+        setProcessingError(result.error || "Gagal menganalisa dokumen");
+        setIsProcessing(false);
         return;
       }
 
@@ -245,8 +245,8 @@ export default function DaftarBaharu() {
       setShowUploadModal(false);
     } catch (error) {
       console.error("Error analyzing document:", error);
-      setAiError("Ralat tidak dijangka semasa menganalisa dokumen");
-      setAiProcessing(false);
+      setProcessingError("Ralat tidak dijangka semasa menganalisa dokumen");
+      setIsProcessing(false);
     }
   };
 
