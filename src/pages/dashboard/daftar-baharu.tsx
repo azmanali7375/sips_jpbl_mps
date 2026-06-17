@@ -1528,7 +1528,7 @@ const { data: application, error: appError } = await supabase
             >
               Batal
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={submitting}>
               {loading ? "Mendaftar..." : "Daftar Permohonan"}
             </Button>
           </div>
