@@ -457,7 +457,7 @@ const { data: application, error: appError } = await supabase
               jenis_dokumen: doc.jenis_dokumen,
               versi: "v1",
               dimuat_naik_oleh: user.id,
-            });
+            } as any);
           }
         }
       }
