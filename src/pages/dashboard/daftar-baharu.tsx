@@ -179,9 +179,11 @@ export default function DaftarBaharu() {
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      handleFileSelect(0, files[0]);
+  const files = e.target.files;
+  if (files && files.length > 0) {
+    const file = files[0];
+    setUploadedFile(file);
+    setFileType(file.type === 'application/pdf' ? 'pdf' : 'image');
     }
   };
 
