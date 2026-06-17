@@ -406,7 +406,7 @@ export default function DaftarBaharu() {
 
       // Create application
 const { data: application, error: appError } = await supabase
-  .from("permohonan")
+  .from("permohonan" as any)
   .insert({
     jenis_aplikasi: formData.jenis_aplikasi,
     no_fail_jpl,
