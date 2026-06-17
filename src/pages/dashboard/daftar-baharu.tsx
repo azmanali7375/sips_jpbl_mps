@@ -165,9 +165,13 @@ export default function DaftarBaharu() {
   }, [formData.tarikh_lengkap_diterima_osc]);
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(0, file);
+  e.preventDefault();
+  setIsDragging(false);
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    setUploadedFile(file);
+    setFileType(file.type === 'application/pdf' ? 'pdf' : 'image');
+  }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
