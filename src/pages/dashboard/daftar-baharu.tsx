@@ -222,13 +222,24 @@ export default function DaftarBaharu() {
         setFormData((prev) => ({
           ...prev,
           no_permohonan_osc: am.no_permohonan_osc || prev.no_permohonan_osc,
+          kategori_permohonan: am.kategori_permohonan || prev.kategori_permohonan,
           skala_pembangunan: (am.skala_pembangunan as "Kecil" | "Sederhana" | "Besar A" | "Besar B") || prev.skala_pembangunan,
           tarikh_penghantaran: am.tarikh_penghantaran || prev.tarikh_penghantaran,
           tarikh_lengkap_diterima_osc: am.tarikh_lengkap_diterima_osc || prev.tarikh_lengkap_diterima_osc,
           nama_sp: am.nama_sp || prev.nama_sp,
+          no_kp_sp: am.no_kp_sp || prev.no_kp_sp,
           nama_pemaju_pemilik: am.nama_pemaju_pemilik || prev.nama_pemaju_pemilik,
           tajuk_permohonan: am.tajuk_permohonan || prev.tajuk_permohonan,
+          lokasi_mercu_tanda: am.lokasi_mercu_tanda || prev.lokasi_mercu_tanda,
           mukim: am.mukim || prev.mukim,
+          daerah: am.daerah || prev.daerah,
+          negeri: am.negeri || prev.negeri,
+          zoning: am.zoning || prev.zoning,
+          rancangan_tempatan: (am.rancangan_tempatan as any) || prev.rancangan_tempatan,
+          latitud: am.latitud ?? prev.latitud,
+          longitud: am.longitud ?? prev.longitud,
+          applicant_id: am.nama_pemaju_pemilik || prev.applicant_id,
+          project_name: am.tajuk_permohonan || prev.project_name,
         }));
       }
 
